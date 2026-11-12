@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090a0c">
-  <meta name="description" content="C-Deck é um painel de controle compacto para Windows. Controle o áudio, acesse seus aplicativos e use atalhos globais em uma interface desktop nativa.">
-  <meta property="og:title" content="C-Deck — Tudo sob controle">
-  <meta property="og:description" content="Controle de áudio e atalhos essenciais para Windows, em um painel desktop nativo.">
-  <title>C-Deck — Tudo sob controle</title>
+  <meta name="description" content="C-Deck: controle o áudio, abra seus aplicativos e use atalhos globais em um painel leve para Windows.">
+  <meta property="og:title" content="C-Deck — Controle rápido para Windows">
+  <meta property="og:description" content="Áudio, aplicativos e atalhos em um só painel desktop.">
+  <title>C-Deck — Controle rápido para Windows</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,84 +16,85 @@
 <body>
   <header class="site-header">
     <a class="brand" href="#" aria-label="C-Deck início"><span class="brand-mark">C</span><span>C-DECK</span></a>
-    <nav class="main-nav" aria-label="Navegação principal">
-      <a href="#recursos">Recursos</a><a href="#como-funciona">Como funciona</a><a href="#tecnologia">Tecnologia</a>
-    </nav>
-    <a class="header-link" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">GitHub <span>↗</span></a>
+    <a class="github-link" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">
+      <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.07c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.19 3.32 1.55.1-.72.39-1.21.7-1.49-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.61 5.23-5.1 5.51.4.35.75 1.03.75 2.08V22c0 .29.2.64.77.53A11.1 11.1 0 0 0 12 .9Z"/></svg>
+      GitHub <span>↗</span>
+    </a>
   </header>
 
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="status-dot"></span> PAINEL DESKTOP PARA WINDOWS <span class="eyebrow-divider">/</span> V1.1</div>
-        <h1>Menos cliques.<br><span>Mais controle.</span></h1>
-        <p class="hero-description">Áudio, atalhos e ações essenciais do Windows reunidos em um painel leve, direto e sempre à mão.</p>
+        <div class="eyebrow"><span class="status-dot"></span> PARA WINDOWS · VERSÃO 1.1</div>
+        <h1>Seu Windows.<br><span>Mais prático.</span></h1>
+        <p class="hero-description">O C-Deck reúne em um só painel os controles que você usa o tempo todo: volume, atalhos de aplicativos e comandos multimídia.</p>
         <div class="hero-actions">
-          <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">Baixar para Windows <span>↓</span></a>
-          <a class="button button-quiet" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">Ver código-fonte <span>↗</span></a>
+          <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">Baixar C-Deck <span>↓</span></a>
+          <a class="button button-secondary" href="#recursos">Conhecer recursos <span>↓</span></a>
         </div>
         <p class="hero-meta">Gratuito · Windows 10/11 · Instalador x64</p>
       </div>
 
-      <div class="product-stage" aria-label="Ilustração conceitual do painel C-Deck">
+      <div class="product-stage" aria-label="Ilustração conceitual da interface do C-Deck">
         <div class="stage-glow"></div>
         <div class="app-window">
           <div class="window-titlebar"><div class="window-brand"><span class="mini-mark">C</span><span>C-DECK</span></div><div class="window-controls"><i></i><i></i><i></i></div></div>
           <div class="window-content">
-            <div class="panel-heading"><div><span class="micro-label">PAINEL DE CONTROLE</span><h2>Seu espaço.</h2></div><span class="online-state"><i></i> ATIVO</span></div>
+            <div class="panel-heading"><div><span class="micro-label">PAINEL DE CONTROLE</span><h2>Controles rápidos</h2></div><span class="online-state"><i></i> ATIVO</span></div>
             <div class="volume-card">
-              <div class="volume-top"><span>SAÍDA DE ÁUDIO</span><span class="volume-value">72%</span></div>
+              <div class="volume-top"><span>VOLUME DO SISTEMA</span><span class="volume-value">72%</span></div>
               <div class="volume-track"><span></span></div>
               <div class="volume-actions"><span>−</span><span class="volume-mute">◖ MUTE</span><span>＋</span></div>
             </div>
-            <div class="apps-heading"><span>SEUS APLICATIVOS</span><span>03 ATALHOS</span></div>
+            <div class="apps-heading"><span>APLICATIVOS FAVORITOS</span><span>03</span></div>
             <div class="app-shortcuts"><div><b>01</b><span class="app-icon">▣</span><small>APP UM</small></div><div><b>02</b><span class="app-icon">▣</span><small>APP DOIS</small></div><div><b>03</b><span class="app-icon">▣</span><small>APP TRÊS</small></div></div>
-            <div class="window-footer"><span>CONTROLES RÁPIDOS</span><span>BUILT FOR WINDOWS</span></div>
+            <div class="window-footer"><span>PAINEL DESKTOP</span><span>C11 · WIN32</span></div>
           </div>
         </div>
-        <div class="floating-note"><span class="note-icon">⌘</span><span><b>Atalhos globais</b><small>Controles sem trocar de janela</small></span></div>
-        <div class="stage-caption">INTERFACE ILUSTRATIVA <span>01 — 03</span></div>
+        <div class="stage-caption">PRÉVIA ILUSTRATIVA DA INTERFACE</div>
       </div>
     </section>
 
-    <section class="proof-strip" aria-label="Características principais">
-      <div><strong>C11</strong><span>LINGUAGEM</span></div><div><strong>Win32</strong><span>INTERFACE NATIVA</span></div><div><strong>Core Audio</strong><span>ÁUDIO DO WINDOWS</span></div><div><strong>x64</strong><span>INSTALADOR</span></div>
-    </section>
-
-    <section class="section features-section" id="recursos">
-      <div class="section-intro"><div class="eyebrow">01 / RECURSOS</div><h2>O que você precisa.<br><span>Sem o que não precisa.</span></h2><p>Uma seleção objetiva de controles para reduzir etapas nas tarefas mais frequentes.</p></div>
+    <section class="features" id="recursos">
+      <div class="section-heading">
+        <div class="eyebrow">O QUE O C-DECK FAZ</div>
+        <h2>Quatro funções.<br><span>Um painel simples.</span></h2>
+      </div>
       <div class="feature-grid">
-        <article class="feature-card"><span class="feature-number">01</span><div class="feature-symbol">◖</div><h3>Controle de áudio</h3><p>Ajuste o volume em passos, silencie o áudio e acompanhe o nível atual do dispositivo padrão.</p></article>
-        <article class="feature-card"><span class="feature-number">02</span><div class="feature-symbol">▦</div><h3>Seus aplicativos</h3><p>Configure três atalhos para abrir rapidamente os programas que fazem parte da sua rotina.</p></article>
-        <article class="feature-card"><span class="feature-number">03</span><div class="feature-symbol">⌘</div><h3>Atalhos globais</h3><p>Acione volume e mute por combinações de teclas, mesmo usando outra janela.</p></article>
-        <article class="feature-card"><span class="feature-number">04</span><div class="feature-symbol">◌</div><h3>Fica na bandeja</h3><p>Minimize para a área de notificação e mantenha o painel disponível sem ocupar a tela.</p></article>
+        <article class="feature-card"><span class="feature-icon">◖</span><h3>Controle de áudio</h3><p>Aumente, diminua ou silencie o volume do dispositivo padrão.</p></article>
+        <article class="feature-card"><span class="feature-icon">▦</span><h3>Apps favoritos</h3><p>Configure até três aplicativos e abra-os direto pelo painel.</p></article>
+        <article class="feature-card"><span class="feature-icon">⌘</span><h3>Atalhos de teclado</h3><p>Controle volume e mute sem precisar trocar de janela.</p></article>
+        <article class="feature-card"><span class="feature-icon">♫</span><h3>Controles multimídia</h3><p>Use play/pause, próxima e faixa anterior em players compatíveis.</p></article>
       </div>
     </section>
 
-    <section class="workflow-section" id="como-funciona">
-      <div class="workflow-inner">
-        <div class="workflow-copy"><div class="eyebrow">02 / SIMPLES NA PRÁTICA</div><h2>Abriu.<br><span>Configurou.<br>Usou.</span></h2><p>O C-Deck foi pensado para ficar pronto em poucos passos. Configure seus aplicativos e use os controles direto pelo painel ou pelos atalhos do teclado.</p><a class="text-link" href="https://github.com/s4muelxl/C-Deck/releases/latest">Ver versão e novidades <span>↗</span></a></div>
-        <div class="steps">
-          <div class="step"><span>01</span><div><h3>Instale</h3><p>Baixe o instalador e configure o C-Deck no Windows.</p></div><b>↓</b></div>
-          <div class="step"><span>02</span><div><h3>Personalize</h3><p>Defina os caminhos dos três aplicativos que deseja acessar.</p></div><b>＋</b></div>
-          <div class="step"><span>03</span><div><h3>Controle</h3><p>Use os botões, atalhos globais e comandos multimídia compatíveis.</p></div><b>↗</b></div>
-        </div>
+    <section class="how">
+      <div class="how-copy">
+        <div class="eyebrow">COMECE EM POUCOS PASSOS</div>
+        <h2>Instale e<br><span>comece a usar.</span></h2>
+        <p>O C-Deck é um aplicativo desktop nativo para Windows. Ele fica disponível na área de trabalho ou na bandeja do sistema, pronto para acessar quando precisar.</p>
       </div>
+      <ol class="steps">
+        <li><span>01</span><div><b>Baixe</b><small>Instale no seu Windows.</small></div></li>
+        <li><span>02</span><div><b>Configure</b><small>Escolha seus três aplicativos.</small></div></li>
+        <li><span>03</span><div><b>Use</b><small>Acesse os controles pelo painel ou teclado.</small></div></li>
+      </ol>
     </section>
 
-    <section class="technology-section" id="tecnologia">
-      <div class="technology-copy"><div class="eyebrow">03 / POR DENTRO DO PROJETO</div><h2>Nativo por escolha.<br><span>Enxuto por princípio.</span></h2><p>Construído em C11 com APIs nativas do Windows. O projeto separa interface, ações e configuração para manter a base organizada e fácil de evoluir.</p></div>
-      <div class="tech-list"><div><span>LINGUAGEM</span><b>C11</b></div><div><span>INTERFACE</span><b>Win32 API</b></div><div><span>ÁUDIO</span><b>Windows Core Audio</b></div><div><span>BUILD</span><b>MinGW-w64</b></div><div><span>INSTALADOR</span><b>Inno Setup</b></div></div>
-    </section>
-
-    <section class="closing-cta">
-      <div class="eyebrow"><span class="status-dot"></span> C-DECK / WINDOWS</div>
-      <h2>Seu controle<br><span>começa aqui.</span></h2>
-      <p>Baixe a versão 1.1 ou explore o código e acompanhe a evolução do projeto.</p>
-      <div class="hero-actions"><a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">Baixar C-Deck <span>↓</span></a><a class="button button-quiet" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">Acessar GitHub <span>↗</span></a></div>
+    <section class="download">
+      <div class="eyebrow"><span class="status-dot"></span> C-DECK 1.1 · WINDOWS X64</div>
+      <h2>Mais controle.<br><span>Menos interrupções.</span></h2>
+      <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">Baixar gratuitamente <span>↓</span></a>
     </section>
   </main>
 
-  <footer class="site-footer"><a class="brand" href="#"><span class="brand-mark">C</span><span>C-DECK</span></a><span>PROJETO DESENVOLVIDO EM C11</span><a href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">SOURCE CODE ↗</a></footer>
+  <footer class="site-footer">
+    <a class="brand" href="#"><span class="brand-mark">C</span><span>C-DECK</span></a>
+    <span>DESENVOLVIDO EM C11 · WINDOWS</span>
+    <a class="footer-github" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">
+      <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.07c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.19 3.32 1.55.1-.72.39-1.21.7-1.49-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.61 5.23-5.1 5.51.4.35.75 1.03.75 2.08V22c0 .29.2.64.77.53A11.1 11.1 0 0 0 12 .9Z"/></svg>
+      GitHub <span>↗</span>
+    </a>
+  </footer>
 </body>
 </html>
