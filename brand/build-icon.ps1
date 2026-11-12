@@ -13,10 +13,10 @@ $tileBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush((New-Object
 $graphics.FillPath($tileBrush, $tilePath)
 $rim = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(180,125,139,160), 2.2)
 $graphics.DrawPath($rim, $tilePath)
-$points = [System.Drawing.Point[]]@((New-Object System.Drawing.Point(183,65)),(New-Object System.Drawing.Point(107,65)),(New-Object System.Drawing.Point(62,110)),(New-Object System.Drawing.Point(62,146)),(New-Object System.Drawing.Point(107,191)),(New-Object System.Drawing.Point(183,191)),(New-Object System.Drawing.Point(183,159)),(New-Object System.Drawing.Point(120,159)),(New-Object System.Drawing.Point(94,133)),(New-Object System.Drawing.Point(94,123)),(New-Object System.Drawing.Point(120,97)),(New-Object System.Drawing.Point(183,97)))
+$points = [System.Drawing.Point[]]@([System.Drawing.Point]::new(183,65),[System.Drawing.Point]::new(107,65),[System.Drawing.Point]::new(62,110),[System.Drawing.Point]::new(62,146),[System.Drawing.Point]::new(107,191),[System.Drawing.Point]::new(183,191),[System.Drawing.Point]::new(183,159),[System.Drawing.Point]::new(120,159),[System.Drawing.Point]::new(94,133),[System.Drawing.Point]::new(94,123),[System.Drawing.Point]::new(120,97),[System.Drawing.Point]::new(183,97))
 $silverBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush((New-Object System.Drawing.Rectangle(62,65,121,126)), [System.Drawing.Color]::White, [System.Drawing.Color]::FromArgb(255,184,191,202), 35)
 $graphics.FillPolygon($silverBrush, $points)
-$limePoints = [System.Drawing.Point[]]@((New-Object System.Drawing.Point(143,191)),(New-Object System.Drawing.Point(187,191)),(New-Object System.Drawing.Point(218,159)),(New-Object System.Drawing.Point(174,159)))
+$limePoints = [System.Drawing.Point[]]@([System.Drawing.Point]::new(143,191),[System.Drawing.Point]::new(187,191),[System.Drawing.Point]::new(218,159),[System.Drawing.Point]::new(174,159))
 $limeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255,157,255,0))
 $graphics.FillPolygon($limeBrush, $limePoints)
 $stream = New-Object System.IO.MemoryStream
