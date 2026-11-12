@@ -13,7 +13,7 @@ static int build_config_path(char *out, DWORD capacity) {
     separator = strrchr(out, '\\');
     if (!separator) separator = strrchr(out, '/');
     if (!separator) return 0;
-    separator[1] = '\\0';
+    separator[1] = '\0';
 
     if (strlen(out) + sizeof(suffix) > capacity) return 0;
     strcat(out, suffix);
