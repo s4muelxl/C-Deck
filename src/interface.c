@@ -224,7 +224,7 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
         if (!app_icon && app->path[0]) {
             SHFILEINFOA info;
             ZeroMemory(&info, sizeof(info));
-            if (SHGetFileInfoA(app->path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_SMALLICON)) {
+            if (SHGetFileInfoA(app->path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_LARGEICON)) {
                 app_icon = info.hIcon;
                 owns_icon = app_icon != NULL;
             }
@@ -324,7 +324,7 @@ static void save_editor(HWND hwnd) {
         }
         strcpy(candidate.apps[i].name, name);
         strcpy(candidate.apps[i].path, path);
-        strcpy(candidate.apps[i].icon_path, icon_path);
+        strcpy(candidate.apps[i].icon_path, (name[0] && path[0]) ? icon_path : "");
         candidate.apps[i].configured = name[0] != '\0' && path[0] != '\0';
     }
 
