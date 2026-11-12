@@ -10,7 +10,7 @@ static int build_config_path(char *out, DWORD capacity) {
     const char suffix[] = "config\\apps.cfg";
 
     if (length == 0 || length >= capacity) return 0;
-    separator = strrchr(out, '\\\\');
+    separator = strrchr(out, '\\');
     if (!separator) separator = strrchr(out, '/');
     if (!separator) return 0;
     separator[1] = '\\0';
