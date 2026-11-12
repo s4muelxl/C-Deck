@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <windows.h>
 
 static char *trim(char *text) {
     char *end;
@@ -34,13 +35,10 @@ int config_load(const char *path, DeckConfig *out_config) {
 
         if (*entry == '\0' || *entry == '#' || *entry == ';') continue;
         if (*entry == '[') {
-            int number = 0;
-            size_t length = strlen(entry);
             current = -1;
-            if (length == 6 && _strnicmp(entry, "[app", 4) == 0 &&
+            if (strlen(entry) == 6 && _strnicmp(entry, "[app", 4) == 0 &&
                 entry[4] >= '1' && entry[4] <= '3' && entry[5] == ']') {
-                number = entry[4] - '0';
-                current = number - 1;
+                current = entry[4] - '1';
             }
             continue;
         }
@@ -61,6 +59,42 @@ int config_load(const char *path, DeckConfig *out_config) {
     for (int i = 0; i < DECK_APP_COUNT; ++i) {
         DeckApp *app = &out_config->apps[i];
         app->configured = app->name[0] != '\0' && app->path[0] != '\0';
+    }
+    return 1;
+}
+
+int config_save(const char *path, const DeckConfig *config) {
+    char temporary[MAX_PATH];
+    FILE *file;
+    int written = 1;
+
+    if (!path || !config || strlen(path) + 5 >= sizeof(temporary)) return 0;
+    for (int i = 0; i < DECK_APP_COUNT; ++i) {
+        const DeckApp *app = &config->apps[i];
+        int has_name = app->name[0] != '\0';
+        int has_path = app->path[0] != '\0';
+        if (has_name != has_path) return 0;
+        if (strpbrk(app->name, "\r\n") || strpbrk(app->path, "\r\n")) return 0;
+    }
+
+    snprintf(temporary, sizeof(temporary), "%s.tmp", path);
+    file = fopen(temporary, "w");
+    if (!file) return 0;
+
+    if (fprintf(file, "; Arquivo de atalhos do C-DECK. Pode ser editado manualmente.\n") < 0) written = 0;
+    for (int i = 0; written && i < DECK_APP_COUNT; ++i) {
+        const DeckApp *app = &config->apps[i];
+        if (fprintf(file, "\n[app%d]\nname=%s\npath=%s\n",
+                    i + 1, app->name, app->path) < 0) written = 0;
+    }
+    if (fclose(file) != 0) written = 0;
+    if (!written) {
+        remove(temporary);
+        return 0;
+    }
+    if (!MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        remove(temporary);
+        return 0;
     }
     return 1;
 }
