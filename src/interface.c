@@ -40,6 +40,7 @@ static void report_result(ActionResult result, const char *success_message) {
     switch (result) {
         case ACTION_SUCCESS: set_status(success_message); break;
         case ACTION_AUDIO_UNAVAILABLE: set_status("Dispositivo de audio indisponivel."); break;
+        case ACTION_MEDIA_UNAVAILABLE: set_status("O Windows nao aceitou o comando de midia."); break;
         case ACTION_LAUNCH_FAILED: set_status("Nao foi possivel abrir o aplicativo. Confira o caminho."); break;
         case ACTION_NOT_CONFIGURED: set_status("Atalho nao configurado. Abra Configurar atalhos."); break;
         default: set_status("Nao foi possivel executar esta acao."); break;
