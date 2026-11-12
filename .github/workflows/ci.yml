@@ -25,7 +25,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "build" | Out-Null
           & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
           if ($LASTEXITCODE -ne 0) { throw "Failed to generate official C-Deck icon." }
-          Set-Content -Path "build/cdeck.rc" -Value 'IDI_APP_ICON ICON "build/cdeck.ico"' -Encoding Ascii
+          Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"') -Encoding Ascii
       - name: Build Windows desktop app
         shell: msys2 {0}
         run: |
