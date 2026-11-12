@@ -1,0 +1,15 @@
+#include "interface.h"
+#include "actions.h"
+#include <windows.h>
+#include <stdio.h>
+#define ID_VOL_UP 1001
+#define ID_VOL_DOWN 1002
+#define ID_MUTE 1003
+#define ID_APP_1 1011
+#define ID_STATUS 1099
+static const char CLASS_NAME[]="CDeckMainWindow"; static DeckConfig g_config; static HWND g_status;
+static void set_status(const char *s){if(g_status)SetWindowTextA(g_status,s);}
+static void report_result(ActionResult r,const char *ok){switch(r){case ACTION_SUCCESS:set_status(ok);break;case ACTION_AUDIO_UNAVAILABLE:set_status("Dispositivo de audio indisponivel.");break;case ACTION_LAUNCH_FAILED:set_status("Falha ao abrir aplicativo. Confira o caminho.");break;case ACTION_NOT_CONFIGURED:set_status("Atalho nao configurado. Edite config/apps.cfg.");break;default:set_status("Acao invalida.");break;}}
+static HWND add_button(HWND p,const char *label,int id,int x,int y,int w,int h){return CreateWindowA("BUTTON",label,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON,x,y,w,h,p,(HMENU)(INT_PTR)id,(HINSTANCE)GetWindowLongPtr(p,GWLP_HINSTANCE),NULL);}
+static LRESULT CALLBACK window_proc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp){(void)lp;switch(msg){case WM_CREATE:add_button(hwnd,"VOLUME +",ID_VOL_UP,24,28,150,72);add_button(hwnd,"VOLUME -",ID_VOL_DOWN,190,28,150,72);add_button(hwnd,"MUTAR",ID_MUTE,356,28,150,72);for(int i=0;i<DECK_APP_COUNT;++i){char label[DECK_TEXT_MAX+16];if(g_config.apps[i].configured)snprintf(label,sizeof(label),"%s",g_config.apps[i].name);else snprintf(label,sizeof(label),"APLICATIVO %d",i+1);add_button(hwnd,label,ID_APP_1+i,24+i*166,122,150,72);}g_status=CreateWindowA("STATIC","Pronto. Selecione uma acao.",WS_CHILD|WS_VISIBLE|SS_LEFT,24,214,480,30,hwnd,(HMENU)ID_STATUS,(HINSTANCE)GetWindowLongPtr(hwnd,GWLP_HINSTANCE),NULL);return 0;case WM_COMMAND:switch(LOWORD(wp)){case ID_VOL_UP:report_result(action_volume_step(0.05f),"Volume aumentado.");break;case ID_VOL_DOWN:report_result(action_volume_step(-0.05f),"Volume reduzido.");break;case ID_MUTE:report_result(action_toggle_mute(),"Estado do audio alternado.");break;case ID_APP_1:case ID_APP_1+1:case ID_APP_1+2:{int i=LOWORD(wp)-ID_APP_1;report_result(action_launch_app(&g_config.apps[i]),"Aplicativo iniciado.");break;}}return 0;case WM_DESTROY:PostQuitMessage(0);return 0;}return DefWindowProcA(hwnd,msg,wp,lp);}
+int interface_run(HINSTANCE instance,int show_command,const DeckConfig *config){WNDCLASSEXA wc;HWND hwnd;MSG msg;if(!config)return 1;g_config=*config;ZeroMemory(&wc,sizeof(wc));wc.cbSize=sizeof(wc);wc.lpfnWndProc=window_proc;wc.hInstance=instance;wc.hCursor=LoadCursor(NULL,IDC_ARROW);wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);wc.lpszClassName=CLASS_NAME;if(!RegisterClassExA(&wc)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 1;hwnd=CreateWindowExA(0,CLASS_NAME,"C-DECK | Stream Deck virtual",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,CW_USEDEFAULT,CW_USEDEFAULT,550,300,NULL,NULL,instance,NULL);if(!hwnd)return 1;ShowWindow(hwnd,show_command);UpdateWindow(hwnd);while(GetMessageA(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessageA(&msg);}return (int)msg.wParam;}
