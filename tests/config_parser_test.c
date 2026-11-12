@@ -12,6 +12,7 @@ static void write_config(const char *contents) {
 
 int main(void) {
     DeckConfig config;
+    DeckConfig loaded;
 
     assert(config_load(NULL, &config) == 0);
     assert(config_load("arquivo-que-nao-existe.cfg", &config) == 0);
@@ -57,7 +58,28 @@ int main(void) {
         assert(config.apps[i].path[0] == '\0');
     }
 
+    memset(&config, 0, sizeof(config));
+    strcpy(config.apps[0].name, "Editor");
+    strcpy(config.apps[0].path, "notepad.exe");
+    strcpy(config.apps[1].name, "Calculadora");
+    strcpy(config.apps[1].path, "calc.exe");
+    assert(config_save("test-apps-saved.cfg", &config) == 1);
+    assert(config_load("test-apps-saved.cfg", &loaded) == 1);
+    assert(loaded.apps[0].configured == 1);
+    assert(strcmp(loaded.apps[0].name, "Editor") == 0);
+    assert(strcmp(loaded.apps[0].path, "notepad.exe") == 0);
+    assert(loaded.apps[1].configured == 1);
+    assert(strcmp(loaded.apps[1].name, "Calculadora") == 0);
+    assert(loaded.apps[2].configured == 0);
+
+    strcpy(config.apps[2].name, "Atalho incompleto");
+    assert(config_save("test-apps-saved.cfg", &config) == 0);
+    strcpy(config.apps[2].name, "Linha\nInvalida");
+    config.apps[2].path[0] = '\0';
+    assert(config_save("test-apps-saved.cfg", &config) == 0);
+
     remove("test-apps.cfg");
-    puts("config parser: OK (validacao, espacos, comentarios e secoes)");
+    remove("test-apps-saved.cfg");
+    puts("config parser/save: OK");
     return 0;
 }
