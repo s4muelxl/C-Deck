@@ -34,7 +34,7 @@ a{color:inherit}
 .window-controls i{width:7px;height:7px;border-radius:50%;background:#4b515b}
 .window-content{padding:22px}
 .panel-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.micro-label,.apps-heading,.window-footer,.volume-top,.volume-actions,.stage-caption{font:9px var(--mono);letter-spacing:.1em;color:#8e96a2}
+.micro-label,.apps-heading,.deck-grid-heading,.window-footer,.volume-top,.volume-actions,.stage-caption{font:9px var(--mono);letter-spacing:.1em;color:#8e96a2}
 .panel-heading h2{font-size:22px;letter-spacing:-.04em;margin:7px 0 0}
 .online-state{font:8px var(--mono);letter-spacing:.1em;color:var(--accent);display:flex;align-items:center;gap:7px}
 .online-state i{width:5px;height:5px}
@@ -52,6 +52,17 @@ a{color:inherit}
 .app-shortcuts b{position:absolute;top:7px;left:8px;font:8px var(--mono);color:#707986}
 .app-icon{font-size:22px;color:var(--accent)}
 .app-shortcuts small{font:8px var(--mono);color:#aab1bb}
+
+/* Stream Deck Keypad (3x3 Grid) */
+.deck-grid-heading{display:flex;justify-content:space-between;margin:18px 0 10px;font:9px var(--mono);letter-spacing:.1em;color:#8e96a2}
+.deck-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.deck-key{height:76px;border:1px solid #303741;border-radius:8px;background:linear-gradient(145deg,#191e26,#12161c);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6px 4px 7px;position:relative;transition:border-color .2s,background .2s}
+.deck-key:hover{border-color:var(--accent);background:linear-gradient(145deg,#202732,#161b23)}
+.deck-key b{font:7.5px var(--mono);color:#7e8896;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95%}
+.deck-key .key-glyph{font-size:19px;font-weight:700;color:var(--accent);line-height:1}
+.deck-key .key-glyph.key-icon{font-size:17px}
+.deck-key small{font:8px var(--mono);color:#c4cbd4;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95%}
+
 .window-footer{display:flex;justify-content:space-between;border-top:1px solid #2a3038;padding-top:13px;margin-top:17px;font-size:8px}
 .stage-caption{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:8px;color:#68717d}
 .features{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d0f12;padding:76px max(calc((100% - 1120px)/2),34px) 82px}
@@ -81,7 +92,6 @@ a{color:inherit}
 @media(max-width:850px){.hero{grid-template-columns:1fr;padding-top:65px;gap:25px}.hero-copy{max-width:650px}.product-stage{min-height:410px}.feature-grid{grid-template-columns:repeat(2,1fr)}.section-heading{align-items:start;flex-direction:column}.how{gap:8%}}
 @media(max-width:600px){.site-header{height:66px;padding:0 20px}.hero{padding:58px 22px 52px;gap:12px}.hero h1{font-size:clamp(54px,14vw,72px)}.hero-description{font-size:14px}.hero-actions{flex-direction:column;align-items:stretch}.button{width:100%}.product-stage{min-height:370px;margin-top:12px}.app-window{transform:none}.window-content{padding:16px}.features{padding:62px 20px}.section-heading h2,.how-copy h2{font-size:42px}.feature-grid{grid-template-columns:1fr 1fr;gap:8px}.feature-card{min-height:180px;padding:15px 13px}.feature-card h3{font-size:12px}.feature-card p{font-size:10px}.how{padding:65px 22px;grid-template-columns:1fr;gap:30px}.download{margin:0 12px 42px;padding:48px 18px}.download h2{font-size:43px}.site-footer{padding:22px 20px;flex-wrap:wrap}.site-footer>span{order:3;width:100%}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
-
 
 /* Responsive hardening for the illustrative desktop panel */
 .product-stage,
@@ -136,12 +146,27 @@ a{color:inherit}
     font-size: clamp(7px, 2vw, 8px);
     white-space: nowrap;
   }
+  .deck-grid {
+    gap: 6px;
+  }
+  .deck-key {
+    height: 66px;
+    padding: 4px 2px 5px;
+  }
+  .deck-key b {
+    font-size: 6.5px;
+  }
+  .deck-key .key-glyph {
+    font-size: 16px;
+  }
+  .deck-key small {
+    font-size: 7px;
+  }
   .stage-caption {
     bottom: 0;
     padding: 0 8px;
   }
 }
-
 
 /* Site 1.3.1 — versão e prévia atualizada */
 .version-tag{display:inline-flex;align-items:center;border:1px solid #3c454f;border-radius:99px;padding:4px 8px;color:var(--accent);font:8px var(--mono);letter-spacing:.08em}
@@ -153,7 +178,6 @@ a{color:inherit}
  .app-shortcuts>div{height:76px}
  .app-shortcuts small{font-size:7px}
 }
-
 
 /* Mobile: hide the decorative C-Deck mark inside the demo window only.
    Keep the real site header and footer branding visible. */
