@@ -33,7 +33,7 @@ static ActionResult send_media_key(WORD virtual_key) {
     inputs[1].type = INPUT_KEYBOARD;
     inputs[1].ki.wVk = virtual_key;
     inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-    return SendInput(2, inputs, sizeof(INPUT)) == 2 ? ACTION_SUCCESS : ACTION_AUDIO_UNAVAILABLE;
+    return SendInput(2, inputs, sizeof(INPUT)) == 2 ? ACTION_SUCCESS : ACTION_MEDIA_UNAVAILABLE;
 }
 ActionResult action_media_play_pause(void) { return send_media_key(VK_MEDIA_PLAY_PAUSE); }
 ActionResult action_media_next(void) { return send_media_key(VK_MEDIA_NEXT_TRACK); }
