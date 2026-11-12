@@ -90,11 +90,6 @@ static void show_tray_menu(HWND hwnd) {
     SetForegroundWindow(hwnd);
     {
         POINT point;
-        GetCursorPos(&point);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, point.x, point.y, 0, hwnd, NULL);
-    }
-    {
-        POINT point;
         UINT command;
         GetCursorPos(&point);
         command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, point.x, point.y, 0, hwnd, NULL);
@@ -162,6 +157,9 @@ static void layout_controls(HWND hwnd) {
     column_width = (width - (margin * 2) - (gap * 2)) / 3;
     row_height = (height - (margin * 2) - (gap * 3) - status_height - slider_area - 12) / 3;
     if (column_width < 1 || row_height < 1) return;
+
+    if (g_volume_label) MoveWindow(g_volume_label, margin, margin, 132, 28, TRUE);
+    if (g_volume_track) MoveWindow(g_volume_track, margin + 132, margin - 2, width - margin * 2 - 132, 32, TRUE);
 
     for (int i = 0; i < 3; ++i) {
         int x = margin + i * (column_width + gap);
@@ -383,7 +381,16 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 }
                 add_button(hwnd, label, ID_APP_1 + i, instance);
             }
-            add_button(hwnd, "CONFIGURAR ATALHOS", ID_SETTINGS, instance);\n            g_volume_label = CreateWindowA("STATIC", "VOLUME --", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 22, 22, 132, 28, hwnd, (HMENU)(INT_PTR)ID_VOLUME_LABEL, instance, NULL);\n            g_volume_track = CreateWindowExA(0, TRACKBAR_CLASSA, "", WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_NOTICKS | TBS_HORZ, 154, 18, 500, 32, hwnd, (HMENU)(INT_PTR)ID_VOLUME_TRACK, instance, NULL);\n            if (g_volume_track) { SendMessageA(g_volume_track, TBM_SETRANGE, TRUE, MAKELONG(0, 100)); SendMessageA(g_volume_track, TBM_SETPAGESIZE, 0, 5); }
+            add_button(hwnd, "CONFIGURAR ATALHOS", ID_SETTINGS, instance);
+            g_volume_label = CreateWindowA("STATIC", "VOLUME --", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
+                22, 22, 132, 28, hwnd, (HMENU)(INT_PTR)ID_VOLUME_LABEL, instance, NULL);
+            g_volume_track = CreateWindowExA(0, TRACKBAR_CLASSA, "",
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_NOTICKS | TBS_HORZ,
+                154, 18, 500, 32, hwnd, (HMENU)(INT_PTR)ID_VOLUME_TRACK, instance, NULL);
+            if (g_volume_track) {
+                SendMessageA(g_volume_track, TBM_SETRANGE, TRUE, MAKELONG(0, 100));
+                SendMessageA(g_volume_track, TBM_SETPAGESIZE, 0, 5);
+            }
             g_status = CreateWindowA(
                 "STATIC", "Pronto. Escolha uma acao.",
                 WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
@@ -391,9 +398,19 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             );
             if (g_status && g_status_font) SendMessageA(g_status, WM_SETFONT, (WPARAM)g_status_font, TRUE);
             layout_controls(hwnd);
+            update_volume_ui();
+            SetTimer(hwnd, ID_VOLUME_TIMER, 750, NULL);
+            RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
+            RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
+            RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
             return 0;
         }
         case WM_SIZE:
+            if (wparam == SIZE_MINIMIZED) {
+                add_tray_icon(hwnd);
+                ShowWindow(hwnd, SW_HIDE);
+                return 0;
+            }
             layout_controls(hwnd);
             return 0;
         case WM_GETMINMAXINFO: {
@@ -411,7 +428,49 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             SetBkColor(dc, RGB(14, 16, 20));
             return (LRESULT)g_background;
         }
+        case WM_HSCROLL:
+            if ((HWND)lparam == g_volume_track) {
+                int position = (int)SendMessageA(g_volume_track, TBM_GETPOS, 0, 0);
+                if (action_set_volume((float)position / 100.0f) == ACTION_SUCCESS) {
+                    char message[64];
+                    snprintf(message, sizeof(message), "Volume definido em %d%%.", position);
+                    set_status(message);
+                    update_volume_ui();
+                } else {
+                    set_status("Nao foi possivel alterar o volume.");
+                }
+            }
+            return 0;
+        case WM_TIMER:
+            if (wparam == ID_VOLUME_TIMER) update_volume_ui();
+            return 0;
+        case WM_HOTKEY:
+            if (wparam == ID_HOTKEY_UP) report_result(action_volume_step(0.05f), "Volume aumentado em 5%.");
+            else if (wparam == ID_HOTKEY_DOWN) report_result(action_volume_step(-0.05f), "Volume reduzido em 5%.");
+            else if (wparam == ID_HOTKEY_MUTE) report_result(action_toggle_mute(), "Estado do audio alternado.");
+            update_volume_ui();
+            return 0;
+        case WM_TRAYICON:
+            if (lparam == WM_LBUTTONDBLCLK) {
+                remove_tray_icon();
+                ShowWindow(hwnd, SW_RESTORE);
+                SetForegroundWindow(hwnd);
+            } else if (lparam == WM_RBUTTONUP) {
+                show_tray_menu(hwnd);
+            }
+            return 0;
         case WM_COMMAND:
+            if (LOWORD(wparam) == ID_TRAY_OPEN) {
+                remove_tray_icon();
+                ShowWindow(hwnd, SW_RESTORE);
+                SetForegroundWindow(hwnd);
+                return 0;
+            }
+            if (LOWORD(wparam) == ID_TRAY_EXIT) {
+                remove_tray_icon();
+                DestroyWindow(hwnd);
+                return 0;
+            }
             switch (LOWORD(wparam)) {
                 case ID_VOL_UP:
                     report_result(action_volume_step(0.05f), "Volume aumentado em 5%.");
@@ -443,7 +502,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                     break;
             }
             return 0;
+        case WM_CLOSE:
+            add_tray_icon(hwnd);
+            ShowWindow(hwnd, SW_HIDE);
+            set_status("C-Deck continua ativo na bandeja do Windows.");
+            return 0;
         case WM_DESTROY:
+            KillTimer(hwnd, ID_VOLUME_TIMER);
+            UnregisterHotKey(hwnd, ID_HOTKEY_UP);
+            UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
+            UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
+            remove_tray_icon();
             if (g_button_font) DeleteObject(g_button_font);
             if (g_status_font) DeleteObject(g_status_font);
             if (g_background) DeleteObject(g_background);
@@ -465,6 +534,12 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     MSG message;
     if (!config || !build_config_path(g_config_path, MAX_PATH)) return 1;
     g_config = *config;
+    {
+        INITCOMMONCONTROLSEX controls;
+        controls.dwSize = sizeof(controls);
+        controls.dwICC = ICC_BAR_CLASSES;
+        InitCommonControlsEx(&controls);
+    }
     g_button_font = CreateFontA(18, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
