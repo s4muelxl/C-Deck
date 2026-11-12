@@ -8,6 +8,9 @@
 #define ID_VOL_UP 1001
 #define ID_VOL_DOWN 1002
 #define ID_MUTE 1003
+#define ID_MEDIA_PLAY 1004
+#define ID_MEDIA_NEXT 1005
+#define ID_MEDIA_PREVIOUS 1006
 #define ID_APP_1 1011
 #define ID_SETTINGS 1020
 #define ID_SAVE 1021
@@ -80,20 +83,22 @@ static HWND add_editor_control(HWND parent, const char *class_name, const char *
 
 static void layout_controls(HWND hwnd) {
     RECT area;
-    int width, height, margin = 22, gap = 12, column_width, row_height, status_height = 34;
+    int width, height, margin = 22, gap = 10, column_width, row_height, status_height = 34;
     GetClientRect(hwnd, &area);
     width = area.right - area.left;
     height = area.bottom - area.top;
     column_width = (width - (margin * 2) - (gap * 2)) / 3;
-    row_height = (height - (margin * 2) - gap - status_height - 12) / 2;
+    row_height = (height - (margin * 2) - (gap * 3) - status_height - 12) / 3;
     if (column_width < 1 || row_height < 1) return;
 
     for (int i = 0; i < 3; ++i) {
         int x = margin + i * (column_width + gap);
         HWND audio_button = GetDlgItem(hwnd, ID_VOL_UP + i);
+        HWND media_button = GetDlgItem(hwnd, ID_MEDIA_PLAY + i);
         HWND app_button = GetDlgItem(hwnd, ID_APP_1 + i);
         if (audio_button) MoveWindow(audio_button, x, margin, column_width, row_height, TRUE);
-        if (app_button) MoveWindow(app_button, x, margin + row_height + gap, column_width, row_height, TRUE);
+        if (media_button) MoveWindow(media_button, x, margin + row_height + gap, column_width, row_height, TRUE);
+        if (app_button) MoveWindow(app_button, x, margin + (row_height + gap) * 2, column_width, row_height, TRUE);
     }
     if (g_status) MoveWindow(g_status, margin, height - margin - status_height,
                              width - margin * 2 - 150 - gap, status_height, TRUE);
@@ -294,6 +299,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             add_button(hwnd, "VOLUME +", ID_VOL_UP, instance);
             add_button(hwnd, "VOLUME -", ID_VOL_DOWN, instance);
             add_button(hwnd, "MUTAR AUDIO", ID_MUTE, instance);
+            add_button(hwnd, "PLAY / PAUSE", ID_MEDIA_PLAY, instance);
+            add_button(hwnd, "PROXIMA FAIXA", ID_MEDIA_NEXT, instance);
+            add_button(hwnd, "FAIXA ANTERIOR", ID_MEDIA_PREVIOUS, instance);
             for (int i = 0; i < DECK_APP_COUNT; ++i) {
                 char label[DECK_TEXT_MAX + 24];
                 if (g_config.apps[i].configured) {
@@ -319,7 +327,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
         case WM_GETMINMAXINFO: {
             MINMAXINFO *limits = (MINMAXINFO *)lparam;
             limits->ptMinTrackSize.x = 560;
-            limits->ptMinTrackSize.y = 340;
+            limits->ptMinTrackSize.y = 470;
             return 0;
         }
         case WM_DRAWITEM:
@@ -341,6 +349,15 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                     break;
                 case ID_MUTE:
                     report_result(action_toggle_mute(), "Estado do audio alternado.");
+                    break;
+                case ID_MEDIA_PLAY:
+                    report_result(action_media_play_pause(), "Play/Pause enviado ao Windows.");
+                    break;
+                case ID_MEDIA_NEXT:
+                    report_result(action_media_next(), "Comando de proxima faixa enviado.");
+                    break;
+                case ID_MEDIA_PREVIOUS:
+                    report_result(action_media_previous(), "Comando de faixa anterior enviado.");
                     break;
                 case ID_APP_1:
                 case ID_APP_1 + 1:
@@ -406,7 +423,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     hwnd = CreateWindowExA(
         0, CLASS_NAME, "C-DECK | Painel de atalhos",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 700, 410,
+        CW_USEDEFAULT, CW_USEDEFAULT, 700, 540,
         NULL, NULL, instance, NULL
     );
     if (!hwnd) return 1;
