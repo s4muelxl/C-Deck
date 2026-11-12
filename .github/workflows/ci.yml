@@ -19,11 +19,19 @@ jobs:
           msystem: UCRT64
           update: false
           install: mingw-w64-ucrt-x86_64-gcc
+      - name: Prepare official application icon
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build" | Out-Null
+          $iconBase64 = (Get-Content "brand/cdeck.ico.b64" -Raw).Trim()
+          [IO.File]::WriteAllBytes((Join-Path (Get-Location) "build/cdeck.ico"), [Convert]::FromBase64String($iconBase64))
+          Set-Content -Path "build/cdeck.rc" -Value 'IDI_APP_ICON ICON "build/cdeck.ico"' -Encoding Ascii
       - name: Build Windows desktop app
         shell: msys2 {0}
         run: |
           mkdir -p build/config
-          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32
+          windres build/cdeck.rc build/cdeck-res.o
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32
           cp config/apps.cfg build/config/apps.cfg
           cp README.md build/README.md
       - name: Run configuration parser test
