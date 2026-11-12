@@ -44,15 +44,22 @@ static HWND g_main_window;
 static HWND g_editor_window;
 static HWND g_status;
 static HWND g_editor_status;
-static HFONT g_button_font;
+static HFONT g_title_font;
+static HFONT g_subtitle_font;
+static HFONT g_badge_font;
+static HFONT g_key_label_font;
+static HFONT g_glyph_font;
 static HFONT g_status_font;
 static HBRUSH g_background;
+static HBRUSH g_card_background;
+static HBRUSH g_header_background;
 static HBRUSH g_edit_background;
 static HWND g_volume_track;
 static HWND g_volume_label;
 static HWND g_header;
 static NOTIFYICONDATAA g_tray_data;
 static int g_tray_added;
+static UINT g_wm_close_msg;
 
 static void update_volume_ui(void) {
     float level = 0.0f;
@@ -60,14 +67,23 @@ static void update_volume_ui(void) {
     char label[64];
     if (!g_volume_track || !g_volume_label) return;
     if (action_get_volume(&level, &muted) != ACTION_SUCCESS) {
-        SetWindowTextA(g_volume_label, "VOLUME --");
+        SetWindowTextA(g_volume_label, "VOLUME DO SISTEMA: --");
         return;
     }
     {
         int percent = (int)(level * 100.0f + 0.5f);
         SendMessageA(g_volume_track, TBM_SETPOS, TRUE, percent);
-        snprintf(label, sizeof(label), muted ? "VOLUME %d%% | MUDO" : "VOLUME %d%%", percent);
+        if (muted) {
+            snprintf(label, sizeof(label), "VOLUME DO SISTEMA: %d%%  |  [ MUDO ATIVO ]", percent);
+        } else {
+            snprintf(label, sizeof(label), "VOLUME DO SISTEMA: %d%%", percent);
+        }
         SetWindowTextA(g_volume_label, label);
+        if (g_main_window) {
+            HWND mute_btn = GetDlgItem(g_main_window, ID_MUTE);
+            if (mute_btn) InvalidateRect(mute_btn, NULL, TRUE);
+            InvalidateRect(g_volume_label, NULL, TRUE);
+        }
     }
 }
 
@@ -81,7 +97,7 @@ static int add_tray_icon(HWND hwnd) {
     g_tray_data.uCallbackMessage = WM_TRAYICON;
     g_tray_data.hIcon = LoadIconA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(IDI_APP_ICON));
     if (!g_tray_data.hIcon) g_tray_data.hIcon = LoadIconA(NULL, IDI_APPLICATION);
-    lstrcpynA(g_tray_data.szTip, "C-Deck - controles rápidos", (int)sizeof(g_tray_data.szTip));
+    lstrcpynA(g_tray_data.szTip, "C-Deck - Stream Deck Controller", (int)sizeof(g_tray_data.szTip));
     g_tray_added = Shell_NotifyIconA(NIM_ADD, &g_tray_data) ? 1 : 0;
     return g_tray_added;
 }
@@ -143,7 +159,7 @@ static HWND add_button(HWND parent, const char *label, int id, HINSTANCE instanc
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
         0, 0, 100, 60, parent, (HMENU)(INT_PTR)id, instance, NULL
     );
-    if (button && g_button_font) SendMessageA(button, WM_SETFONT, (WPARAM)g_button_font, TRUE);
+    if (button && g_key_label_font) SendMessageA(button, WM_SETFONT, (WPARAM)g_key_label_font, TRUE);
     return button;
 }
 
@@ -160,32 +176,175 @@ static HWND add_editor_control(HWND parent, const char *class_name, const char *
 
 static void layout_controls(HWND hwnd) {
     RECT area;
-    int width, height, margin = 34, gap = 16, column_width, row_height;
-    int header_height = 66, volume_height = 54, footer_height = 52;
+    int width, height;
+    int margin = 16, gap = 10;
+    int header_h = 48;
+    int vol_card_top = 58;
+    int vol_card_h = 58;
+    int footer_h = 40;
+
     GetClientRect(hwnd, &area);
     width = area.right - area.left;
     height = area.bottom - area.top;
-    column_width = (width - margin * 2 - gap * 2) / 3;
-    row_height = (height - margin * 2 - header_height - volume_height - footer_height - gap * 2) / 3;
-    if (column_width < 1 || row_height < 1) return;
-    if (g_header) MoveWindow(g_header, margin, 18, width - margin * 2, 42, TRUE);
-    if (g_volume_label) MoveWindow(g_volume_label, margin + 4, margin + header_height, 120, 34, TRUE);
-    if (g_volume_track) MoveWindow(g_volume_track, margin + 132, margin + header_height + 1, width - margin * 2 - 136, 32, TRUE);
-    for (int i = 0; i < 3; ++i) {
-        int x = margin + i * (column_width + gap);
-        int top1 = margin + header_height + volume_height;
-        HWND audio_button = GetDlgItem(hwnd, ID_VOL_UP + i);
-        HWND media_button = GetDlgItem(hwnd, ID_MEDIA_PLAY + i);
-        HWND app_button = GetDlgItem(hwnd, ID_APP_1 + i);
-        if (audio_button) MoveWindow(audio_button, x, top1, column_width, row_height, TRUE);
-        if (media_button) MoveWindow(media_button, x, top1 + row_height + gap, column_width, row_height, TRUE);
-        if (app_button) MoveWindow(app_button, x, top1 + (row_height + gap) * 2, column_width, row_height, TRUE);
+    if (width < 320 || height < 420) return;
+
+    if (g_header) MoveWindow(g_header, 0, 0, width, header_h, TRUE);
+
+    int card_w = width - margin * 2;
+    if (g_volume_label) MoveWindow(g_volume_label, margin + 14, vol_card_top + 6, card_w - 28, 18, TRUE);
+    if (g_volume_track) MoveWindow(g_volume_track, margin + 10, vol_card_top + 28, card_w - 20, 24, TRUE);
+
+    int grid_top = vol_card_top + vol_card_h + 12;
+    int footer_y = height - margin - footer_h;
+    int grid_bottom = footer_y - 10;
+    int grid_h = grid_bottom - grid_top;
+    int col_width = (width - margin * 2 - gap * 2) / 3;
+    int row_height = (grid_h - gap * 2) / 3;
+
+    if (col_width > 0 && row_height > 0) {
+        // Row 0 (Audio): Vol Down, Mute, Vol Up
+        HWND btn_vol_down = GetDlgItem(hwnd, ID_VOL_DOWN);
+        HWND btn_mute = GetDlgItem(hwnd, ID_MUTE);
+        HWND btn_vol_up = GetDlgItem(hwnd, ID_VOL_UP);
+
+        int y0 = grid_top;
+        if (btn_vol_down) MoveWindow(btn_vol_down, margin + 0 * (col_width + gap), y0, col_width, row_height, TRUE);
+        if (btn_mute)     MoveWindow(btn_mute,     margin + 1 * (col_width + gap), y0, col_width, row_height, TRUE);
+        if (btn_vol_up)   MoveWindow(btn_vol_up,   margin + 2 * (col_width + gap), y0, col_width, row_height, TRUE);
+
+        // Row 1 (Media): Prev Track, Play/Pause, Next Track
+        HWND btn_prev = GetDlgItem(hwnd, ID_MEDIA_PREVIOUS);
+        HWND btn_play = GetDlgItem(hwnd, ID_MEDIA_PLAY);
+        HWND btn_next = GetDlgItem(hwnd, ID_MEDIA_NEXT);
+
+        int y1 = grid_top + 1 * (row_height + gap);
+        if (btn_prev) MoveWindow(btn_prev, margin + 0 * (col_width + gap), y1, col_width, row_height, TRUE);
+        if (btn_play) MoveWindow(btn_play, margin + 1 * (col_width + gap), y1, col_width, row_height, TRUE);
+        if (btn_next) MoveWindow(btn_next, margin + 2 * (col_width + gap), y1, col_width, row_height, TRUE);
+
+        // Row 2 (Apps): Slots 1, 2, 3
+        int y2 = grid_top + 2 * (row_height + gap);
+        for (int i = 0; i < DECK_APP_COUNT; ++i) {
+            HWND btn_app = GetDlgItem(hwnd, ID_APP_1 + i);
+            if (btn_app) MoveWindow(btn_app, margin + i * (col_width + gap), y2, col_width, row_height, TRUE);
+        }
     }
-    if (g_status) MoveWindow(g_status, margin + 2, height - margin - footer_height + 4, width - margin * 2 - 190 - gap, footer_height - 8, TRUE);
-    {
-        HWND settings = GetDlgItem(hwnd, ID_SETTINGS);
-        if (settings) MoveWindow(settings, width - margin - 190, height - margin - footer_height, 190, footer_height - 4, TRUE);
+
+    int settings_w = 160;
+    if (g_status) MoveWindow(g_status, margin + 4, footer_y + 4, width - margin * 2 - settings_w - gap, footer_h - 8, TRUE);
+    HWND settings = GetDlgItem(hwnd, ID_SETTINGS);
+    if (settings) MoveWindow(settings, width - margin - settings_w, footer_y, settings_w, footer_h, TRUE);
+}
+
+static void draw_header(const DRAWITEMSTRUCT *draw) {
+    HDC dc = draw->hDC;
+    RECT rect = draw->rcItem;
+    int height = rect.bottom - rect.top;
+    HICON app_icon = (HICON)LoadImageA(
+        GetModuleHandleA(NULL),
+        MAKEINTRESOURCEA(IDI_APP_ICON),
+        IMAGE_ICON, 28, 28, LR_SHARED
+    );
+
+    HBRUSH bg = g_header_background ? g_header_background : g_background;
+    FillRect(dc, &rect, bg);
+
+    // Separator line
+    HPEN line_pen = CreatePen(PS_SOLID, 1, RGB(34, 40, 52));
+    HGDIOBJ old_pen = SelectObject(dc, line_pen);
+    MoveToEx(dc, rect.left, rect.bottom - 1, NULL);
+    LineTo(dc, rect.right, rect.bottom - 1);
+    SelectObject(dc, old_pen);
+    DeleteObject(line_pen);
+
+    // Official logo: loaded icon or geometric vector mark
+    int icon_size = 28;
+    int icon_x = rect.left + 16;
+    int icon_y = rect.top + (height - icon_size) / 2;
+    if (app_icon) {
+        DrawIconEx(dc, icon_x, icon_y, app_icon, icon_size, icon_size, 0, NULL, DI_NORMAL);
+    } else {
+        RECT tile_rect = { icon_x, icon_y, icon_x + icon_size, icon_y + icon_size };
+        HBRUSH tile_brush = CreateSolidBrush(RGB(18, 22, 29));
+        HPEN rim_pen = CreatePen(PS_SOLID, 1, RGB(125, 139, 160));
+        HGDIOBJ old_b = SelectObject(dc, tile_brush);
+        HGDIOBJ old_p = SelectObject(dc, rim_pen);
+        RoundRect(dc, tile_rect.left, tile_rect.top, tile_rect.right, tile_rect.bottom, 8, 8);
+        SelectObject(dc, old_b);
+        SelectObject(dc, old_p);
+        DeleteObject(tile_brush);
+        DeleteObject(rim_pen);
+
+        POINT c_pts[12] = {
+            { icon_x + 20, icon_y + 7 },  { icon_x + 12, icon_y + 7 },
+            { icon_x + 7,  icon_y + 12 }, { icon_x + 7,  icon_y + 16 },
+            { icon_x + 12, icon_y + 21 }, { icon_x + 20, icon_y + 21 },
+            { icon_x + 20, icon_y + 18 }, { icon_x + 13, icon_y + 18 },
+            { icon_x + 10, icon_y + 15 }, { icon_x + 10, icon_y + 13 },
+            { icon_x + 13, icon_y + 10 }, { icon_x + 20, icon_y + 10 }
+        };
+        HBRUSH silver = CreateSolidBrush(RGB(230, 235, 242));
+        old_b = SelectObject(dc, silver);
+        old_p = SelectObject(dc, GetStockObject(NULL_PEN));
+        Polygon(dc, c_pts, 12);
+
+        POINT lime_pts[4] = {
+            { icon_x + 16, icon_y + 21 }, { icon_x + 21, icon_y + 21 },
+            { icon_x + 24, icon_y + 18 }, { icon_x + 19, icon_y + 18 }
+        };
+        HBRUSH lime = CreateSolidBrush(RGB(157, 255, 0));
+        SelectObject(dc, lime);
+        Polygon(dc, lime_pts, 4);
+
+        SelectObject(dc, old_b);
+        SelectObject(dc, old_p);
+        DeleteObject(silver);
+        DeleteObject(lime);
     }
+
+    SetBkMode(dc, TRANSPARENT);
+    HGDIOBJ old_font = SelectObject(dc, g_title_font);
+    SetTextColor(dc, RGB(255, 255, 255));
+    RECT title_rect = { icon_x + icon_size + 12, rect.top + 6, icon_x + icon_size + 160, rect.top + 26 };
+    DrawTextA(dc, "C-DECK", -1, &title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(dc, g_subtitle_font);
+    SetTextColor(dc, RGB(125, 138, 155));
+    RECT sub_rect = { icon_x + icon_size + 12, rect.top + 26, icon_x + icon_size + 200, rect.bottom - 4 };
+    DrawTextA(dc, "STREAM DECK CONTROLLER", -1, &sub_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    // Status pill [ ● ATIVO ]
+    int pill_w = 76;
+    int pill_h = 24;
+    int pill_r = rect.right - 16;
+    int pill_l = pill_r - pill_w;
+    int pill_t = rect.top + (height - pill_h) / 2;
+    int pill_b = pill_t + pill_h;
+
+    HBRUSH pill_brush = CreateSolidBrush(RGB(20, 26, 34));
+    HPEN pill_pen = CreatePen(PS_SOLID, 1, RGB(46, 56, 70));
+    HGDIOBJ old_b = SelectObject(dc, pill_brush);
+    HGDIOBJ old_p = SelectObject(dc, pill_pen);
+    RoundRect(dc, pill_l, pill_t, pill_r, pill_b, 12, 12);
+    SelectObject(dc, old_b);
+    SelectObject(dc, old_p);
+    DeleteObject(pill_brush);
+    DeleteObject(pill_pen);
+
+    HBRUSH dot_brush = CreateSolidBrush(RGB(157, 255, 0));
+    old_b = SelectObject(dc, dot_brush);
+    old_p = SelectObject(dc, GetStockObject(NULL_PEN));
+    Ellipse(dc, pill_l + 9, pill_t + 9, pill_l + 15, pill_t + 15);
+    SelectObject(dc, old_b);
+    SelectObject(dc, old_p);
+    DeleteObject(dot_brush);
+
+    SelectObject(dc, g_badge_font);
+    SetTextColor(dc, RGB(157, 255, 0));
+    RECT pill_text_rect = { pill_l + 18, pill_t, pill_r - 4, pill_b };
+    DrawTextA(dc, "ATIVO", -1, &pill_text_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(dc, old_font);
 }
 
 static void draw_button(const DRAWITEMSTRUCT *draw) {
@@ -195,55 +354,115 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     BOOL pressed = (draw->itemState & ODS_SELECTED) != 0;
     BOOL focused = (draw->itemState & ODS_FOCUS) != 0;
     int control_id = GetDlgCtrlID(draw->hwndItem);
-    int app_index = control_id >= ID_APP_1 && control_id < ID_APP_1 + DECK_APP_COUNT
+    int app_index = (control_id >= ID_APP_1 && control_id < ID_APP_1 + DECK_APP_COUNT)
         ? control_id - ID_APP_1 : -1;
-    HICON app_icon = NULL;
-    BOOL owns_icon = FALSE;
-    COLORREF fill = pressed ? RGB(48, 55, 67) : RGB(25, 29, 36);
-    COLORREF border = focused ? RGB(190, 255, 55) : RGB(62, 70, 82);
-    HBRUSH brush = CreateSolidBrush(fill);
-    HPEN pen = CreatePen(PS_SOLID, 1, border);
-    HGDIOBJ old_brush = SelectObject(dc, brush);
-    HGDIOBJ old_pen = SelectObject(dc, pen);
 
     GetWindowTextA(draw->hwndItem, label, (int)sizeof(label));
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, (draw->itemState & ODS_DISABLED) ? RGB(120, 126, 136) : RGB(242, 244, 247));
-    InflateRect(&rect, -1, -1);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 18, 18);
+
+    // 1. FOOTER SETTINGS BUTTON / DIALOG BUTTONS
+    if (control_id == ID_SETTINGS || control_id == ID_SAVE || control_id == ID_CANCEL) {
+        COLORREF bg_color = (control_id == ID_SAVE)
+            ? (pressed ? RGB(22, 42, 22) : RGB(30, 58, 32))
+            : (pressed ? RGB(20, 24, 30) : RGB(26, 32, 42));
+        COLORREF bdr_color = focused
+            ? RGB(157, 255, 0)
+            : ((control_id == ID_SAVE) ? RGB(157, 255, 0) : RGB(52, 62, 78));
+        COLORREF txt_color = (control_id == ID_SAVE)
+            ? RGB(157, 255, 0)
+            : RGB(220, 226, 236);
+
+        HBRUSH brush = CreateSolidBrush(bg_color);
+        HPEN pen = CreatePen(PS_SOLID, 1, bdr_color);
+        HGDIOBJ old_b = SelectObject(dc, brush);
+        HGDIOBJ old_p = SelectObject(dc, pen);
+        RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 10, 10);
+        SelectObject(dc, old_b);
+        SelectObject(dc, old_p);
+        DeleteObject(brush);
+        DeleteObject(pen);
+
+        RECT text_rect = rect;
+        if (pressed) OffsetRect(&text_rect, 0, 1);
+        HGDIOBJ old_f = SelectObject(dc, g_key_label_font);
+        SetTextColor(dc, txt_color);
+        DrawTextA(dc, label, -1, &text_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, old_f);
+        return;
+    }
+
+    // 2. STREAM DECK LCD KEYCAPS (3x3 GRID)
+    float cur_vol = 0.0f;
+    int is_muted = 0;
+    action_get_volume(&cur_vol, &is_muted);
+    BOOL mute_active = (control_id == ID_MUTE && is_muted);
+
+    COLORREF fill = pressed
+        ? RGB(12, 15, 20)
+        : (focused ? RGB(26, 32, 42) : RGB(20, 24, 32));
+    COLORREF border = focused
+        ? RGB(157, 255, 0)
+        : (mute_active ? RGB(255, 82, 82) : RGB(44, 52, 66));
+
+    HBRUSH brush = CreateSolidBrush(fill);
+    HPEN pen = CreatePen(PS_SOLID, (focused || mute_active) ? 2 : 1, border);
+    HGDIOBJ old_brush = SelectObject(dc, brush);
+    HGDIOBJ old_pen = SelectObject(dc, pen);
+    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 16, 16);
     SelectObject(dc, old_brush);
     SelectObject(dc, old_pen);
     DeleteObject(brush);
     DeleteObject(pen);
 
+    RECT content_rect = rect;
+    if (pressed) OffsetRect(&content_rect, 0, 2);
+
+    // Top Slot Badge
+    const char *badge_text = "";
+    if (control_id == ID_VOL_DOWN) badge_text = "ÁUDIO · −5%";
+    else if (control_id == ID_MUTE) badge_text = mute_active ? "ÁUDIO · MUDO" : "ÁUDIO · MUTE";
+    else if (control_id == ID_VOL_UP) badge_text = "ÁUDIO · +5%";
+    else if (control_id == ID_MEDIA_PREVIOUS) badge_text = "MÍDIA · ANTERIOR";
+    else if (control_id == ID_MEDIA_PLAY) badge_text = "MÍDIA · PLAY/PAUSE";
+    else if (control_id == ID_MEDIA_NEXT) badge_text = "MÍDIA · PRÓXIMA";
+    else if (app_index >= 0) {
+        const DeckApp *app = &g_config.apps[app_index];
+        int is_web = app->configured && (_strnicmp(app->path, "http://", 7) == 0 || _strnicmp(app->path, "https://", 8) == 0);
+        if (app_index == 0) badge_text = is_web ? "01 · WEB" : (app->configured ? "01 · APP" : "01 · LIVRE");
+        else if (app_index == 1) badge_text = is_web ? "02 · WEB" : (app->configured ? "02 · APP" : "02 · LIVRE");
+        else if (app_index == 2) badge_text = is_web ? "03 · WEB" : (app->configured ? "03 · APP" : "03 · LIVRE");
+    }
+
+    HGDIOBJ old_font = SelectObject(dc, g_badge_font);
+    SetTextColor(dc, mute_active ? RGB(255, 120, 120) : RGB(120, 132, 148));
+    RECT badge_rect = { content_rect.left + 8, content_rect.top + 8, content_rect.right - 8, content_rect.top + 22 };
+    DrawTextA(dc, badge_text, -1, &badge_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    // Center Graphic (Glyph or Icon)
+    RECT glyph_rect = { content_rect.left + 6, content_rect.top + 24, content_rect.right - 6, content_rect.bottom - 28 };
     if (app_index < 0) {
         const wchar_t *glyph = L"";
-        HFONT glyph_font = CreateFontW(42, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI Symbol");
-        HGDIOBJ previous_font = SelectObject(dc, glyph_font);
-        RECT glyph_rect = rect;
-        if (control_id == ID_VOL_UP) glyph = L"+";
-        else if (control_id == ID_VOL_DOWN) glyph = L"−";
+        if (control_id == ID_VOL_DOWN) glyph = L"−";
         else if (control_id == ID_MUTE) glyph = L"◖";
+        else if (control_id == ID_VOL_UP) glyph = L"＋";
+        else if (control_id == ID_MEDIA_PREVIOUS) glyph = L"«";
         else if (control_id == ID_MEDIA_PLAY) glyph = L"▶";
         else if (control_id == ID_MEDIA_NEXT) glyph = L"»";
-        else if (control_id == ID_MEDIA_PREVIOUS) glyph = L"«";
-        SetTextColor(dc, RGB(190, 255, 55));
-        glyph_rect.top += 18;
-        glyph_rect.bottom = glyph_rect.top + 58;
+
+        SelectObject(dc, g_glyph_font);
+        SetTextColor(dc, mute_active ? RGB(255, 82, 82) : RGB(157, 255, 0));
         DrawTextW(dc, glyph, -1, &glyph_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        SelectObject(dc, previous_font);
-        DeleteObject(glyph_font);
-        rect.top = rect.bottom - 42;
-    }
-    if (app_index >= 0 && g_config.apps[app_index].configured) {
+    } else {
         const DeckApp *app = &g_config.apps[app_index];
+        HICON app_icon = NULL;
+        BOOL owns_icon = FALSE;
+        int is_web = app->configured && (_strnicmp(app->path, "http://", 7) == 0 || _strnicmp(app->path, "https://", 8) == 0);
+
         if (app->icon_path[0]) {
-            app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+            app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
             owns_icon = app_icon != NULL;
         }
-        if (!app_icon && app->path[0] && _strnicmp(app->path, "http://", 7) != 0 && _strnicmp(app->path, "https://", 8) != 0) {
+        if (!app_icon && app->path[0] && !is_web) {
             SHFILEINFOA info;
             ZeroMemory(&info, sizeof(info));
             if (SHGetFileInfoA(app->path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_LARGEICON)) {
@@ -251,32 +470,52 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
                 owns_icon = app_icon != NULL;
             }
         }
+
         if (app_icon) {
-            int icon_x = rect.left + ((rect.right - rect.left) - 32) / 2;
-            DrawIconEx(dc, icon_x, rect.top + 16, app_icon, 48, 48, 0, NULL, DI_NORMAL);
-            rect.top += 62;
+            int icon_size = 36;
+            int icon_x = glyph_rect.left + ((glyph_rect.right - glyph_rect.left) - icon_size) / 2;
+            int icon_y = glyph_rect.top + ((glyph_rect.bottom - glyph_rect.top) - icon_size) / 2;
+            DrawIconEx(dc, icon_x, icon_y, app_icon, icon_size, icon_size, 0, NULL, DI_NORMAL);
             if (owns_icon) DestroyIcon(app_icon);
-        } else if (_strnicmp(app->path, "http://", 7) == 0 || _strnicmp(app->path, "https://", 8) == 0) {
-            HPEN globe_pen = CreatePen(PS_SOLID, 2, RGB(190, 255, 55));
-            HGDIOBJ previous_pen = SelectObject(dc, globe_pen);
-            HGDIOBJ previous_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
-            int cx = (rect.left + rect.right) / 2, cy = rect.top + 38;
-            Ellipse(dc, cx - 22, cy - 22, cx + 22, cy + 22);
-            Arc(dc, cx - 11, cy - 22, cx + 11, cy + 22, cx, cy - 22, cx, cy + 22);
-            MoveToEx(dc, cx - 20, cy, NULL); LineTo(dc, cx + 20, cy);
-            SelectObject(dc, previous_brush);
-            SelectObject(dc, previous_pen);
+        } else if (is_web) {
+            HPEN globe_pen = CreatePen(PS_SOLID, 2, RGB(157, 255, 0));
+            HGDIOBJ prev_pen = SelectObject(dc, globe_pen);
+            HGDIOBJ prev_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+            int cx = (glyph_rect.left + glyph_rect.right) / 2;
+            int cy = (glyph_rect.top + glyph_rect.bottom) / 2;
+            int r = 16;
+            Ellipse(dc, cx - r, cy - r, cx + r, cy + r);
+            Arc(dc, cx - r / 2, cy - r, cx + r / 2, cy + r, cx, cy - r, cx, cy + r);
+            MoveToEx(dc, cx - r, cy, NULL);
+            LineTo(dc, cx + r, cy);
+            SelectObject(dc, prev_brush);
+            SelectObject(dc, prev_pen);
             DeleteObject(globe_pen);
-            rect.top += 68;
+        } else {
+            SelectObject(dc, g_glyph_font);
+            SetTextColor(dc, RGB(72, 82, 98));
+            DrawTextW(dc, L"+", -1, &glyph_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
     }
 
-    DrawTextA(dc, label, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-    if (focused) {
-        RECT focus = rect;
-        InflateRect(&focus, -7, -7);
-        DrawFocusRect(dc, &focus);
+    // Bottom Key Label
+    const char *key_label = label;
+    if (control_id == ID_VOL_DOWN) key_label = "VOLUME −";
+    else if (control_id == ID_MUTE) key_label = mute_active ? "DESMUTAR" : "MUTAR";
+    else if (control_id == ID_VOL_UP) key_label = "VOLUME ＋";
+    else if (control_id == ID_MEDIA_PREVIOUS) key_label = "ANTERIOR";
+    else if (control_id == ID_MEDIA_PLAY) key_label = "PLAY / PAUSE";
+    else if (control_id == ID_MEDIA_NEXT) key_label = "PRÓXIMA";
+    else if (app_index >= 0) {
+        if (!g_config.apps[app_index].configured) key_label = "CONFIGURAR";
     }
+
+    SelectObject(dc, g_key_label_font);
+    SetTextColor(dc, (draw->itemState & ODS_DISABLED) ? RGB(110, 118, 128) : RGB(242, 245, 250));
+    RECT bottom_rect = { content_rect.left + 6, content_rect.bottom - 26, content_rect.right - 6, content_rect.bottom - 6 };
+    DrawTextA(dc, key_label, -1, &bottom_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+    SelectObject(dc, old_font);
 }
 
 static void browse_editor_file(HWND hwnd, int index, int choose_icon) {
@@ -446,13 +685,13 @@ static LRESULT CALLBACK editor_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
         case WM_CTLCOLORSTATIC: {
             HDC dc = (HDC)wparam;
             SetTextColor(dc, RGB(190, 196, 206));
-            SetBkColor(dc, RGB(14, 16, 20));
+            SetBkColor(dc, RGB(13, 16, 21));
             return (LRESULT)g_background;
         }
         case WM_CTLCOLOREDIT: {
             HDC dc = (HDC)wparam;
             SetTextColor(dc, RGB(242, 244, 247));
-            SetBkColor(dc, RGB(29, 33, 40));
+            SetBkColor(dc, RGB(26, 32, 42));
             return (LRESULT)g_edit_background;
         }
         case WM_DRAWITEM:
@@ -474,15 +713,29 @@ static LRESULT CALLBACK editor_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
 }
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (g_wm_close_msg != 0 && message == g_wm_close_msg) {
+        remove_tray_icon();
+        DestroyWindow(hwnd);
+        PostQuitMessage(0);
+        return 0;
+    }
+
     switch (message) {
         case WM_CREATE: {
             HINSTANCE instance = ((LPCREATESTRUCTA)lparam)->hInstance;
-            add_button(hwnd, "VOLUME +", ID_VOL_UP, instance);
-            add_button(hwnd, "VOLUME -", ID_VOL_DOWN, instance);
-            add_button(hwnd, "MUTAR AUDIO", ID_MUTE, instance);
+            g_wm_close_msg = RegisterWindowMessageA("CDeck_CloseMessage");
+
+            // Row 0: Audio keys
+            add_button(hwnd, "VOLUME −", ID_VOL_DOWN, instance);
+            add_button(hwnd, "MUTAR", ID_MUTE, instance);
+            add_button(hwnd, "VOLUME ＋", ID_VOL_UP, instance);
+
+            // Row 1: Media keys
+            add_button(hwnd, "ANTERIOR", ID_MEDIA_PREVIOUS, instance);
             add_button(hwnd, "PLAY / PAUSE", ID_MEDIA_PLAY, instance);
-            add_button(hwnd, "PROXIMA FAIXA", ID_MEDIA_NEXT, instance);
-            add_button(hwnd, "FAIXA ANTERIOR", ID_MEDIA_PREVIOUS, instance);
+            add_button(hwnd, "PRÓXIMA", ID_MEDIA_NEXT, instance);
+
+            // Row 2: App keys
             for (int i = 0; i < DECK_APP_COUNT; ++i) {
                 char label[DECK_TEXT_MAX + 24];
                 if (g_config.apps[i].configured) {
@@ -492,28 +745,37 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 }
                 add_button(hwnd, label, ID_APP_1 + i, instance);
             }
-            add_button(hwnd, "CONFIGURAR ATALHOS", ID_SETTINGS, instance);
-            g_header = CreateWindowA("STATIC", "C-DECK     /     DESKTOP CONTROL CENTER", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
-                34, 18, 800, 42, hwnd, (HMENU)(INT_PTR)ID_HEADER, instance, NULL);
-            if (g_header && g_status_font) SendMessageA(g_header, WM_SETFONT, (WPARAM)g_status_font, TRUE);
-            g_volume_label = CreateWindowA("STATIC", "VOLUME --", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
-                22, 22, 132, 28, hwnd, (HMENU)(INT_PTR)ID_VOLUME_LABEL, instance, NULL);
+
+            // Footer controls
+            add_button(hwnd, "⚙ CONFIGURAR", ID_SETTINGS, instance);
+
+            // Header (owner-drawn)
+            g_header = CreateWindowA("STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
+                0, 0, 480, 48, hwnd, (HMENU)(INT_PTR)ID_HEADER, instance, NULL);
+
+            // Volume Touch Strip controls
+            g_volume_label = CreateWindowA("STATIC", "VOLUME DO SISTEMA: --", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
+                30, 64, 420, 18, hwnd, (HMENU)(INT_PTR)ID_VOLUME_LABEL, instance, NULL);
+            if (g_volume_label && g_badge_font) SendMessageA(g_volume_label, WM_SETFONT, (WPARAM)g_badge_font, TRUE);
+
             g_volume_track = CreateWindowExA(0, TRACKBAR_CLASSA, "",
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_NOTICKS | TBS_HORZ,
-                154, 18, 500, 32, hwnd, (HMENU)(INT_PTR)ID_VOLUME_TRACK, instance, NULL);
+                26, 86, 428, 24, hwnd, (HMENU)(INT_PTR)ID_VOLUME_TRACK, instance, NULL);
             if (g_volume_track) {
                 SendMessageA(g_volume_track, TBM_SETRANGE, TRUE, MAKELONG(0, 100));
                 SendMessageA(g_volume_track, TBM_SETPAGESIZE, 0, 5);
             }
+
             g_status = CreateWindowA(
-                "STATIC", "Pronto. Escolha uma acao.",
+                "STATIC", "Pronto. C-Deck ativo.",
                 WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
-                22, 0, 400, 34, hwnd, (HMENU)(INT_PTR)ID_STATUS, instance, NULL
+                20, 0, 260, 34, hwnd, (HMENU)(INT_PTR)ID_STATUS, instance, NULL
             );
             if (g_status && g_status_font) SendMessageA(g_status, WM_SETFONT, (WPARAM)g_status_font, TRUE);
+
             layout_controls(hwnd);
             update_volume_ui();
-            SetTimer(hwnd, ID_VOLUME_TIMER, 750, NULL);
+            SetTimer(hwnd, ID_VOLUME_TIMER, 500, NULL);
             {
                 int hotkeys_ok = 1;
                 if (!RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP)) hotkeys_ok = 0;
@@ -530,20 +792,63 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 return 0;
             }
             layout_controls(hwnd);
+            InvalidateRect(hwnd, NULL, TRUE);
             return 0;
         case WM_GETMINMAXINFO: {
             MINMAXINFO *limits = (MINMAXINFO *)lparam;
-            limits->ptMinTrackSize.x = 820;
-            limits->ptMinTrackSize.y = 680;
+            limits->ptMinTrackSize.x = 440;
+            limits->ptMinTrackSize.y = 620;
             return 0;
         }
-        case WM_DRAWITEM:
-            draw_button((const DRAWITEMSTRUCT *)lparam);
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC dc = BeginPaint(hwnd, &ps);
+            RECT client;
+            GetClientRect(hwnd, &client);
+
+            int margin = 16;
+            int vol_card_top = 58;
+            int vol_card_h = 58;
+            int card_right = client.right - margin;
+            int card_bottom = vol_card_top + vol_card_h;
+
+            if (card_right > margin && client.bottom > vol_card_top) {
+                HBRUSH card_b = CreateSolidBrush(RGB(20, 24, 32));
+                HPEN card_p = CreatePen(PS_SOLID, 1, RGB(38, 46, 58));
+                HGDIOBJ old_b = SelectObject(dc, card_b);
+                HGDIOBJ old_p = SelectObject(dc, card_p);
+                RoundRect(dc, margin, vol_card_top, card_right, card_bottom, 14, 14);
+                SelectObject(dc, old_b);
+                SelectObject(dc, old_p);
+                DeleteObject(card_b);
+                DeleteObject(card_p);
+            }
+
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_DRAWITEM: {
+            const DRAWITEMSTRUCT *draw = (const DRAWITEMSTRUCT *)lparam;
+            if (draw->CtlID == ID_HEADER) {
+                draw_header(draw);
+                return TRUE;
+            }
+            draw_button(draw);
             return TRUE;
+        }
         case WM_CTLCOLORSTATIC: {
             HDC dc = (HDC)wparam;
-            SetTextColor(dc, RGB(166, 173, 184));
-            SetBkColor(dc, RGB(14, 16, 20));
+            HWND ctl = (HWND)lparam;
+            if (ctl == g_volume_label) {
+                float level = 0.0f;
+                int muted = 0;
+                action_get_volume(&level, &muted);
+                SetTextColor(dc, muted ? RGB(255, 82, 82) : RGB(157, 255, 0));
+                SetBkColor(dc, RGB(20, 24, 32));
+                return (LRESULT)g_card_background;
+            }
+            SetTextColor(dc, RGB(160, 168, 180));
+            SetBkColor(dc, RGB(13, 16, 21));
             return (LRESULT)g_background;
         }
         case WM_HSCROLL:
@@ -551,7 +856,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 int position = (int)SendMessageA(g_volume_track, TBM_GETPOS, 0, 0);
                 if (action_set_volume((float)position / 100.0f) == ACTION_SUCCESS) {
                     char message[64];
-                    snprintf(message, sizeof(message), "Volume definido em %d%%.", position);
+                    snprintf(message, sizeof(message), "Volume: %d%%.", position);
                     set_status(message);
                     update_volume_ui();
                 } else {
@@ -563,9 +868,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             if (wparam == ID_VOLUME_TIMER && GetCapture() != g_volume_track) update_volume_ui();
             return 0;
         case WM_HOTKEY:
-            if (wparam == ID_HOTKEY_UP) report_result(action_volume_step(0.05f), "Volume aumentado em 5%.");
-            else if (wparam == ID_HOTKEY_DOWN) report_result(action_volume_step(-0.05f), "Volume reduzido em 5%.");
-            else if (wparam == ID_HOTKEY_MUTE) report_result(action_toggle_mute(), "Estado do audio alternado.");
+            if (wparam == ID_HOTKEY_UP) report_result(action_volume_step(0.05f), "Volume aumentado (+5%).");
+            else if (wparam == ID_HOTKEY_DOWN) report_result(action_volume_step(-0.05f), "Volume reduzido (−5%).");
+            else if (wparam == ID_HOTKEY_MUTE) report_result(action_toggle_mute(), "Mute alternado.");
             update_volume_ui();
             return 0;
         case WM_TRAYICON:
@@ -587,37 +892,47 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             if (LOWORD(wparam) == ID_TRAY_EXIT) {
                 remove_tray_icon();
                 DestroyWindow(hwnd);
+                PostQuitMessage(0);
                 return 0;
             }
             switch (LOWORD(wparam)) {
                 case ID_VOL_UP:
-                    report_result(action_volume_step(0.05f), "Volume aumentado em 5%.");
+                    report_result(action_volume_step(0.05f), "Volume aumentado (+5%).");
                     break;
                 case ID_VOL_DOWN:
-                    report_result(action_volume_step(-0.05f), "Volume reduzido em 5%.");
+                    report_result(action_volume_step(-0.05f), "Volume reduzido (−5%).");
                     break;
                 case ID_MUTE:
-                    report_result(action_toggle_mute(), "Estado do audio alternado.");
+                    report_result(action_toggle_mute(), "Mute alternado.");
                     break;
                 case ID_MEDIA_PLAY:
-                    report_result(action_media_play_pause(), "Play/Pause enviado ao Windows.");
+                    report_result(action_media_play_pause(), "Play / Pause enviado.");
                     break;
                 case ID_MEDIA_NEXT:
-                    report_result(action_media_next(), "Comando de proxima faixa enviado.");
+                    report_result(action_media_next(), "Próxima faixa enviada.");
                     break;
                 case ID_MEDIA_PREVIOUS:
-                    report_result(action_media_previous(), "Comando de faixa anterior enviado.");
+                    report_result(action_media_previous(), "Faixa anterior enviada.");
                     break;
                 case ID_APP_1:
                 case ID_APP_1 + 1:
                 case ID_APP_1 + 2: {
                     int index = LOWORD(wparam) - ID_APP_1;
-                    report_result(action_launch_app(&g_config.apps[index]), "Atalho aberto com sucesso.");
+                    report_result(action_launch_app(&g_config.apps[index]), "Atalho executado.");
                     break;
                 }
                 case ID_SETTINGS:
                     open_editor(hwnd);
                     break;
+            }
+            return 0;
+        case WM_QUERYENDSESSION:
+            return TRUE;
+        case WM_ENDSESSION:
+            if (wparam) {
+                remove_tray_icon();
+                DestroyWindow(hwnd);
+                PostQuitMessage(0);
             }
             return 0;
         case WM_CLOSE:
@@ -634,13 +949,25 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
             UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
             remove_tray_icon();
-            if (g_button_font) DeleteObject(g_button_font);
+            if (g_title_font) DeleteObject(g_title_font);
+            if (g_subtitle_font) DeleteObject(g_subtitle_font);
+            if (g_badge_font) DeleteObject(g_badge_font);
+            if (g_key_label_font) DeleteObject(g_key_label_font);
+            if (g_glyph_font) DeleteObject(g_glyph_font);
             if (g_status_font) DeleteObject(g_status_font);
             if (g_background) DeleteObject(g_background);
+            if (g_card_background) DeleteObject(g_card_background);
+            if (g_header_background) DeleteObject(g_header_background);
             if (g_edit_background) DeleteObject(g_edit_background);
-            g_button_font = NULL;
+            g_title_font = NULL;
+            g_subtitle_font = NULL;
+            g_badge_font = NULL;
+            g_key_label_font = NULL;
+            g_glyph_font = NULL;
             g_status_font = NULL;
             g_background = NULL;
+            g_card_background = NULL;
+            g_header_background = NULL;
             g_edit_background = NULL;
             PostQuitMessage(0);
             return 0;
@@ -661,14 +988,28 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
         controls.dwICC = ICC_BAR_CLASSES;
         InitCommonControlsEx(&controls);
     }
-    g_button_font = CreateFontA(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+    g_title_font = CreateFontA(17, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-    g_status_font = CreateFontA(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    g_subtitle_font = CreateFontA(10, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-    g_background = CreateSolidBrush(RGB(14, 16, 20));
-    g_edit_background = CreateSolidBrush(RGB(29, 33, 40));
+    g_badge_font = CreateFontA(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    g_key_label_font = CreateFontA(13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    g_glyph_font = CreateFontW(32, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI Symbol");
+    g_status_font = CreateFontA(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    g_background = CreateSolidBrush(RGB(13, 16, 21));
+    g_card_background = CreateSolidBrush(RGB(20, 24, 32));
+    g_header_background = CreateSolidBrush(RGB(16, 20, 27));
+    g_edit_background = CreateSolidBrush(RGB(26, 32, 42));
 
     ZeroMemory(&window_class, sizeof(window_class));
     window_class.cbSize = sizeof(window_class);
@@ -693,9 +1034,9 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     if (!RegisterClassExA(&editor_class) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return 1;
 
     hwnd = CreateWindowExA(
-        0, CLASS_NAME, "C-DECK | Painel de atalhos",
+        0, CLASS_NAME, "C-DECK | Stream Deck Controller",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 1000, 780,
+        CW_USEDEFAULT, CW_USEDEFAULT, 480, 700,
         NULL, NULL, instance, NULL
     );
     if (!hwnd) return 1;
