@@ -23,8 +23,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "build" | Out-Null
-          $iconBase64 = (Get-Content "brand/cdeck.ico.b64" -Raw).Trim()
-          [IO.File]::WriteAllBytes((Join-Path (Get-Location) "build/cdeck.ico"), [Convert]::FromBase64String($iconBase64))
+          & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to generate official C-Deck icon." }
           Set-Content -Path "build/cdeck.rc" -Value 'IDI_APP_ICON ICON "build/cdeck.ico"' -Encoding Ascii
       - name: Build Windows desktop app
         shell: msys2 {0}
