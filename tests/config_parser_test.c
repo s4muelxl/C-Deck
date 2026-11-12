@@ -75,8 +75,13 @@ int main(void) {
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
     strcpy(config.apps[2].name, "Linha\nInvalida");
-    config.apps[2].path[0] = '\0';
+    strcpy(config.apps[2].path, "mspaint.exe");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
+
+    assert(config_load("test-apps-saved.cfg", &loaded) == 1);
+    assert(loaded.apps[0].configured == 1);
+    assert(strcmp(loaded.apps[0].name, "Editor") == 0);
+    assert(loaded.apps[2].configured == 0);
 
     remove("test-apps.cfg");
     remove("test-apps-saved.cfg");
