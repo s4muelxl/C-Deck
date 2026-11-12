@@ -17,15 +17,15 @@ O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma p
 1. Abra a aba **Actions** do repositório.
 2. Entre na execução mais recente do workflow **C-Deck CI** que terminou com sucesso.
 3. Na seção **Artifacts**, baixe `C-Deck-Windows`.
-4. Extraia o arquivo `C-Deck-Portable.zip` para uma pasta.
-5. Execute `C-Deck.exe`.
+4. Para instalação guiada, execute `C-Deck-Setup.exe`. O instalador cria um atalho no menu Iniciar e permite criar um atalho na área de trabalho.
+5. Se preferir não instalar, extraia `C-Deck-Portable.zip` para uma pasta e execute `C-Deck.exe`.
 
 O pacote portátil contém:
 - `C-Deck.exe`
 - `config/apps.cfg`
 - `README.md`
 
-O executável precisa permanecer ao lado da pasta `config`. Não mova apenas o EXE para outro local.
+Na instalação guiada, o programa fica em `%LOCALAPPDATA%\\Programs\\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
 
 ## Configurar os atalhos
 
