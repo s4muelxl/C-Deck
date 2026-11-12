@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos para Windows, desenvolvido em C11 e Win32 API.**
+**Painel de atalhos para Windows, desenvolvido em C11 e Win32 API. Versão 1.2.0.**
 
 O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma pequena janela desktop. A página em `web/` é apenas a apresentação do projeto; as ações do computador são executadas pelo aplicativo Windows.
 
@@ -15,6 +15,8 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Enviar comandos de play/pause, próxima faixa e faixa anterior aos controles de mídia do Windows.
 - Abrir até três aplicativos definidos pelo usuário.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
+- Exibir automaticamente o ícone original de cada executável configurado.
+- Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
 - Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar).\n- Minimização para a bandeja do Windows: minimizar ou fechar a janela mantém o C-Deck ativo; use o menu do ícone para reabrir ou sair.\n- Interface Win32 nativa, com tema escuro e janela redimensionável.
 
@@ -37,9 +39,10 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 
 1. Abra o C-DECK.
 2. Clique em **Configurar atalhos**.
-3. Informe o nome que aparecerá no botão e o caminho do executável ou comando.
-4. Para remover um atalho, deixe os dois campos correspondentes vazios.
-5. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
+3. Informe o nome que aparecerá no botão e selecione o executável pelo botão `...` ou informe o caminho manualmente.
+4. Opcionalmente, selecione um arquivo `.ico` personalizado. Se deixar esse campo vazio, o C-Deck extrai e exibe o ícone do próprio executável.
+5. Para remover um atalho, deixe nome e executável vazios.
+6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
 O programa grava as alterações em `config/apps.cfg`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
@@ -61,6 +64,7 @@ path=mspaint.exe
 
 - `name`: texto mostrado no botão.
 - `path`: caminho absoluto do executável ou comando disponível no PATH.
+- `icon`: caminho opcional para um arquivo `.ico`; se omitido, o ícone é extraído do executável.
 
 ## Compilar no Windows
 
