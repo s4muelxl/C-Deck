@@ -29,6 +29,7 @@
 #define ID_VOLUME_TIMER 1
 #define ID_NAME_BASE 2001
 #define ID_PATH_BASE 2011
+#define IDI_APP_ICON 101
 
 static const char CLASS_NAME[] = "CDeckMainWindow";
 static const char EDITOR_CLASS[] = "CDeckEditorWindow";
@@ -72,7 +73,8 @@ static int add_tray_icon(HWND hwnd) {
     g_tray_data.uID = 1;
     g_tray_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     g_tray_data.uCallbackMessage = WM_TRAYICON;
-    g_tray_data.hIcon = LoadIconA(NULL, IDI_APPLICATION);
+    g_tray_data.hIcon = LoadIconA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(IDI_APP_ICON));
+    if (!g_tray_data.hIcon) g_tray_data.hIcon = LoadIconA(NULL, IDI_APPLICATION);
     lstrcpynA(g_tray_data.szTip, "C-Deck - controles rápidos", (int)sizeof(g_tray_data.szTip));
     g_tray_added = Shell_NotifyIconA(NIM_ADD, &g_tray_data) ? 1 : 0;
     return g_tray_added;
@@ -562,6 +564,8 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     window_class.cbSize = sizeof(window_class);
     window_class.lpfnWndProc = window_proc;
     window_class.hInstance = instance;
+    window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(IDI_APP_ICON));
+    window_class.hIconSm = window_class.hIcon;
     window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
     window_class.hbrBackground = g_background;
     window_class.lpszClassName = CLASS_NAME;
@@ -571,6 +575,8 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     editor_class.cbSize = sizeof(editor_class);
     editor_class.lpfnWndProc = editor_proc;
     editor_class.hInstance = instance;
+    editor_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(IDI_APP_ICON));
+    editor_class.hIconSm = editor_class.hIcon;
     editor_class.hCursor = LoadCursor(NULL, IDC_ARROW);
     editor_class.hbrBackground = g_background;
     editor_class.lpszClassName = EDITOR_CLASS;

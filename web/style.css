@@ -4,7 +4,7 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit}
 .site-header{height:76px;padding:0 max(7vw,24px);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:13px;font-weight:800;letter-spacing:.16em}
+.brand{display:flex;align-items:center;text-decoration:none;min-width:0}.brand-logo{display:block;width:142px;height:auto;max-height:42px;object-fit:contain;object-position:left center}.site-footer .brand-logo{width:124px;max-height:34px}
 .brand-mark,.mini-mark{width:30px;height:30px;border:1px solid #626a75;border-radius:8px;display:grid;place-items:center;font-size:15px;letter-spacing:0}
 .github-link,.footer-github{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-size:12px;font-weight:700;transition:color .2s}
 .github-link:hover,.footer-github:hover{color:var(--accent)}
