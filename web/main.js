@@ -1,6 +1,6 @@
 /**
  * C-Deck — Interactive Landing Page Script
- * Powers the virtual Stream Deck simulator, audio effects, and UI helpers.
+ * Powers the virtual Stream Deck simulator, FAQ accordions, and audio haptics.
  */
 
 (function () {
@@ -82,12 +82,7 @@
     volume: 72,
     muted: false,
     playing: false,
-    statusTimer: null,
-    slots: [
-      { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app' },
-      { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web' },
-      { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app' }
-    ]
+    statusTimer: null
   };
 
   // DOM Elements
@@ -100,11 +95,6 @@
   const playGlyph = document.getElementById('play-glyph');
   const playLabel = document.getElementById('play-label');
   const soundToggleBtn = document.getElementById('demo-sound-toggle');
-  const configModal = document.getElementById('demo-config-modal');
-  const openConfigBtn = document.getElementById('demo-open-config');
-  const closeConfigBtn = document.getElementById('demo-close-config');
-  const saveConfigBtn = document.getElementById('demo-save-config');
-  const resetConfigBtn = document.getElementById('demo-reset-config');
 
   function setStatus(message) {
     if (!statusEl) return;
@@ -120,7 +110,7 @@
           ? 'PRONTO · [ MUDO ATIVO ]'
           : 'PRONTO · C++ WIN32 NATIVO';
       }
-    }, 3200);
+    }, 2800);
   }
 
   function updateVolumeUI() {
@@ -141,27 +131,6 @@
     if (volumeSliderEl && document.activeElement !== volumeSliderEl) {
       volumeSliderEl.value = state.volume;
     }
-  }
-
-  function updateSlotKeys() {
-    state.slots.forEach((slot, index) => {
-      const keyEl = document.getElementById(`key-app-${index + 1}`);
-      if (!keyEl) return;
-
-      const badgeEl = keyEl.querySelector('.key-badge');
-      const glyphEl = keyEl.querySelector('.key-glyph');
-      const labelEl = keyEl.querySelector('.key-label');
-
-      const isWeb = slot.path.startsWith('http://') || slot.path.startsWith('https://');
-      const slotType = isWeb ? 'WEB' : 'APP';
-
-      if (badgeEl) badgeEl.textContent = `0${index + 1} · ${slotType}`;
-      if (glyphEl) {
-        glyphEl.innerHTML = isWeb ? SVG_ICONS.web : SVG_ICONS.app;
-        glyphEl.className = `key-glyph key-icon ${isWeb ? 'glyph-web' : 'glyph-app'}`;
-      }
-      if (labelEl) labelEl.textContent = (slot.name || 'SEM NOME').toUpperCase();
-    });
   }
 
   // Simulator Actions
@@ -196,22 +165,10 @@
     setStatus(direction === 'next' ? 'Comando enviado: Próxima faixa »' : 'Comando enviado: « Faixa anterior');
   }
 
-  function launchSlot(index) {
-    const slot = state.slots[index];
-    if (!slot || !slot.path) {
-      setStatus(`Atalho ${index + 1} não configurado.`);
-      return;
-    }
+  function launchApp(name, target, isWeb) {
     playKeySound('launch');
-
-    const isWeb = slot.path.startsWith('http://') || slot.path.startsWith('https://');
-    if (isWeb) {
-      setStatus(`Abrindo navegador padrão: ${slot.name}`);
-      showToast(`Abrindo link no navegador: ${slot.path}`, 'web');
-    } else {
-      setStatus(`Iniciando aplicativo: ${slot.name}`);
-      showToast(`Executando: ${slot.path}`, 'app');
-    }
+    setStatus(isWeb ? `Abrindo navegador padrão: ${name}` : `Iniciando aplicativo: ${name}`);
+    showToast(isWeb ? `Abrindo: ${target}` : `Executando: ${target}`, isWeb ? 'web' : 'app');
   }
 
   // Interactive Mini Toast inside Demo
@@ -229,27 +186,7 @@
     toast.classList.add('visible');
     setTimeout(() => {
       toast.classList.remove('visible');
-    }, 2400);
-  }
-
-  function populateConfigInputs() {
-    state.slots.forEach((slot, index) => {
-      const nameInput = document.getElementById(`config-name-${index + 1}`);
-      const pathInput = document.getElementById(`config-path-${index + 1}`);
-      if (nameInput) nameInput.value = slot.name;
-      if (pathInput) pathInput.value = slot.path;
-    });
-  }
-
-  function saveConfigFromInputs() {
-    state.slots.forEach((slot, index) => {
-      const nameInput = document.getElementById(`config-name-${index + 1}`);
-      const pathInput = document.getElementById(`config-path-${index + 1}`);
-      if (nameInput && pathInput) {
-        slot.name = nameInput.value.trim() || `Atalho ${index + 1}`;
-        slot.path = pathInput.value.trim() || '';
-      }
-    });
+    }, 2200);
   }
 
   // --- Setup Simulator Listeners ---
@@ -266,13 +203,13 @@
     if (prevBtn) prevBtn.addEventListener('click', () => triggerMediaSkip('prev'));
     if (nextBtn) nextBtn.addEventListener('click', () => triggerMediaSkip('next'));
 
-    // Slots 1, 2, 3
+    // Slots
     const slot1Btn = document.getElementById('key-app-1');
     const slot2Btn = document.getElementById('key-app-2');
     const slot3Btn = document.getElementById('key-app-3');
-    if (slot1Btn) slot1Btn.addEventListener('click', () => launchSlot(0));
-    if (slot2Btn) slot2Btn.addEventListener('click', () => launchSlot(1));
-    if (slot3Btn) slot3Btn.addEventListener('click', () => launchSlot(2));
+    if (slot1Btn) slot1Btn.addEventListener('click', () => launchApp('Bloco de Notas', 'C:\\Windows\\notepad.exe', false));
+    if (slot2Btn) slot2Btn.addEventListener('click', () => launchApp('YouTube', 'https://www.youtube.com', true));
+    if (slot3Btn) slot3Btn.addEventListener('click', () => launchApp('Calculadora', 'calc.exe', false));
 
     // Volume Slider interaction
     if (volumeSliderEl) {
@@ -298,57 +235,41 @@
       });
     }
 
-    // Config Modal in Mockup
-    if (openConfigBtn && configModal) {
-      openConfigBtn.addEventListener('click', () => {
-        playKeySound('click');
-        populateConfigInputs();
-        configModal.classList.add('active');
-        configModal.setAttribute('aria-hidden', 'false');
-      });
-    }
-
-    if (closeConfigBtn && configModal) {
-      closeConfigBtn.addEventListener('click', () => {
-        playKeySound('click');
-        configModal.classList.remove('active');
-        configModal.setAttribute('aria-hidden', 'true');
-      });
-    }
-
-    if (saveConfigBtn && configModal) {
-      saveConfigBtn.addEventListener('click', () => {
-        playKeySound('volume');
-        saveConfigFromInputs();
-        configModal.classList.remove('active');
-        configModal.setAttribute('aria-hidden', 'true');
-        updateSlotKeys();
-        setStatus('Configuração salva com sucesso! Botões atualizados.');
-        showToast('Atalhos salvos em config/apps.cfg', 'app');
-      });
-    }
-
-    if (resetConfigBtn) {
-      resetConfigBtn.addEventListener('click', () => {
-        state.slots = [
-          { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app' },
-          { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web' },
-          { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app' }
-        ];
-        populateConfigInputs();
-        updateSlotKeys();
-        setStatus('Atalhos restaurados para o padrão.');
-      });
-    }
-
     updateVolumeUI();
-    updateSlotKeys();
+  }
+
+  // --- FAQ Accordion ---
+  function initFAQ() {
+    const faqItems = document.querySelectorAll('.faq-item');
+    faqItems.forEach((item) => {
+      const trigger = item.querySelector('.faq-question');
+      if (!trigger) return;
+
+      trigger.addEventListener('click', () => {
+        const isOpen = item.classList.contains('active');
+        faqItems.forEach((other) => {
+          if (other !== item) {
+            other.classList.remove('active');
+            const otherBtn = other.querySelector('.faq-question');
+            if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        item.classList.toggle('active', !isOpen);
+        trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+        playKeySound('click');
+      });
+    });
   }
 
   // Initialize once DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSimulator);
+    document.addEventListener('DOMContentLoaded', () => {
+      initSimulator();
+      initFAQ();
+    });
   } else {
     initSimulator();
+    initFAQ();
   }
 })();

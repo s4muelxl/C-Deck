@@ -26,7 +26,7 @@
     </a>
   </header>
 
-  <!-- Conteúdo Principal: Download, Demonstração e O Essencial -->
+  <!-- Conteúdo Principal: Download, Demonstração, O Essencial e FAQ -->
   <main class="main-container">
     <section class="hero">
       <div class="badge">
@@ -56,7 +56,7 @@
         <span>✓ Windows 10/11 x64</span>
       </div>
 
-      <!-- SIMULADOR INTERATIVO / PAINEL DE DEMONSTRAÇÃO -->
+      <!-- SIMULADOR INTERATIVO SIMPLIFICADO -->
       <div class="product-stage" aria-label="Simulador interativo do C-Deck">
         <div class="stage-glow"></div>
         <div class="app-window">
@@ -74,17 +74,9 @@
             </div>
           </div>
 
-          <!-- Content inside window -->
+          <!-- Content inside window: Clean and Focused -->
           <div class="window-content">
-            <div class="panel-heading">
-              <div>
-                <span class="micro-label">STREAM DECK CONTROLLER</span>
-                <h2>Painel de Controle</h2>
-              </div>
-              <span class="online-state"><i></i> ATIVO</span>
-            </div>
-
-            <!-- Volume Card with interactive range -->
+            <!-- Compact Volume Bar -->
             <div class="volume-card">
               <div class="volume-top">
                 <span>VOLUME DO SISTEMA</span>
@@ -96,18 +88,9 @@
                 </div>
                 <input type="range" class="volume-slider" id="demo-volume-slider" min="0" max="100" value="72" aria-label="Ajustar volume da demonstração">
               </div>
-              <div class="volume-hint">
-                <span>0%</span>
-                <span>Clique nas teclas ou arraste</span>
-                <span>100%</span>
-              </div>
             </div>
 
-            <!-- 3x3 Keypad -->
-            <div class="deck-grid-heading">
-              <span>TECLADO STREAM DECK</span>
-              <span>3x3 KEYS INTERATIVAS</span>
-            </div>
+            <!-- Direct 3x3 Keypad -->
             <div class="deck-grid">
               <!-- Row 1: Audio -->
               <button type="button" class="deck-key" id="key-vol-down" title="Reduzir volume em 5%">
@@ -155,79 +138,38 @@
                 <small class="key-label">PRÓXIMA</small>
               </button>
 
-              <!-- Row 3: Custom Shortcuts -->
-              <button type="button" class="deck-key" id="key-app-1" title="Abrir Slot 1">
+              <!-- Row 3: Direct App Shortcuts -->
+              <button type="button" class="deck-key" id="key-app-1" title="Abrir Bloco de Notas">
                 <b class="key-badge">01 · APP</b>
                 <span class="key-glyph key-icon glyph-app">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
                 </span>
                 <small class="key-label">NOTEPAD</small>
               </button>
-              <button type="button" class="deck-key" id="key-app-2" title="Abrir Slot 2">
+              <button type="button" class="deck-key" id="key-app-2" title="Abrir YouTube">
                 <b class="key-badge">02 · WEB</b>
                 <span class="key-glyph key-icon glyph-web">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </span>
                 <small class="key-label">YOUTUBE</small>
               </button>
-              <button type="button" class="deck-key" id="key-app-3" title="Abrir Slot 3">
+              <button type="button" class="deck-key" id="key-app-3" title="Abrir Calculadora">
                 <b class="key-badge">03 · APP</b>
                 <span class="key-glyph key-icon glyph-app">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
                 </span>
-                <small class="key-label">CALC</small>
+                <small class="key-label">CALCULADORA</small>
               </button>
             </div>
 
-            <!-- Real-time Status feedback -->
+            <!-- Sleek Single-line Status Bar -->
             <div class="window-status" id="demo-status-text" aria-live="polite">
               PRONTO · C++ WIN32 NATIVO
-            </div>
-
-            <!-- Footer -->
-            <div class="window-footer">
-              <span>CORE AUDIO · WIN32</span>
-              <button type="button" class="window-config-btn" id="demo-open-config">⚙ CONFIGURAR</button>
-            </div>
-
-            <!-- In-Mockup Config Modal -->
-            <div class="demo-config-modal" id="demo-config-modal" aria-hidden="true">
-              <div class="config-modal-header">
-                <h3>Configurar Atalhos (config/apps.cfg)</h3>
-                <button type="button" class="config-close-btn" id="demo-close-config" aria-label="Fechar">✕</button>
-              </div>
-              <div class="config-form">
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 01 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-1" placeholder="Nome" value="Notepad">
-                    <input type="text" class="config-input" id="config-path-1" placeholder="Caminho / URL" value="C:\Windows\System32\notepad.exe">
-                  </div>
-                </div>
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 02 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-2" placeholder="Nome" value="YouTube">
-                    <input type="text" class="config-input" id="config-path-2" placeholder="Caminho / URL" value="https://www.youtube.com">
-                  </div>
-                </div>
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 03 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-3" placeholder="Nome" value="Calculadora">
-                    <input type="text" class="config-input" id="config-path-3" placeholder="Caminho / URL" value="calc.exe">
-                  </div>
-                </div>
-              </div>
-              <div class="config-modal-footer">
-                <button type="button" class="config-reset-btn" id="demo-reset-config">Restaurar</button>
-                <button type="button" class="config-save-btn" id="demo-save-config">Salvar Atalhos</button>
-              </div>
             </div>
           </div>
         </div>
         <div class="stage-caption">
-          <span>👆</span> Clique nas teclas ou arraste o volume para testar ao vivo no navegador!
+          <span>👆</span> Clique nas teclas ou no volume para testar a resposta instantânea!
         </div>
       </div>
 
@@ -273,6 +215,56 @@
           </div>
         </div>
       </div>
+
+      <!-- FAQ: Perguntas Frequentes -->
+      <section class="faq-section" id="faq">
+        <div class="faq-heading">
+          <div class="badge">DÚVIDAS FREQUENTES</div>
+          <h2>Perguntas &amp; <span>Respostas</span></h2>
+        </div>
+
+        <div class="faq-list">
+          <div class="faq-item">
+            <button type="button" class="faq-question" aria-expanded="false">
+              <span>Preciso de um Stream Deck físico para usar?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Não! O C-Deck é um painel 100% virtual e nativo para Windows. Você tem controle de volume, comandos multimídia e atalhos diretamente na tela do seu computador ou por teclas de atalho globais no seu teclado comum.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question" aria-expanded="false">
+              <span>Quais programas e sites posso colocar nos atalhos?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Qualquer executável (.exe) instalado no seu computador ou links da web (iniciando com https://). Para programas, o C-Deck detecta e extrai automaticamente o ícone original do arquivo.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question" aria-expanded="false">
+              <span>O que acontece ao fechar ou minimizar a janela?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>O aplicativo minimiza discretamente para a bandeja do sistema (área de notificação próxima ao relógio). Os controles globais de volume e mute continuam funcionando em segundo plano sem atrapalhar sua tela cheia.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question" aria-expanded="false">
+              <span>O C-Deck consome muita memória ou reduz FPS em jogos?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Não. Por ser desenvolvido em C++ puro utilizando as APIs nativas do Windows (Win32 e Core Audio), ele consome apenas cerca de 3 MB de RAM e 0% de CPU em segundo plano, sem navegadores embutidos ou bloatware.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 
