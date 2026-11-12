@@ -10,7 +10,11 @@ static IAudioEndpointVolume *get_endpoint_volume(void) {
  hr=CoCreateInstance(&CLSID_MMDeviceEnumerator,NULL,CLSCTX_ALL,&IID_IMMDeviceEnumerator,(void **)&enumerator); if (FAILED(hr)||!enumerator) return NULL;
  hr=IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator,eRender,eMultimedia,&device);
  if (SUCCEEDED(hr)&&device) hr=IMMDevice_Activate(device,&IID_IAudioEndpointVolume,CLSCTX_ALL,NULL,(void **)&volume);
- if (device) IMMDevice_Release(device); IMMDeviceEnumerator_Release(enumerator); return SUCCEEDED(hr)?volume:NULL;
+ if (device) {
+  IMMDevice_Release(device);
+ }
+ IMMDeviceEnumerator_Release(enumerator);
+ return SUCCEEDED(hr) ? volume : NULL;
 }
 ActionResult action_volume_step(float delta) {
  IAudioEndpointVolume *volume; float current=0.0f; HRESULT hr; if (delta==0.0f) return ACTION_INVALID_ARGUMENT;
