@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <commctrl.h>
 #include <shellapi.h>
+#include <commdlg.h>
 
 #define ID_VOL_UP 1001
 #define ID_VOL_DOWN 1002
@@ -29,6 +30,9 @@
 #define ID_VOLUME_TIMER 1
 #define ID_NAME_BASE 2001
 #define ID_PATH_BASE 2011
+#define ID_APP_BROWSE_BASE 2021
+#define ID_ICON_BASE 2031
+#define ID_ICON_BROWSE_BASE 2041
 #define IDI_APP_ICON 101
 
 static const char CLASS_NAME[] = "CDeckMainWindow";
@@ -189,6 +193,11 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     char label[DECK_TEXT_MAX + 24];
     BOOL pressed = (draw->itemState & ODS_SELECTED) != 0;
     BOOL focused = (draw->itemState & ODS_FOCUS) != 0;
+    int control_id = GetDlgCtrlID(draw->hwndItem);
+    int app_index = control_id >= ID_APP_1 && control_id < ID_APP_1 + DECK_APP_COUNT
+        ? control_id - ID_APP_1 : -1;
+    HICON app_icon = NULL;
+    BOOL owns_icon = FALSE;
     COLORREF fill = pressed ? RGB(48, 54, 64) : RGB(29, 33, 40);
     COLORREF border = focused ? RGB(205, 215, 230) : RGB(55, 62, 73);
     HBRUSH brush = CreateSolidBrush(fill);
@@ -206,12 +215,54 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     DeleteObject(brush);
     DeleteObject(pen);
 
+    if (app_index >= 0 && g_config.apps[app_index].configured) {
+        const DeckApp *app = &g_config.apps[app_index];
+        if (app->icon_path[0]) {
+            app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+            owns_icon = app_icon != NULL;
+        }
+        if (!app_icon && app->path[0]) {
+            SHFILEINFOA info;
+            ZeroMemory(&info, sizeof(info));
+            if (SHGetFileInfoA(app->path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_SMALLICON)) {
+                app_icon = info.hIcon;
+                owns_icon = app_icon != NULL;
+            }
+        }
+        if (app_icon) {
+            int icon_x = rect.left + ((rect.right - rect.left) - 32) / 2;
+            DrawIconEx(dc, icon_x, rect.top + 10, app_icon, 32, 32, 0, NULL, DI_NORMAL);
+            rect.top += 45;
+            if (owns_icon) DestroyIcon(app_icon);
+        }
+    }
+
     DrawTextA(dc, label, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (focused) {
         RECT focus = rect;
         InflateRect(&focus, -7, -7);
         DrawFocusRect(dc, &focus);
     }
+}
+
+static void browse_editor_file(HWND hwnd, int index, int choose_icon) {
+    OPENFILENAMEA dialog;
+    char selected[DECK_TEXT_MAX];
+    char filter[] = choose_icon
+        ? "Icones do Windows (*.ico)\0*.ico\0Todos os arquivos (*.*)\0*.*\0\0"
+        : "Aplicativos (*.exe;*.com;*.bat;*.cmd)\0*.exe;*.com;*.bat;*.cmd\0Todos os arquivos (*.*)\0*.*\0\0";
+    int control_id = choose_icon ? ID_ICON_BASE + index : ID_PATH_BASE + index;
+    ZeroMemory(&dialog, sizeof(dialog));
+    ZeroMemory(selected, sizeof(selected));
+    GetWindowTextA(GetDlgItem(hwnd, control_id), selected, sizeof(selected));
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = hwnd;
+    dialog.lpstrFilter = filter;
+    dialog.lpstrFile = selected;
+    dialog.nMaxFile = sizeof(selected);
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    dialog.lpstrTitle = choose_icon ? "Escolher icone do aplicativo" : "Escolher aplicativo";
+    if (GetOpenFileNameA(&dialog)) SetWindowTextA(GetDlgItem(hwnd, control_id), selected);
 }
 
 static void open_editor(HWND owner) {
@@ -222,13 +273,13 @@ static void open_editor(HWND owner) {
         return;
     }
     if (GetWindowRect(owner, &bounds)) {
-        x = bounds.left + ((bounds.right - bounds.left) - 620) / 2;
-        y = bounds.top + ((bounds.bottom - bounds.top) - 430) / 2;
+        x = bounds.left + ((bounds.right - bounds.left) - 900) / 2;
+        y = bounds.top + ((bounds.bottom - bounds.top) - 520) / 2;
     }
     g_editor_window = CreateWindowExA(
         WS_EX_DLGMODALFRAME, EDITOR_CLASS, "C-DECK | Configurar atalhos",
         WS_CAPTION | WS_SYSMENU | WS_POPUP,
-        x, y, 620, 430, owner, NULL, (HINSTANCE)GetWindowLongPtrA(owner, GWLP_HINSTANCE), NULL
+        x, y, 900, 520, owner, NULL, (HINSTANCE)GetWindowLongPtrA(owner, GWLP_HINSTANCE), NULL
     );
     if (!g_editor_window) {
         set_status("Nao foi possivel abrir a configuracao.");
@@ -247,7 +298,9 @@ static void save_editor(HWND hwnd) {
 
     for (int i = 0; i < DECK_APP_COUNT; ++i) {
         GetWindowTextA(GetDlgItem(hwnd, ID_NAME_BASE + i), name, sizeof(name));
+        char icon_path[DECK_TEXT_MAX];
         GetWindowTextA(GetDlgItem(hwnd, ID_PATH_BASE + i), path, sizeof(path));
+        GetWindowTextA(GetDlgItem(hwnd, ID_ICON_BASE + i), icon_path, sizeof(icon_path));
         {
             char *start = name;
             char *end;
@@ -271,6 +324,7 @@ static void save_editor(HWND hwnd) {
         }
         strcpy(candidate.apps[i].name, name);
         strcpy(candidate.apps[i].path, path);
+        strcpy(candidate.apps[i].icon_path, icon_path);
         candidate.apps[i].configured = name[0] != '\0' && path[0] != '\0';
     }
 
@@ -297,36 +351,55 @@ static LRESULT CALLBACK editor_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     switch (message) {
         case WM_CREATE: {
             HINSTANCE instance = ((LPCREATESTRUCTA)lparam)->hInstance;
-            add_editor_control(hwnd, "STATIC", "Configure os nomes e os caminhos dos tres atalhos.",
-                               SS_LEFT, 24, 18, 560, 24, 0, instance);
-            add_editor_control(hwnd, "STATIC", "NOME DO BOTAO", SS_LEFT, 24, 56, 210, 22, 0, instance);
-            add_editor_control(hwnd, "STATIC", "CAMINHO OU COMANDO", SS_LEFT, 250, 56, 340, 22, 0, instance);
+            add_editor_control(hwnd, "STATIC", "Configure os aplicativos. O C-Deck extrai o icone do executavel automaticamente; um arquivo .ico personalizado e opcional.",
+                               SS_LEFT, 24, 18, 840, 24, 0, instance);
+            add_editor_control(hwnd, "STATIC", "NOME", SS_LEFT, 24, 56, 160, 22, 0, instance);
+            add_editor_control(hwnd, "STATIC", "EXECUTAVEL / COMANDO", SS_LEFT, 195, 56, 360, 22, 0, instance);
+            add_editor_control(hwnd, "STATIC", "ICONE PERSONALIZADO (.ICO) — OPCIONAL", SS_LEFT, 572, 56, 300, 22, 0, instance);
             for (int i = 0; i < DECK_APP_COUNT; ++i) {
-                int top = 88 + i * 70;
+                int top = 88 + i * 82;
                 char row_label[32];
+                char browse_label[] = "...";
                 snprintf(row_label, sizeof(row_label), "ATALHO %02d", i + 1);
-                add_editor_control(hwnd, "STATIC", row_label, SS_LEFT, 24, top, 200, 20, 0, instance);
+                add_editor_control(hwnd, "STATIC", row_label, SS_LEFT, 24, top, 160, 20, 0, instance);
                 {
                     HWND name_edit = add_editor_control(hwnd, "EDIT", g_config.apps[i].name,
-                        WS_TABSTOP | ES_AUTOHSCROLL | ES_LEFT | WS_BORDER, 24, top + 23, 210, 30,
+                        WS_TABSTOP | ES_AUTOHSCROLL | ES_LEFT | WS_BORDER, 24, top + 23, 160, 30,
                         ID_NAME_BASE + i, instance);
                     HWND path_edit = add_editor_control(hwnd, "EDIT", g_config.apps[i].path,
-                        WS_TABSTOP | ES_AUTOHSCROLL | ES_LEFT | WS_BORDER, 250, top + 23, 340, 30,
+                        WS_TABSTOP | ES_AUTOHSCROLL | ES_LEFT | WS_BORDER, 195, top + 23, 330, 30,
                         ID_PATH_BASE + i, instance);
+                    HWND path_browse = add_editor_control(hwnd, "BUTTON", browse_label,
+                        WS_TABSTOP | BS_PUSHBUTTON, 530, top + 23, 34, 30, ID_APP_BROWSE_BASE + i, instance);
+                    HWND icon_edit = add_editor_control(hwnd, "EDIT", g_config.apps[i].icon_path,
+                        WS_TABSTOP | ES_AUTOHSCROLL | ES_LEFT | WS_BORDER, 572, top + 23, 245, 30,
+                        ID_ICON_BASE + i, instance);
+                    HWND icon_browse = add_editor_control(hwnd, "BUTTON", browse_label,
+                        WS_TABSTOP | BS_PUSHBUTTON, 822, top + 23, 34, 30, ID_ICON_BROWSE_BASE + i, instance);
                     if (name_edit) SendMessageA(name_edit, EM_SETLIMITTEXT, DECK_TEXT_MAX - 1, 0);
                     if (path_edit) SendMessageA(path_edit, EM_SETLIMITTEXT, DECK_TEXT_MAX - 1, 0);
+                    if (icon_edit) SendMessageA(icon_edit, EM_SETLIMITTEXT, DECK_TEXT_MAX - 1, 0);
+                    (void)path_browse; (void)icon_browse;
                 }
             }
             add_button(hwnd, "SALVAR", ID_SAVE, instance);
             add_button(hwnd, "CANCELAR", ID_CANCEL, instance);
-            MoveWindow(GetDlgItem(hwnd, ID_SAVE), 360, 315, 110, 38, TRUE);
-            MoveWindow(GetDlgItem(hwnd, ID_CANCEL), 480, 315, 110, 38, TRUE);
+            MoveWindow(GetDlgItem(hwnd, ID_SAVE), 640, 365, 100, 38, TRUE);
+            MoveWindow(GetDlgItem(hwnd, ID_CANCEL), 752, 365, 110, 38, TRUE);
             g_editor_status = add_editor_control(hwnd, "STATIC",
-                "Deixe nome e caminho vazios para remover um atalho.",
-                SS_LEFT | SS_CENTERIMAGE, 24, 365, 560, 28, 0, instance);
+                "Deixe nome e executavel vazios para remover um atalho. O icone pode ficar vazio para usar o icone original do app.",
+                SS_LEFT | SS_CENTERIMAGE, 24, 430, 840, 34, 0, instance);
             return 0;
         }
         case WM_COMMAND:
+            if (LOWORD(wparam) >= ID_APP_BROWSE_BASE && LOWORD(wparam) < ID_APP_BROWSE_BASE + DECK_APP_COUNT) {
+                browse_editor_file(hwnd, LOWORD(wparam) - ID_APP_BROWSE_BASE, 0);
+                return 0;
+            }
+            if (LOWORD(wparam) >= ID_ICON_BROWSE_BASE && LOWORD(wparam) < ID_ICON_BROWSE_BASE + DECK_APP_COUNT) {
+                browse_editor_file(hwnd, LOWORD(wparam) - ID_ICON_BROWSE_BASE, 1);
+                return 0;
+            }
             if (LOWORD(wparam) == ID_SAVE) {
                 save_editor(hwnd);
                 return 0;
