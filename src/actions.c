@@ -24,3 +24,17 @@ ActionResult action_volume_step(float delta) {
 }
 ActionResult action_toggle_mute(void) { IAudioEndpointVolume *volume=get_endpoint_volume(); BOOL muted=FALSE; HRESULT hr; if(!volume)return ACTION_AUDIO_UNAVAILABLE; hr=IAudioEndpointVolume_GetMute(volume,&muted); if(SUCCEEDED(hr))hr=IAudioEndpointVolume_SetMute(volume,!muted,NULL); IAudioEndpointVolume_Release(volume); return SUCCEEDED(hr)?ACTION_SUCCESS:ACTION_AUDIO_UNAVAILABLE; }
 ActionResult action_launch_app(const DeckApp *app) { HINSTANCE result; if(!app||!app->configured||!app->path[0])return ACTION_NOT_CONFIGURED; result=ShellExecuteA(NULL,"open",app->path,NULL,NULL,SW_SHOWNORMAL); return (INT_PTR)result>32?ACTION_SUCCESS:ACTION_LAUNCH_FAILED; }
+
+static ActionResult send_media_key(WORD virtual_key) {
+    INPUT inputs[2];
+    ZeroMemory(inputs, sizeof(inputs));
+    inputs[0].type = INPUT_KEYBOARD;
+    inputs[0].ki.wVk = virtual_key;
+    inputs[1].type = INPUT_KEYBOARD;
+    inputs[1].ki.wVk = virtual_key;
+    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    return SendInput(2, inputs, sizeof(INPUT)) == 2 ? ACTION_SUCCESS : ACTION_AUDIO_UNAVAILABLE;
+}
+ActionResult action_media_play_pause(void) { return send_media_key(VK_MEDIA_PLAY_PAUSE); }
+ActionResult action_media_next(void) { return send_media_key(VK_MEDIA_NEXT_TRACK); }
+ActionResult action_media_previous(void) { return send_media_key(VK_MEDIA_PREV_TRACK); }
