@@ -33,6 +33,7 @@
 #define ID_APP_BROWSE_BASE 2021
 #define ID_ICON_BASE 2031
 #define ID_ICON_BROWSE_BASE 2041
+#define ID_HEADER 1080
 #define IDI_APP_ICON 101
 
 static const char CLASS_NAME[] = "CDeckMainWindow";
@@ -49,6 +50,7 @@ static HBRUSH g_background;
 static HBRUSH g_edit_background;
 static HWND g_volume_track;
 static HWND g_volume_label;
+static HWND g_header;
 static NOTIFYICONDATAA g_tray_data;
 static int g_tray_added;
 
@@ -158,32 +160,31 @@ static HWND add_editor_control(HWND parent, const char *class_name, const char *
 
 static void layout_controls(HWND hwnd) {
     RECT area;
-    int width, height, margin = 22, gap = 10, column_width, row_height, status_height = 34, slider_area = 48;
+    int width, height, margin = 34, gap = 16, column_width, row_height;
+    int header_height = 66, volume_height = 54, footer_height = 52;
     GetClientRect(hwnd, &area);
     width = area.right - area.left;
     height = area.bottom - area.top;
-    column_width = (width - (margin * 2) - (gap * 2)) / 3;
-    row_height = (height - (margin * 2) - (gap * 3) - status_height - slider_area - 12) / 3;
+    column_width = (width - margin * 2 - gap * 2) / 3;
+    row_height = (height - margin * 2 - header_height - volume_height - footer_height - gap * 2) / 3;
     if (column_width < 1 || row_height < 1) return;
-
-    if (g_volume_label) MoveWindow(g_volume_label, margin, margin, 132, 28, TRUE);
-    if (g_volume_track) MoveWindow(g_volume_track, margin + 132, margin - 2, width - margin * 2 - 132, 32, TRUE);
-
+    if (g_header) MoveWindow(g_header, margin, 18, width - margin * 2, 42, TRUE);
+    if (g_volume_label) MoveWindow(g_volume_label, margin + 4, margin + header_height, 120, 34, TRUE);
+    if (g_volume_track) MoveWindow(g_volume_track, margin + 132, margin + header_height + 1, width - margin * 2 - 136, 32, TRUE);
     for (int i = 0; i < 3; ++i) {
         int x = margin + i * (column_width + gap);
+        int top1 = margin + header_height + volume_height;
         HWND audio_button = GetDlgItem(hwnd, ID_VOL_UP + i);
         HWND media_button = GetDlgItem(hwnd, ID_MEDIA_PLAY + i);
         HWND app_button = GetDlgItem(hwnd, ID_APP_1 + i);
-        if (audio_button) MoveWindow(audio_button, x, margin + slider_area, column_width, row_height, TRUE);
-        if (media_button) MoveWindow(media_button, x, margin + slider_area + row_height + gap, column_width, row_height, TRUE);
-        if (app_button) MoveWindow(app_button, x, margin + slider_area + (row_height + gap) * 2, column_width, row_height, TRUE);
+        if (audio_button) MoveWindow(audio_button, x, top1, column_width, row_height, TRUE);
+        if (media_button) MoveWindow(media_button, x, top1 + row_height + gap, column_width, row_height, TRUE);
+        if (app_button) MoveWindow(app_button, x, top1 + (row_height + gap) * 2, column_width, row_height, TRUE);
     }
-    if (g_status) MoveWindow(g_status, margin, height - margin - status_height,
-                             width - margin * 2 - 150 - gap, status_height, TRUE);
+    if (g_status) MoveWindow(g_status, margin + 2, height - margin - footer_height + 4, width - margin * 2 - 190 - gap, footer_height - 8, TRUE);
     {
         HWND settings = GetDlgItem(hwnd, ID_SETTINGS);
-        if (settings) MoveWindow(settings, width - margin - 150, height - margin - status_height,
-                                  150, status_height, TRUE);
+        if (settings) MoveWindow(settings, width - margin - 190, height - margin - footer_height, 190, footer_height - 4, TRUE);
     }
 }
 
@@ -198,8 +199,8 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
         ? control_id - ID_APP_1 : -1;
     HICON app_icon = NULL;
     BOOL owns_icon = FALSE;
-    COLORREF fill = pressed ? RGB(48, 54, 64) : RGB(29, 33, 40);
-    COLORREF border = focused ? RGB(205, 215, 230) : RGB(55, 62, 73);
+    COLORREF fill = pressed ? RGB(48, 55, 67) : RGB(25, 29, 36);
+    COLORREF border = focused ? RGB(190, 255, 55) : RGB(62, 70, 82);
     HBRUSH brush = CreateSolidBrush(fill);
     HPEN pen = CreatePen(PS_SOLID, 1, border);
     HGDIOBJ old_brush = SelectObject(dc, brush);
@@ -209,19 +210,40 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, (draw->itemState & ODS_DISABLED) ? RGB(120, 126, 136) : RGB(242, 244, 247));
     InflateRect(&rect, -1, -1);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 12, 12);
+    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 18, 18);
     SelectObject(dc, old_brush);
     SelectObject(dc, old_pen);
     DeleteObject(brush);
     DeleteObject(pen);
 
+    if (app_index < 0) {
+        const wchar_t *glyph = L"";
+        HFONT glyph_font = CreateFontW(42, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI Symbol");
+        HGDIOBJ previous_font = SelectObject(dc, glyph_font);
+        RECT glyph_rect = rect;
+        if (control_id == ID_VOL_UP) glyph = L"+";
+        else if (control_id == ID_VOL_DOWN) glyph = L"−";
+        else if (control_id == ID_MUTE) glyph = L"◖";
+        else if (control_id == ID_MEDIA_PLAY) glyph = L"▶";
+        else if (control_id == ID_MEDIA_NEXT) glyph = L"»";
+        else if (control_id == ID_MEDIA_PREVIOUS) glyph = L"«";
+        SetTextColor(dc, RGB(190, 255, 55));
+        glyph_rect.top += 18;
+        glyph_rect.bottom = glyph_rect.top + 58;
+        DrawTextW(dc, glyph, -1, &glyph_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, previous_font);
+        DeleteObject(glyph_font);
+        rect.top = rect.bottom - 42;
+    }
     if (app_index >= 0 && g_config.apps[app_index].configured) {
         const DeckApp *app = &g_config.apps[app_index];
         if (app->icon_path[0]) {
             app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
             owns_icon = app_icon != NULL;
         }
-        if (!app_icon && app->path[0]) {
+        if (!app_icon && app->path[0] && _strnicmp(app->path, "http://", 7) != 0 && _strnicmp(app->path, "https://", 8) != 0) {
             SHFILEINFOA info;
             ZeroMemory(&info, sizeof(info));
             if (SHGetFileInfoA(app->path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_LARGEICON)) {
@@ -231,9 +253,21 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
         }
         if (app_icon) {
             int icon_x = rect.left + ((rect.right - rect.left) - 32) / 2;
-            DrawIconEx(dc, icon_x, rect.top + 10, app_icon, 32, 32, 0, NULL, DI_NORMAL);
-            rect.top += 45;
+            DrawIconEx(dc, icon_x, rect.top + 16, app_icon, 48, 48, 0, NULL, DI_NORMAL);
+            rect.top += 62;
             if (owns_icon) DestroyIcon(app_icon);
+        } else if (_strnicmp(app->path, "http://", 7) == 0 || _strnicmp(app->path, "https://", 8) == 0) {
+            HPEN globe_pen = CreatePen(PS_SOLID, 2, RGB(190, 255, 55));
+            HGDIOBJ previous_pen = SelectObject(dc, globe_pen);
+            HGDIOBJ previous_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+            int cx = (rect.left + rect.right) / 2, cy = rect.top + 38;
+            Ellipse(dc, cx - 22, cy - 22, cx + 22, cy + 22);
+            Arc(dc, cx - 11, cy - 22, cx + 11, cy + 22, cx, cy - 22, cx, cy + 22);
+            MoveToEx(dc, cx - 20, cy, NULL); LineTo(dc, cx + 20, cy);
+            SelectObject(dc, previous_brush);
+            SelectObject(dc, previous_pen);
+            DeleteObject(globe_pen);
+            rect.top += 68;
         }
     }
 
@@ -318,7 +352,7 @@ static void save_editor(HWND hwnd) {
             while (end > path && isspace((unsigned char)end[-1])) *--end = '\0';
         }
         if ((name[0] == '\0') != (path[0] == '\0')) {
-            SetWindowTextA(g_editor_status, "Preencha nome e caminho ou deixe os dois vazios.");
+            SetWindowTextA(g_editor_status, "Preencha nome e destino (executavel ou URL) ou deixe os dois vazios.");
             SetFocus(GetDlgItem(hwnd, ID_NAME_BASE + i));
             return;
         }
@@ -351,10 +385,10 @@ static LRESULT CALLBACK editor_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     switch (message) {
         case WM_CREATE: {
             HINSTANCE instance = ((LPCREATESTRUCTA)lparam)->hInstance;
-            add_editor_control(hwnd, "STATIC", "Configure os aplicativos. O C-Deck extrai o icone do executavel automaticamente; um arquivo .ico personalizado e opcional.",
+            add_editor_control(hwnd, "STATIC", "Configure aplicativos ou sites. Para sites, informe uma URL completa iniciando com https://. O C-Deck abre no navegador padrao.",
                                SS_LEFT, 24, 18, 840, 24, 0, instance);
             add_editor_control(hwnd, "STATIC", "NOME", SS_LEFT, 24, 56, 160, 22, 0, instance);
-            add_editor_control(hwnd, "STATIC", "EXECUTAVEL / COMANDO", SS_LEFT, 195, 56, 360, 22, 0, instance);
+            add_editor_control(hwnd, "STATIC", "EXECUTAVEL OU URL DO SITE", SS_LEFT, 195, 56, 360, 22, 0, instance);
             add_editor_control(hwnd, "STATIC", "ICONE PERSONALIZADO (.ICO) — OPCIONAL", SS_LEFT, 572, 56, 300, 22, 0, instance);
             for (int i = 0; i < DECK_APP_COUNT; ++i) {
                 int top = 88 + i * 82;
@@ -387,7 +421,7 @@ static LRESULT CALLBACK editor_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             MoveWindow(GetDlgItem(hwnd, ID_SAVE), 640, 365, 100, 38, TRUE);
             MoveWindow(GetDlgItem(hwnd, ID_CANCEL), 752, 365, 110, 38, TRUE);
             g_editor_status = add_editor_control(hwnd, "STATIC",
-                "Deixe nome e executavel vazios para remover um atalho. O icone pode ficar vazio para usar o icone original do app.",
+                "Sites: cole a URL completa (https://...). Aplicativos: selecione o .exe. O icone .ico e opcional; vazio usa o icone original.",
                 SS_LEFT | SS_CENTERIMAGE, 24, 430, 840, 34, 0, instance);
             return 0;
         }
@@ -459,6 +493,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 add_button(hwnd, label, ID_APP_1 + i, instance);
             }
             add_button(hwnd, "CONFIGURAR ATALHOS", ID_SETTINGS, instance);
+            g_header = CreateWindowA("STATIC", "C-DECK     /     DESKTOP CONTROL CENTER", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
+                34, 18, 800, 42, hwnd, (HMENU)(INT_PTR)ID_HEADER, instance, NULL);
+            if (g_header && g_status_font) SendMessageA(g_header, WM_SETFONT, (WPARAM)g_status_font, TRUE);
             g_volume_label = CreateWindowA("STATIC", "VOLUME --", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
                 22, 22, 132, 28, hwnd, (HMENU)(INT_PTR)ID_VOLUME_LABEL, instance, NULL);
             g_volume_track = CreateWindowExA(0, TRACKBAR_CLASSA, "",
@@ -496,8 +533,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
         case WM_GETMINMAXINFO: {
             MINMAXINFO *limits = (MINMAXINFO *)lparam;
-            limits->ptMinTrackSize.x = 560;
-            limits->ptMinTrackSize.y = 470;
+            limits->ptMinTrackSize.x = 820;
+            limits->ptMinTrackSize.y = 680;
             return 0;
         }
         case WM_DRAWITEM:
@@ -575,7 +612,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 case ID_APP_1 + 1:
                 case ID_APP_1 + 2: {
                     int index = LOWORD(wparam) - ID_APP_1;
-                    report_result(action_launch_app(&g_config.apps[index]), "Aplicativo iniciado.");
+                    report_result(action_launch_app(&g_config.apps[index]), "Atalho aberto com sucesso.");
                     break;
                 }
                 case ID_SETTINGS:
@@ -624,10 +661,10 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
         controls.dwICC = ICC_BAR_CLASSES;
         InitCommonControlsEx(&controls);
     }
-    g_button_font = CreateFontA(18, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+    g_button_font = CreateFontA(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-    g_status_font = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    g_status_font = CreateFontA(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
     g_background = CreateSolidBrush(RGB(14, 16, 20));
@@ -658,7 +695,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     hwnd = CreateWindowExA(
         0, CLASS_NAME, "C-DECK | Painel de atalhos",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 700, 540,
+        CW_USEDEFAULT, CW_USEDEFAULT, 1000, 780,
         NULL, NULL, instance, NULL
     );
     if (!hwnd) return 1;
