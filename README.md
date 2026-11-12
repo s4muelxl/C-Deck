@@ -4,6 +4,10 @@
 
 O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma pequena janela desktop. A página em `web/` é apenas a apresentação do projeto; as ações do computador são executadas pelo aplicativo Windows.
 
+## Identidade visual
+
+O projeto usa duas versões oficiais da marca: o símbolo C geométrico para ícones do Windows e a assinatura horizontal C-Deck para o site e materiais. Os arquivos vetoriais ficam em `web/assets/`; `brand/build-icon.ps1` gera o `.ico` usado como recurso embutido no executável e no instalador.
+
 ## Recursos
 
 - Aumentar e diminuir o volume principal em passos de 5%, ou ajustar diretamente em um controle deslizante com percentual atualizado.
