@@ -153,3 +153,15 @@ a{color:inherit}
  .app-shortcuts>div{height:76px}
  .app-shortcuts small{font-size:7px}
 }
+
+
+/* Mobile: hide the decorative C-Deck mark inside the demo window only.
+   Keep the real site header and footer branding visible. */
+@media (max-width: 600px) {
+  .app-window .window-brand .mini-mark {
+    display: none;
+  }
+  .app-window .window-brand {
+    gap: 0;
+  }
+}
