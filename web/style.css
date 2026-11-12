@@ -81,3 +81,63 @@ a{color:inherit}
 @media(max-width:850px){.hero{grid-template-columns:1fr;padding-top:65px;gap:25px}.hero-copy{max-width:650px}.product-stage{min-height:410px}.feature-grid{grid-template-columns:repeat(2,1fr)}.section-heading{align-items:start;flex-direction:column}.how{gap:8%}}
 @media(max-width:600px){.site-header{height:66px;padding:0 20px}.hero{padding:58px 22px 52px;gap:12px}.hero h1{font-size:clamp(54px,14vw,72px)}.hero-description{font-size:14px}.hero-actions{flex-direction:column;align-items:stretch}.button{width:100%}.product-stage{min-height:370px;margin-top:12px}.app-window{transform:none}.window-content{padding:16px}.features{padding:62px 20px}.section-heading h2,.how-copy h2{font-size:42px}.feature-grid{grid-template-columns:1fr 1fr;gap:8px}.feature-card{min-height:180px;padding:15px 13px}.feature-card h3{font-size:12px}.feature-card p{font-size:10px}.how{padding:65px 22px;grid-template-columns:1fr;gap:30px}.download{margin:0 12px 42px;padding:48px 18px}.download h2{font-size:43px}.site-footer{padding:22px 20px;flex-wrap:wrap}.site-footer>span{order:3;width:100%}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
+
+
+/* Responsive hardening for the illustrative desktop panel */
+.product-stage,
+.app-window,
+.window-content {
+  min-width: 0;
+}
+.app-window {
+  width: min(410px, 100%);
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .product-stage {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 2px 22px;
+    overflow: hidden;
+    justify-items: center;
+  }
+  .app-window {
+    width: 100%;
+    max-width: 410px;
+    min-width: 0;
+    transform: none;
+    border-radius: 12px;
+  }
+  .window-content {
+    width: 100%;
+    padding: clamp(12px, 4vw, 16px);
+  }
+  .panel-heading {
+    min-width: 0;
+    gap: 10px;
+  }
+  .panel-heading h2 {
+    font-size: clamp(18px, 5.4vw, 22px);
+  }
+  .online-state {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .app-shortcuts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(6px, 2vw, 9px);
+  }
+  .app-shortcuts > div {
+    min-width: 0;
+  }
+  .app-shortcuts small {
+    max-width: 100%;
+    font-size: clamp(7px, 2vw, 8px);
+    white-space: nowrap;
+  }
+  .stage-caption {
+    bottom: 0;
+    padding: 0 8px;
+  }
+}

@@ -1,5 +1,5 @@
 #define AppName "C-Deck"
-#define AppVersion "1.3.0"
+#define AppVersion "1.3.1"
 #define AppPublisher "C-Deck"
 #define AppExeName "C-Deck.exe"
 
@@ -21,6 +21,10 @@ UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; Use Windows Restart Manager to close C-Deck before replacing its executable.
+CloseApplications=yes
+CloseApplicationsFilter=*.exe
+RestartApplications=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
