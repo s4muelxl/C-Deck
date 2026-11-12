@@ -43,8 +43,6 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 4. Opcionalmente, selecione um arquivo `.ico` personalizado. Se deixar esse campo vazio, o C-Deck extrai e exibe o ícone do próprio executável.
 5. Para remover um atalho, deixe nome e executável vazios.
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
-4. Para remover um atalho, deixe os dois campos correspondentes vazios.
-5. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
 O programa grava as alterações em `config/apps.cfg`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
