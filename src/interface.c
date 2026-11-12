@@ -63,6 +63,7 @@ static void layout_controls(HWND hwnd) {
 static void draw_button(const DRAWITEMSTRUCT *draw) {
     HDC dc = draw->hDC;
     RECT rect = draw->rcItem;
+    char label[DECK_TEXT_MAX + 16];
     BOOL pressed = (draw->itemState & ODS_SELECTED) != 0;
     BOOL focused = (draw->itemState & ODS_FOCUS) != 0;
     COLORREF fill = pressed ? RGB(48, 54, 64) : RGB(29, 33, 40);
@@ -71,8 +72,10 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     HPEN pen = CreatePen(PS_SOLID, 1, border);
     HGDIOBJ old_brush = SelectObject(dc, brush);
     HGDIOBJ old_pen = SelectObject(dc, pen);
+
+    GetWindowTextA(draw->hwndItem, label, (int)sizeof(label));
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, RGB(242, 244, 247));
+    SetTextColor(dc, (draw->itemState & ODS_DISABLED) ? RGB(120, 126, 136) : RGB(242, 244, 247));
     InflateRect(&rect, -1, -1);
     RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 12, 12);
     SelectObject(dc, old_brush);
@@ -80,8 +83,7 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     DeleteObject(brush);
     DeleteObject(pen);
 
-    if (draw->itemState & ODS_DISABLED) SetTextColor(dc, RGB(120, 126, 136));
-    DrawTextA(dc, (const char *)draw->itemData, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    DrawTextA(dc, label, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (focused) {
         RECT focus = rect;
         InflateRect(&focus, -7, -7);
