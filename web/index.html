@@ -135,51 +135,69 @@
               <!-- Row 1: Audio -->
               <button type="button" class="deck-key" id="key-vol-down" title="Reduzir volume em 5%">
                 <b class="key-badge">ÁUDIO · −5%</b>
-                <span class="key-glyph">−</span>
+                <span class="key-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                </span>
                 <small class="key-label">VOL −</small>
               </button>
               <button type="button" class="deck-key" id="key-mute" title="Silenciar / Ativar áudio">
                 <b class="key-badge">ÁUDIO · MUTE</b>
-                <span class="key-glyph">◖</span>
+                <span class="key-glyph" id="mute-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                </span>
                 <small class="key-label">MUTE</small>
               </button>
               <button type="button" class="deck-key" id="key-vol-up" title="Aumentar volume em 5%">
                 <b class="key-badge">ÁUDIO · +5%</b>
-                <span class="key-glyph">＋</span>
+                <span class="key-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
                 <small class="key-label">VOL ＋</small>
               </button>
 
               <!-- Row 2: Media -->
               <button type="button" class="deck-key" id="key-prev" title="Faixa anterior">
                 <b class="key-badge">MÍDIA · ANTERIOR</b>
-                <span class="key-glyph">«</span>
+                <span class="key-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </span>
                 <small class="key-label">ANTERIOR</small>
               </button>
               <button type="button" class="deck-key" id="key-play" title="Play / Pause">
                 <b class="key-badge">MÍDIA · CONTROLE</b>
-                <span class="key-glyph" id="play-glyph">▶</span>
+                <span class="key-glyph" id="play-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </span>
                 <small class="key-label" id="play-label">PLAY / PAUSE</small>
               </button>
               <button type="button" class="deck-key" id="key-next" title="Próxima faixa">
                 <b class="key-badge">MÍDIA · PRÓXIMA</b>
-                <span class="key-glyph">»</span>
+                <span class="key-glyph">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </span>
                 <small class="key-label">PRÓXIMA</small>
               </button>
 
               <!-- Row 3: Custom Shortcuts -->
               <button type="button" class="deck-key" id="key-app-1" title="Abrir Slot 1">
                 <b class="key-badge">01 · APP</b>
-                <span class="key-glyph key-icon glyph-app">▣</span>
+                <span class="key-glyph key-icon glyph-app">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
+                </span>
                 <small class="key-label">NOTEPAD</small>
               </button>
               <button type="button" class="deck-key" id="key-app-2" title="Abrir Slot 2">
                 <b class="key-badge">02 · WEB</b>
-                <span class="key-glyph key-icon glyph-web">↗</span>
+                <span class="key-glyph key-icon glyph-web">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </span>
                 <small class="key-label">YOUTUBE</small>
               </button>
               <button type="button" class="deck-key" id="key-app-3" title="Abrir Slot 3">
                 <b class="key-badge">03 · APP</b>
-                <span class="key-glyph key-icon glyph-app">▣</span>
+                <span class="key-glyph key-icon glyph-app">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
+                </span>
                 <small class="key-label">CALC</small>
               </button>
             </div>
@@ -245,37 +263,49 @@
       </div>
       <div class="feature-grid">
         <article class="feature-card">
-          <div class="feature-icon-wrap">◖</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </div>
           <h3>Controle de áudio preciso</h3>
           <p>Aumente e reduza o volume principal em passos de 5%, use a barra deslizante suave ou silencie com apenas um clique.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon-wrap">♫</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
           <h3>Comandos multimídia globais</h3>
           <p>Pause, toque ou avance faixas no Spotify, YouTube, Deezer e reprodutores de mídia padrão do Windows sem sair da sua tela.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon-wrap">▦</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
+          </div>
           <h3>Atalhos para aplicativos</h3>
           <p>Configure seus jogos ou softwares favoritos. O C-Deck extrai automaticamente o ícone original do arquivo .exe ou permite usar seu próprio .ico.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon-wrap">↗</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
           <h3>Atalhos para sites web</h3>
           <p>Insira links https:// ou http:// e abra suas páginas favoritas no seu navegador padrão com ícone de globo automático.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon-wrap">⌘</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+          </div>
           <h3>Atalhos globais de teclado</h3>
           <p>Ajuste o som e ative o mudo com combinações rápidas mesmo durante jogos em tela cheia ou gravações sem precisar trocar de janela.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon-wrap">▼</div>
+          <div class="feature-icon-wrap">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h4l2 3h6l2-3h4"/></svg>
+          </div>
           <h3>Minimização para a bandeja</h3>
           <p>Fechar ou minimizar envia o C-Deck diretamente para a bandeja do sistema (próximo ao relógio). Mantenha atalhos ativos com consumo nulo.</p>
         </article>

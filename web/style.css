@@ -628,11 +628,20 @@ a {
 }
 
 .deck-key .key-glyph {
-  font-size: 19px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   color: var(--accent);
   line-height: 1;
   transition: color 0.15s;
+}
+
+.deck-key .key-glyph svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .deck-key .key-glyph.glyph-web {
@@ -942,11 +951,17 @@ a {
   border-radius: var(--radius-sm);
   background: #181d24;
   border: 1px solid #2b3340;
-  display: grid;
-  place-items: center;
-  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--accent);
   margin-bottom: 18px;
+}
+
+.feature-icon-wrap svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .feature-card h3 {
@@ -1647,8 +1662,9 @@ kbd {
   .deck-key .key-badge {
     font-size: 6.5px;
   }
-  .deck-key .key-glyph {
-    font-size: 16px;
+  .deck-key .key-glyph svg {
+    width: 16px;
+    height: 16px;
   }
   .deck-key .key-label {
     font-size: 7px;

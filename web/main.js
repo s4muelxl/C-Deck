@@ -6,6 +6,14 @@
 (function () {
   'use strict';
 
+  // --- SVG Icon Templates (Guarantees crisp vector icons without iOS/Android emoji replacement) ---
+  const SVG_ICONS = {
+    play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
+    app: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>',
+    web: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+  };
+
   // --- Web Audio Context for Subtle Haptic Sound ---
   let audioCtx = null;
   let soundEnabled = true;
@@ -65,7 +73,7 @@
       osc.connect(gain);
       gain.connect(audioCtx.destination);
     } catch (e) {
-      // AudioContext unavailable or blocked by autoplay policy
+      // AudioContext unavailable or blocked
     }
   }
 
@@ -76,9 +84,9 @@
     playing: false,
     statusTimer: null,
     slots: [
-      { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app', glyph: '▣' },
-      { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web', glyph: '↗' },
-      { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app', glyph: '▣' }
+      { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app' },
+      { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web' },
+      { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app' }
     ]
   };
 
@@ -146,11 +154,10 @@
 
       const isWeb = slot.path.startsWith('http://') || slot.path.startsWith('https://');
       const slotType = isWeb ? 'WEB' : 'APP';
-      const slotGlyph = isWeb ? '↗' : '▣';
 
       if (badgeEl) badgeEl.textContent = `0${index + 1} · ${slotType}`;
       if (glyphEl) {
-        glyphEl.textContent = slotGlyph;
+        glyphEl.innerHTML = isWeb ? SVG_ICONS.web : SVG_ICONS.app;
         glyphEl.className = `key-glyph key-icon ${isWeb ? 'glyph-web' : 'glyph-app'}`;
       }
       if (labelEl) labelEl.textContent = (slot.name || 'SEM NOME').toUpperCase();
@@ -178,7 +185,7 @@
   function togglePlayPause() {
     playKeySound('media');
     state.playing = !state.playing;
-    if (playGlyph) playGlyph.textContent = state.playing ? '⏸' : '▶';
+    if (playGlyph) playGlyph.innerHTML = state.playing ? SVG_ICONS.pause : SVG_ICONS.play;
     if (playLabel) playLabel.textContent = state.playing ? 'PAUSAR' : 'PLAY / PAUSE';
     if (playBtn) playBtn.classList.toggle('key-active-media', state.playing);
     setStatus(state.playing ? 'Comando enviado: Reproduzir faixa' : 'Comando enviado: Pausar reprodução');
@@ -199,11 +206,10 @@
 
     const isWeb = slot.path.startsWith('http://') || slot.path.startsWith('https://');
     if (isWeb) {
-      setStatus(`Abrindo navegador padrão: ${slot.name} (${slot.path})`);
-      // Provide simulated user feedback with visual toast
+      setStatus(`Abrindo navegador padrão: ${slot.name}`);
       showToast(`Abrindo link no navegador: ${slot.path}`, 'web');
     } else {
-      setStatus(`Iniciando aplicativo: ${slot.name} (${slot.path})`);
+      setStatus(`Iniciando aplicativo: ${slot.name}`);
       showToast(`Executando: ${slot.path}`, 'app');
     }
   }
@@ -305,9 +311,9 @@
     if (resetConfigBtn) {
       resetConfigBtn.addEventListener('click', () => {
         state.slots = [
-          { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app', glyph: '▣' },
-          { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web', glyph: '↗' },
-          { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app', glyph: '▣' }
+          { name: 'NOTEPAD', path: 'C:\\Windows\\System32\\notepad.exe', type: 'app' },
+          { name: 'YOUTUBE', path: 'https://www.youtube.com', type: 'web' },
+          { name: 'CALC', path: 'C:\\Windows\\System32\\calc.exe', type: 'app' }
         ];
         populateConfigInputs();
         updateSlotKeys();
@@ -348,7 +354,6 @@
 
       trigger.addEventListener('click', () => {
         const isOpen = item.classList.contains('active');
-        // Close other items for single accordion behavior
         faqItems.forEach((other) => {
           if (other !== item) {
             other.classList.remove('active');
@@ -384,7 +389,6 @@
             btn.classList.remove('copied');
           }, 2200);
         }).catch(() => {
-          // Fallback if clipboard API restricted
           const temp = document.createElement('textarea');
           temp.value = textToCopy;
           document.body.appendChild(temp);
@@ -425,7 +429,6 @@
         playKeySound('click');
       });
 
-      // Close mobile menu on click link
       navLinks.querySelectorAll('a').forEach((link) => {
         link.addEventListener('click', () => {
           mobileToggle.setAttribute('aria-expanded', 'false');
