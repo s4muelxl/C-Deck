@@ -71,7 +71,7 @@ int main(void) {
     assert(loaded.apps[0].configured == 1);
     assert(strcmp(loaded.apps[0].name, "Editor") == 0);
     assert(strcmp(loaded.apps[0].path, "notepad.exe") == 0);
-    assert(loaded.apps[0].icon_path[0] == '\0');
+    assert(strcmp(loaded.apps[0].icon_path, "C:\\Icons\\editor.ico") == 0);
     assert(loaded.apps[1].configured == 1);
     assert(strcmp(loaded.apps[1].name, "Calculadora") == 0);
     assert(loaded.apps[2].configured == 0);
