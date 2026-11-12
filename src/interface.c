@@ -33,6 +33,7 @@
 #define ID_APP_BROWSE_BASE 2021
 #define ID_ICON_BASE 2031
 #define ID_ICON_BROWSE_BASE 2041
+#define ID_HEADER 1080
 #define IDI_APP_ICON 101
 
 static const char CLASS_NAME[] = "CDeckMainWindow";
@@ -49,6 +50,7 @@ static HBRUSH g_background;
 static HBRUSH g_edit_background;
 static HWND g_volume_track;
 static HWND g_volume_label;
+static HWND g_header;
 static NOTIFYICONDATAA g_tray_data;
 static int g_tray_added;
 
