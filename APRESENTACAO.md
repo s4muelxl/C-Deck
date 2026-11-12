@@ -19,6 +19,7 @@ Atualmente, o C-DECK oferece estas funções:
 - Aumenta o volume principal do Windows em passos de 5%.
 - Diminui o volume principal em passos de 5%.
 - Liga ou desliga o mudo do dispositivo de reprodução padrão.
+- Envia comandos de play/pause, próxima faixa e faixa anterior para o Windows.
 - Abre até três aplicativos configurados pelo usuário.
 - Permite alterar os nomes e caminhos dos atalhos pela própria interface.
 - Salva as configurações em `config/apps.cfg`.
@@ -55,6 +56,10 @@ O programa acessa o dispositivo de reprodução padrão do Windows usando as int
 ### Botão de mudo
 
 O programa consulta se o dispositivo está silenciado. Em seguida, inverte esse estado: se estava no mudo, ativa o áudio; se estava com áudio, silencia.
+
+### Controles de mídia
+
+Os três botões enviam ao Windows os comandos multimídia padrão do teclado: play/pause, próxima faixa e faixa anterior. O aplicativo de música ou vídeo que estiver preparado para receber esses comandos decide como executá-los.
 
 ### Abertura de aplicativos
 
@@ -102,7 +107,7 @@ O fluxo de integração contínua do GitHub Actions compila o aplicativo, execut
 
 ## 10. Limitações e possíveis melhorias
 
-Esta versão possui três atalhos configuráveis e controla o áudio do dispositivo de reprodução padrão, com alterações de volume em passos fixos de 5%.
+Esta versão possui três atalhos configuráveis, controla o áudio do dispositivo de reprodução padrão e envia três comandos multimídia globais. O volume muda em passos fixos de 5%.
 
 Ainda não há macros, perfis, plugins, controle de volume por aplicativo ou integração com um Stream Deck físico. Como próximas melhorias, seria possível adicionar mais botões, perfis de configuração, ações personalizadas e controles de mídia.
 
