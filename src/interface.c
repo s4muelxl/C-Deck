@@ -214,6 +214,27 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
     DeleteObject(brush);
     DeleteObject(pen);
 
+    if (app_index < 0) {
+        const wchar_t *glyph = L"";
+        HFONT glyph_font = CreateFontW(42, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI Symbol");
+        HGDIOBJ previous_font = SelectObject(dc, glyph_font);
+        RECT glyph_rect = rect;
+        if (control_id == ID_VOL_UP) glyph = L"+";
+        else if (control_id == ID_VOL_DOWN) glyph = L"−";
+        else if (control_id == ID_MUTE) glyph = L"◖";
+        else if (control_id == ID_MEDIA_PLAY) glyph = L"▶";
+        else if (control_id == ID_MEDIA_NEXT) glyph = L"»";
+        else if (control_id == ID_MEDIA_PREVIOUS) glyph = L"«";
+        SetTextColor(dc, RGB(190, 255, 55));
+        glyph_rect.top += 18;
+        glyph_rect.bottom = glyph_rect.top + 58;
+        DrawTextW(dc, glyph, -1, &glyph_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, previous_font);
+        DeleteObject(glyph_font);
+        rect.top = rect.bottom - 42;
+    }
     if (app_index >= 0 && g_config.apps[app_index].configured) {
         const DeckApp *app = &g_config.apps[app_index];
         if (app->icon_path[0]) {
