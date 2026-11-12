@@ -5,7 +5,7 @@ if (-not (Get-Command windres -ErrorAction SilentlyContinue)) { throw "windres n
 
 & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
 if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar o icone oficial." }
-$resource = 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n"
+$resource = '#define IDI_APP_ICON 101' + "`r`n" + 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n"
 Set-Content -Path "build/cdeck.rc" -Value $resource -Encoding Ascii
 windres build/cdeck.rc build/cdeck-res.o
 if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar o recurso de icone." }
