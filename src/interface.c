@@ -64,8 +64,8 @@ static void update_volume_ui(void) {
     }
 }
 
-static void add_tray_icon(HWND hwnd) {
-    if (g_tray_added) return;
+static int add_tray_icon(HWND hwnd) {
+    if (g_tray_added) return 1;
     ZeroMemory(&g_tray_data, sizeof(g_tray_data));
     g_tray_data.cbSize = sizeof(g_tray_data);
     g_tray_data.hWnd = hwnd;
@@ -75,6 +75,7 @@ static void add_tray_icon(HWND hwnd) {
     g_tray_data.hIcon = LoadIconA(NULL, IDI_APPLICATION);
     lstrcpynA(g_tray_data.szTip, "C-Deck - controles rápidos", (int)sizeof(g_tray_data.szTip));
     g_tray_added = Shell_NotifyIconA(NIM_ADD, &g_tray_data) ? 1 : 0;
+    return g_tray_added;
 }
 
 static void remove_tray_icon(void) {
@@ -93,6 +94,7 @@ static void show_tray_menu(HWND hwnd) {
         UINT command;
         GetCursorPos(&point);
         command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, point.x, point.y, 0, hwnd, NULL);
+        PostMessageA(hwnd, WM_NULL, 0, 0);
         if (command) SendMessageA(hwnd, WM_COMMAND, command, 0);
     }
     DestroyMenu(menu);
@@ -400,15 +402,19 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             layout_controls(hwnd);
             update_volume_ui();
             SetTimer(hwnd, ID_VOLUME_TIMER, 750, NULL);
-            RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
-            RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
-            RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
+            {
+                int hotkeys_ok = 1;
+                if (!RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP)) hotkeys_ok = 0;
+                if (!RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN)) hotkeys_ok = 0;
+                if (!RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M')) hotkeys_ok = 0;
+                if (!hotkeys_ok) set_status("Algum atalho global ja esta em uso por outro programa.");
+            }
             return 0;
         }
         case WM_SIZE:
             if (wparam == SIZE_MINIMIZED) {
-                add_tray_icon(hwnd);
-                ShowWindow(hwnd, SW_HIDE);
+                if (add_tray_icon(hwnd)) ShowWindow(hwnd, SW_HIDE);
+                else { ShowWindow(hwnd, SW_RESTORE); set_status("Nao foi possivel criar o icone da bandeja."); }
                 return 0;
             }
             layout_controls(hwnd);
@@ -442,7 +448,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             }
             return 0;
         case WM_TIMER:
-            if (wparam == ID_VOLUME_TIMER) update_volume_ui();
+            if (wparam == ID_VOLUME_TIMER && GetCapture() != g_volume_track) update_volume_ui();
             return 0;
         case WM_HOTKEY:
             if (wparam == ID_HOTKEY_UP) report_result(action_volume_step(0.05f), "Volume aumentado em 5%.");
@@ -503,9 +509,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             }
             return 0;
         case WM_CLOSE:
-            add_tray_icon(hwnd);
-            ShowWindow(hwnd, SW_HIDE);
-            set_status("C-Deck continua ativo na bandeja do Windows.");
+            if (add_tray_icon(hwnd)) {
+                ShowWindow(hwnd, SW_HIDE);
+            } else {
+                set_status("Nao foi possivel minimizar para a bandeja.");
+                MessageBoxA(hwnd, "O Windows nao permitiu criar o icone da bandeja. O C-Deck continuara aberto.", "C-Deck", MB_OK | MB_ICONWARNING);
+            }
             return 0;
         case WM_DESTROY:
             KillTimer(hwnd, ID_VOLUME_TIMER);
