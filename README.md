@@ -8,6 +8,7 @@ O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma p
 
 - Aumentar e diminuir o volume principal em passos de 5%.
 - Alternar o mute do dispositivo de reprodução padrão.
+- Enviar comandos de play/pause, próxima faixa e faixa anterior aos controles de mídia do Windows.
 - Abrir até três aplicativos definidos pelo usuário.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
@@ -84,6 +85,7 @@ O executável será criado em `build/C-Deck.exe`.
 
 - O áudio é controlado no dispositivo de reprodução padrão do Windows.
 - O volume muda em passos fixos de 5%.
+- Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - São suportados três atalhos configuráveis.
 - Ainda não há macros, perfis, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
