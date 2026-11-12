@@ -4,615 +4,114 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090a0c">
-  <meta name="description" content="C-Deck: Painel de atalhos e controles estilo Stream Deck para Windows em C11 nativo. Volume, mídias e aplicativos com consumo quase zero de memória.">
-  <meta property="og:title" content="C-Deck — Stream Deck Nativo e Ultraleve para Windows">
-  <meta property="og:description" content="Controle volume, comandos multimídia e acesse seus aplicativos favoritos em um teclado virtual desktop estilo Stream Deck. Desenvolvido em C11 puro.">
-  <meta property="og:type" content="website">
-  <title>C-Deck — Stream Deck Nativo e Ultraleve para Windows</title>
+  <meta name="description" content="C-Deck: Stream Deck virtual para Windows desenvolvido em C11. Controle de áudio, comandos multimídia e atalhos para programas e sites.">
+  <title>C-Deck — Stream Deck para Windows</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="assets/cdeck-icon.svg">
   <link rel="stylesheet" href="style.css">
-  <script defer src="main.js"></script>
 </head>
 <body>
-  <!-- HEADER -->
+  <!-- Header minimalista: Marca + GitHub -->
   <header class="site-header">
     <a class="brand" href="#" aria-label="C-Deck início">
       <img class="brand-logo" src="assets/cdeck-wordmark.svg" alt="C-Deck">
     </a>
-
-    <nav aria-label="Navegação principal">
-      <ul class="nav-links">
-        <li><a href="#recursos">Recursos</a></li>
-        <li><a href="#demo">Demonstração</a></li>
-        <li><a href="#desempenho">Desempenho</a></li>
-        <li><a href="#atalhos">Atalhos</a></li>
-        <li><a href="#como-usar">Como Usar</a></li>
-        <li><a href="#faq">FAQ</a></li>
-      </ul>
-    </nav>
-
-    <div class="header-actions">
-      <a class="github-link" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer" aria-label="Repositório no GitHub">
-        <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.07c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.19 3.32 1.55.1-.72.39-1.21.7-1.49-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.61 5.23-5.1 5.51.4.35.75 1.03.75 2.08V22c0 .29.2.64.77.53A11.1 11.1 0 0 0 12 .9Z"/></svg>
-        <span>GitHub</span>
-      </a>
-      <a class="header-download-btn" href="#download">
-        <span>Baixar v1.3.1</span>
-        <span>↓</span>
-      </a>
-      <button class="mobile-toggle" id="mobile-menu-toggle" aria-label="Abrir menu de navegação" aria-expanded="false">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-    </div>
+    <a class="github-button" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer" aria-label="Repositório no GitHub">
+      <svg class="github-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.07c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.19 3.32 1.55.1-.72.39-1.21.7-1.49-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.61 5.23-5.1 5.51.4.35.75 1.03.75 2.08V22c0 .29.2.64.77.53A11.1 11.1 0 0 0 12 .9Z"/></svg>
+      <span>GitHub</span>
+    </a>
   </header>
 
-  <main>
-    <!-- HERO SECTION -->
-    <section class="hero" id="demo">
-      <div class="hero-copy">
-        <div class="eyebrow">
-          <span class="status-dot"></span>
-          PARA WINDOWS 10 / 11
-          <span class="version-tag">VERSÃO 1.3.1</span>
-        </div>
-        <h1>Seu Windows.<br><span>Mais prático e rápido.</span></h1>
-        <p class="hero-description">
-          O C-Deck reúne controle de volume em tempo real, comandos multimídia e atalhos configuráveis para seus programas e sites favoritos em um teclado virtual desktop estilo Stream Deck. Construído em C11 puro: abre instantaneamente e consome apenas ~3 MB de RAM.
-        </p>
-        <div class="hero-actions">
-          <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">
-            Baixar Instalador (.exe) <span>↓</span>
-          </a>
-          <a class="button button-secondary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Portable.zip">
-            Versão Portátil (.zip) <span>📦</span>
-          </a>
-        </div>
-        <div class="hero-badges">
-          <span class="hero-badge-item"><b>✓</b> ~3 MB de RAM</span>
-          <span class="hero-badge-item"><b>✓</b> Sem Electron / Sem Bloat</span>
-          <span class="hero-badge-item"><b>✓</b> 100% Código Aberto</span>
-        </div>
+  <!-- Conteúdo Principal: Download e O Essencial -->
+  <main class="main-container">
+    <section class="hero">
+      <div class="badge">
+        <span class="status-dot"></span>
+        WINDOWS 10 / 11 · VERSÃO 1.3.1
+      </div>
+      
+      <h1>Seu Windows.<br><span>Mais prático.</span></h1>
+      
+      <p class="description">
+        Painel de atalhos e controles estilo Stream Deck desenvolvido nativamente em C11 para Windows. Ajuste o volume, controle suas músicas e abra seus programas e sites favoritos com consumo quase zero de memória.
+      </p>
+
+      <!-- Botões de Ação Principais: Download e Portátil -->
+      <div class="actions">
+        <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">
+          <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Baixar Instalador (.exe)</span>
+        </a>
+
+        <a class="button button-secondary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Portable.zip">
+          <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <span>Versão Portátil (.zip)</span>
+        </a>
       </div>
 
-      <!-- INTERACTIVE STREAM DECK SIMULATOR -->
-      <div class="product-stage" aria-label="Simulador interativo do C-Deck">
-        <div class="stage-glow"></div>
-        <div class="app-window">
-          <!-- Titlebar -->
-          <div class="window-titlebar">
-            <div class="window-brand">
-              <span class="mini-mark">C</span>
-              <span>C-DECK</span>
-            </div>
-            <div class="window-titlebar-right">
-              <button class="sound-toggle-btn" id="demo-sound-toggle" aria-label="Alternar efeitos sonoros">🔊 SOM: ON</button>
-              <div class="window-controls" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </div>
-            </div>
-          </div>
-
-          <!-- Content inside window -->
-          <div class="window-content">
-            <div class="panel-heading">
-              <div>
-                <span class="micro-label">STREAM DECK CONTROLLER</span>
-                <h2>Painel de Controle</h2>
-              </div>
-              <span class="online-state"><i></i> ATIVO</span>
-            </div>
-
-            <!-- Volume Card with interactive range -->
-            <div class="volume-card">
-              <div class="volume-top">
-                <span>VOLUME DO SISTEMA</span>
-                <span class="volume-value" id="demo-volume-value">72%</span>
-              </div>
-              <div class="volume-interactive-wrap">
-                <div class="volume-track">
-                  <span id="demo-volume-track" style="width: 72%;"></span>
-                </div>
-                <input type="range" class="volume-slider" id="demo-volume-slider" min="0" max="100" value="72" aria-label="Ajustar volume da demonstração">
-              </div>
-              <div class="volume-hint">
-                <span>0%</span>
-                <span>Clique nas teclas ou arraste</span>
-                <span>100%</span>
-              </div>
-            </div>
-
-            <!-- 3x3 Keypad -->
-            <div class="deck-grid-heading">
-              <span>TECLADO STREAM DECK</span>
-              <span>3x3 KEYS INTERATIVAS</span>
-            </div>
-            <div class="deck-grid">
-              <!-- Row 1: Audio -->
-              <button type="button" class="deck-key" id="key-vol-down" title="Reduzir volume em 5%">
-                <b class="key-badge">ÁUDIO · −5%</b>
-                <span class="key-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
-                </span>
-                <small class="key-label">VOL −</small>
-              </button>
-              <button type="button" class="deck-key" id="key-mute" title="Silenciar / Ativar áudio">
-                <b class="key-badge">ÁUDIO · MUTE</b>
-                <span class="key-glyph" id="mute-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                </span>
-                <small class="key-label">MUTE</small>
-              </button>
-              <button type="button" class="deck-key" id="key-vol-up" title="Aumentar volume em 5%">
-                <b class="key-badge">ÁUDIO · +5%</b>
-                <span class="key-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                </span>
-                <small class="key-label">VOL ＋</small>
-              </button>
-
-              <!-- Row 2: Media -->
-              <button type="button" class="deck-key" id="key-prev" title="Faixa anterior">
-                <b class="key-badge">MÍDIA · ANTERIOR</b>
-                <span class="key-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </span>
-                <small class="key-label">ANTERIOR</small>
-              </button>
-              <button type="button" class="deck-key" id="key-play" title="Play / Pause">
-                <b class="key-badge">MÍDIA · CONTROLE</b>
-                <span class="key-glyph" id="play-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                </span>
-                <small class="key-label" id="play-label">PLAY / PAUSE</small>
-              </button>
-              <button type="button" class="deck-key" id="key-next" title="Próxima faixa">
-                <b class="key-badge">MÍDIA · PRÓXIMA</b>
-                <span class="key-glyph">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </span>
-                <small class="key-label">PRÓXIMA</small>
-              </button>
-
-              <!-- Row 3: Custom Shortcuts -->
-              <button type="button" class="deck-key" id="key-app-1" title="Abrir Slot 1">
-                <b class="key-badge">01 · APP</b>
-                <span class="key-glyph key-icon glyph-app">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
-                </span>
-                <small class="key-label">NOTEPAD</small>
-              </button>
-              <button type="button" class="deck-key" id="key-app-2" title="Abrir Slot 2">
-                <b class="key-badge">02 · WEB</b>
-                <span class="key-glyph key-icon glyph-web">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                </span>
-                <small class="key-label">YOUTUBE</small>
-              </button>
-              <button type="button" class="deck-key" id="key-app-3" title="Abrir Slot 3">
-                <b class="key-badge">03 · APP</b>
-                <span class="key-glyph key-icon glyph-app">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
-                </span>
-                <small class="key-label">CALC</small>
-              </button>
-            </div>
-
-            <!-- Real-time Status feedback -->
-            <div class="window-status" id="demo-status-text" aria-live="polite">
-              PRONTO · C11 WIN32 NATIVO
-            </div>
-
-            <!-- Footer -->
-            <div class="window-footer">
-              <span>CORE AUDIO · WIN32</span>
-              <button type="button" class="window-config-btn" id="demo-open-config">⚙ CONFIGURAR</button>
-            </div>
-
-            <!-- In-Mockup Config Modal -->
-            <div class="demo-config-modal" id="demo-config-modal" aria-hidden="true">
-              <div class="config-modal-header">
-                <h3>Configurar Atalhos (config/apps.cfg)</h3>
-                <button type="button" class="config-close-btn" id="demo-close-config" aria-label="Fechar">✕</button>
-              </div>
-              <div class="config-form">
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 01 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-1" placeholder="Nome" value="Notepad">
-                    <input type="text" class="config-input" id="config-path-1" placeholder="Caminho / URL" value="C:\Windows\System32\notepad.exe">
-                  </div>
-                </div>
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 02 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-2" placeholder="Nome" value="YouTube">
-                    <input type="text" class="config-input" id="config-path-2" placeholder="Caminho / URL" value="https://www.youtube.com">
-                  </div>
-                </div>
-                <div class="config-row">
-                  <div class="config-row-title">SLOT 03 (APLICATIVO OU SITE)</div>
-                  <div class="config-inputs">
-                    <input type="text" class="config-input" id="config-name-3" placeholder="Nome" value="Calculadora">
-                    <input type="text" class="config-input" id="config-path-3" placeholder="Caminho / URL" value="calc.exe">
-                  </div>
-                </div>
-              </div>
-              <div class="config-modal-footer">
-                <button type="button" class="config-reset-btn" id="demo-reset-config">Restaurar</button>
-                <button type="button" class="config-save-btn" id="demo-save-config">Salvar Atalhos</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="stage-caption">
-          <span>👆</span> Clique nos botões ou arraste o volume para testar ao vivo no navegador!
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 2: FEATURES -->
-    <section class="features" id="recursos">
-      <div class="section-heading">
-        <div class="eyebrow">RECURSOS ESSENCIAIS</div>
-        <h2>Seis funções nativas.<br><span>Zero complicação.</span></h2>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-          </div>
-          <h3>Controle de áudio preciso</h3>
-          <p>Aumente e reduza o volume principal em passos de 5%, use a barra deslizante suave ou silencie com apenas um clique.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <h3>Comandos multimídia globais</h3>
-          <p>Pause, toque ou avance faixas no Spotify, YouTube, Deezer e reprodutores de mídia padrão do Windows sem sair da sua tela.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
-          </div>
-          <h3>Atalhos para aplicativos</h3>
-          <p>Configure seus jogos ou softwares favoritos. O C-Deck extrai automaticamente o ícone original do arquivo .exe ou permite usar seu próprio .ico.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </div>
-          <h3>Atalhos para sites web</h3>
-          <p>Insira links https:// ou http:// e abra suas páginas favoritas no seu navegador padrão com ícone de globo automático.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
-          </div>
-          <h3>Atalhos globais de teclado</h3>
-          <p>Ajuste o som e ative o mudo com combinações rápidas mesmo durante jogos em tela cheia ou gravações sem precisar trocar de janela.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h4l2 3h6l2-3h4"/></svg>
-          </div>
-          <h3>Minimização para a bandeja</h3>
-          <p>Fechar ou minimizar envia o C-Deck diretamente para a bandeja do sistema (próximo ao relógio). Mantenha atalhos ativos com consumo nulo.</p>
-        </article>
-      </div>
-    </section>
-
-    <!-- SECTION 3: PERFORMANCE COMPARISON -->
-    <section class="comparison" id="desempenho">
-      <div class="comparison-heading">
-        <div class="eyebrow">ARQUITETURA & EFICIÊNCIA</div>
-        <h2>Por que construído em C11?<br><span>Adeus ao desperdício de memória.</span></h2>
-        <p>A maioria das ferramentas para streamers e criadores utiliza Electron ou WebViews que consomem centenas de megabytes para desenhar botões básicos. O C-Deck foi escrito em C nativo com a API Win32 do Windows.</p>
+      <!-- Informações rápidas -->
+      <div class="specs">
+        <span>✓ 100% Gratuito</span>
+        <span>✓ Código Aberto (MIT)</span>
+        <span>✓ Leve (~3 MB RAM)</span>
+        <span>✓ Windows 10/11 x64</span>
       </div>
 
-      <div class="comparison-grid">
-        <!-- C-Deck Card -->
-        <div class="comparison-card card-highlight">
-          <span class="comparison-badge">C11 WIN32 NATIVO</span>
-          <div class="comparison-header">
-            <h3>C-Deck</h3>
-            <span class="comparison-subtitle">Otimizado para máxima performance</span>
+      <!-- O Essencial: 4 Pilares Diretos ao Ponto -->
+      <div class="essentials-grid">
+        <div class="essential-item">
+          <div class="essential-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
           </div>
-          <ul class="comparison-metrics">
-            <li>
-              <span class="metric-label">Consumo de Memória RAM</span>
-              <span class="metric-value">~3 MB a 5 MB</span>
-            </li>
-            <li>
-              <span class="metric-label">Tempo de Inicialização</span>
-              <span class="metric-value">&lt; 0,05 segundos</span>
-            </li>
-            <li>
-              <span class="metric-label">Tamanho do Executável</span>
-              <span class="metric-value">~1,2 MB</span>
-            </li>
-            <li>
-              <span class="metric-label">Impacto em Jogos (FPS)</span>
-              <span class="metric-value">0% de CPU</span>
-            </li>
-            <li>
-              <span class="metric-label">Dependências Externas</span>
-              <span class="metric-value">Nenhuma (Puro Win32)</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Typical Apps Card -->
-        <div class="comparison-card card-dim">
-          <div class="comparison-header">
-            <h3>Aplicativos Comuns</h3>
-            <span class="comparison-subtitle">Construídos sobre Electron ou Chromium</span>
-          </div>
-          <ul class="comparison-metrics">
-            <li>
-              <span class="metric-label">Consumo de Memória RAM</span>
-              <span class="metric-value">250 MB a 500 MB</span>
-            </li>
-            <li>
-              <span class="metric-label">Tempo de Inicialização</span>
-              <span class="metric-value">2 a 6 segundos</span>
-            </li>
-            <li>
-              <span class="metric-label">Tamanho do Executável</span>
-              <span class="metric-value">120 MB a 250 MB</span>
-            </li>
-            <li>
-              <span class="metric-label">Impacto em Jogos (FPS)</span>
-              <span class="metric-value">Oscilações em segundo plano</span>
-            </li>
-            <li>
-              <span class="metric-label">Dependências Externas</span>
-              <span class="metric-value">Node.js + Chromium Engine</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="comparison-callout">
-        <span>⚡</span>
-        <div><b>Feito para gamers e profissionais:</b> Não perca frames valiosos nem espere o aplicativo carregar quando você mais precisa ajustar o áudio.</div>
-      </div>
-    </section>
-
-    <!-- SECTION 4: GLOBAL HOTKEYS -->
-    <section class="hotkeys" id="atalhos">
-      <div class="hotkeys-heading">
-        <div class="eyebrow">TECLADO FÍSICO</div>
-        <h2>Atalhos globais integrados.<br><span>Sem sair do que estiver fazendo.</span></h2>
-        <p>Os atalhos de teclado do C-Deck funcionam em segundo plano no Windows. Ajuste o áudio durante tiroteios em jogos ou em reuniões sem precisar de Alt+Tab.</p>
-      </div>
-
-      <div class="hotkeys-grid">
-        <div class="hotkey-card">
-          <div class="hotkey-badges">
-            <kbd>Ctrl</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>Alt</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>↑ Seta Cima</kbd>
-          </div>
-          <div>
-            <h3>Aumentar Volume</h3>
-            <p>Eleva o volume principal do Windows em passos de 5% e atualiza a interface instantaneamente.</p>
+          <div class="essential-text">
+            <b>Controle de Áudio &amp; Mute</b>
+            <p>Aumente ou diminua em passos de 5%, use a barra deslizante ou silencie com um clique.</p>
           </div>
         </div>
 
-        <div class="hotkey-card">
-          <div class="hotkey-badges">
-            <kbd>Ctrl</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>Alt</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>↓ Seta Baixo</kbd>
+        <div class="essential-item">
+          <div class="essential-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
-          <div>
-            <h3>Diminuir Volume</h3>
-            <p>Reduz o volume principal do Windows em passos de 5% até o nível desejado sem interrupções.</p>
+          <div class="essential-text">
+            <b>Comandos de Mídia</b>
+            <p>Play, pause, avançar e retroceder faixas no Spotify, YouTube Music e navegadores.</p>
           </div>
         </div>
 
-        <div class="hotkey-card">
-          <div class="hotkey-badges">
-            <kbd>Ctrl</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>Alt</kbd>
-            <span class="hotkey-plus">+</span>
-            <kbd>M</kbd>
+        <div class="essential-item">
+          <div class="essential-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/></svg>
           </div>
-          <div>
-            <h3>Alternar Mudo (Mute)</h3>
-            <p>Silencia ou reativa o som do dispositivo padrão imediatamente com uma única combinação de teclas.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 5: HOW TO USE -->
-    <section class="how" id="como-usar">
-      <div class="how-copy">
-        <div class="eyebrow">PASSO A PASSO SIMPLES</div>
-        <h2>Instale e use em<br><span>menos de um minuto.</span></h2>
-        <p>O C-Deck não requer contas, logins nem configurações complicadas. Basta baixar o executável ou instalador e começar a usar imediatamente no Windows 10 ou 11.</p>
-      </div>
-
-      <ol class="steps">
-        <li>
-          <span>01</span>
-          <div>
-            <b>Baixe o C-Deck</b>
-            <small>Escolha o instalador oficial .exe com atalhos no menu Iniciar ou o pacote portátil .zip que funciona direto da pasta.</small>
-          </div>
-        </li>
-        <li>
-          <span>02</span>
-          <div>
-            <b>Configure seus 3 atalhos</b>
-            <small>Clique em "Configurar atalhos" na interface para escolher programas no seu computador ou colar links de sites que você mais acessa.</small>
-          </div>
-        </li>
-        <li>
-          <span>03</span>
-          <div>
-            <b>Aproveite os controles</b>
-            <small>Controle o volume pelo painel ou teclas globais, avance suas músicas e minimize para a bandeja quando quiser manter a tela limpa.</small>
-          </div>
-        </li>
-      </ol>
-    </section>
-
-    <!-- SECTION 6: FAQ -->
-    <section class="faq" id="faq">
-      <div class="faq-heading">
-        <div class="eyebrow">DÚVIDAS FREQUENTES</div>
-        <h2>Perguntas e respostas.<br><span>Tudo o que você precisa saber.</span></h2>
-      </div>
-
-      <div class="faq-list">
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>Preciso de um hardware Stream Deck físico para usar o C-Deck?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>Não! O C-Deck é um teclado virtual e painel de controle 100% via software para Windows. Você tem as principais funções de controle de áudio, mídias e atalhos na tela e no teclado físico de forma totalmente gratuita.</p>
+          <div class="essential-text">
+            <b>3 Atalhos para Apps e Sites</b>
+            <p>Configure programas (.exe) com ícones automáticos ou links da web no navegador padrão.</p>
           </div>
         </div>
 
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>O C-Deck deixa o computador lento ou reduz FPS em jogos?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>De forma alguma. Por ter sido programado em C11 puro e utilizar apenas as chamadas diretas da Win32 API e Core Audio do Windows, ele consome por volta de 3 MB de RAM e 0% de CPU em segundo plano. É ideal para jogos competitivos.</p>
+        <div class="essential-item">
+          <div class="essential-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
           </div>
-        </div>
-
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>Qual a diferença entre o Instalador (.exe) e a Versão Portátil (.zip)?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>O Instalador coloca o C-Deck na sua pasta de programas local (%LOCALAPPDATA%\Programs\C-Deck), cria atalhos automáticos no menu Iniciar e na Área de Trabalho e facilita futuras atualizações. A versão portátil (.zip) não altera seu sistema: basta extrair e abrir em qualquer pasta ou pen drive.</p>
+          <div class="essential-text">
+            <b>Atalhos Globais de Teclado</b>
+            <p>Ajuste o som com <code>Ctrl + Alt + ↑ / ↓ / M</code> mesmo enquanto joga em tela cheia.</p>
           </div>
-        </div>
-
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>Como configuro atalhos para programas e sites?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>Basta abrir o C-Deck e clicar no botão "Configurar atalhos". Escolha o nome desejado e clique em "..." para selecionar um executável (.exe) ou cole uma URL completa começando com https:// ou http://. Para programas, o C-Deck detecta automaticamente o ícone original.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>O que acontece ao fechar ou minimizar a janela?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>O aplicativo minimiza discretamente para a bandeja do sistema (área de notificação próxima ao relógio). Os atalhos globais de volume e mute continuam funcionando. Você pode reabrir a qualquer momento clicando no ícone ou fechá-lo totalmente pelo menu de contexto.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button type="button" class="faq-question" aria-expanded="false">
-            <span>O projeto é seguro e de código aberto?</span>
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p>Sim! O código-fonte é 100% aberto e auditável no GitHub sob licença MIT. O programa não possui rastreadores, não coleta telemetria, não exibe anúncios e não faz requisições desnecessárias para servidores externos.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 7: DOWNLOAD -->
-    <section class="download-section" id="download">
-      <div class="download-box">
-        <div class="eyebrow">
-          <span class="status-dot"></span>
-          C-DECK PARA WINDOWS X64
-        </div>
-        <h2>Mais agilidade no desktop.<br><span>Menos interrupções.</span></h2>
-
-        <div class="download-cards-wrap">
-          <div class="download-option-card recommended">
-            <div>
-              <span class="option-badge">RECOMENDADO · INSTALAÇÃO GUIADA</span>
-              <h3>Instalador C-Deck</h3>
-              <p>Instalação guiada em português para Windows 10/11. Cria atalhos no menu Iniciar e na Área de Trabalho.</p>
-            </div>
-            <a class="button button-primary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Setup.exe">
-              Baixar C-Deck-Setup.exe <span>↓</span>
-            </a>
-          </div>
-
-          <div class="download-option-card">
-            <div>
-              <span class="option-badge">PORTÁTIL · SEM INSTALAÇÃO</span>
-              <h3>Pacote Portátil</h3>
-              <p>Arquivo ZIP compacto contendo o executável e a pasta de configuração. Extraia e use direto de onde quiser.</p>
-            </div>
-            <a class="button button-secondary" href="https://github.com/s4muelxl/C-Deck/releases/download/latest/C-Deck-Portable.zip">
-              Baixar C-Deck-Portable.zip <span>📦</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="build-box">
-          <div class="build-code">
-            <span style="color: #8c96a4;"># Desenvolvedores: Clone e compile com MinGW</span><br>
-            <span id="git-clone-cmd">git clone https://github.com/s4muelxl/C-Deck.git &amp;&amp; cd C-Deck &amp;&amp; .\scripts\build.ps1</span>
-          </div>
-          <button type="button" class="copy-btn" data-copy-target="git-clone-cmd">Copiar comando</button>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- FOOTER -->
+  <!-- Rodapé limpo -->
   <footer class="site-footer">
-    <a class="brand" href="#" aria-label="C-Deck início">
-      <img class="brand-logo" src="assets/cdeck-wordmark.svg" alt="C-Deck">
-    </a>
-
-    <span>DESENVOLVIDO EM C11 &amp; WIN32 API · WINDOWS 10/11</span>
-
-    <ul class="footer-nav">
-      <li><a href="#recursos">Recursos</a></li>
-      <li><a href="#demo">Demonstração</a></li>
-      <li><a href="#desempenho">Desempenho</a></li>
-      <li><a href="#atalhos">Atalhos</a></li>
-      <li><a href="#faq">FAQ</a></li>
-      <li><a href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">GitHub</a></li>
-    </ul>
-
-    <a class="footer-github" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">
-      <svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.07c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.19 3.32 1.55.1-.72.39-1.21.7-1.49-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.61 5.23-5.1 5.51.4.35.75 1.03.75 2.08V22c0 .29.2.64.77.53A11.1 11.1 0 0 0 12 .9Z"/></svg>
-      <span>Ver no GitHub</span>
-    </a>
+    <div class="footer-wrap">
+      <span>C-Deck · Desenvolvido em C11 &amp; Win32 API para Windows</span>
+      <a class="footer-link" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">
+        Repositório no GitHub →
+      </a>
+    </div>
   </footer>
-
-  <!-- Floating Back to Top Button -->
-  <button type="button" class="back-to-top" id="back-to-top" aria-label="Voltar ao topo da página">↑</button>
 </body>
 </html>
