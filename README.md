@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos para Windows, desenvolvido em C11 e Win32 API. Versão 1.2.0.**
+**Painel de atalhos para Windows, desenvolvido em C11 e Win32 API. Versão 1.3.0.**
 
 O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma pequena janela desktop. A página em `web/` é apenas a apresentação do projeto; as ações do computador são executadas pelo aplicativo Windows.
 
@@ -13,7 +13,8 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Aumentar e diminuir o volume principal em passos de 5%, ou ajustar diretamente em um controle deslizante com percentual atualizado.
 - Alternar o mute do dispositivo de reprodução padrão.
 - Enviar comandos de play/pause, próxima faixa e faixa anterior aos controles de mídia do Windows.
-- Abrir até três aplicativos definidos pelo usuário.
+- Abrir até três destinos definidos pelo usuário: aplicativos Windows ou sites no navegador padrão.
+- Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
@@ -39,12 +40,12 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 
 1. Abra o C-DECK.
 2. Clique em **Configurar atalhos**.
-3. Informe o nome que aparecerá no botão e selecione o executável pelo botão `...` ou informe o caminho manualmente.
+3. Informe o nome que aparecerá no botão e selecione um executável pelo botão `...`, ou cole uma URL completa começando com `https://` ou `http://` para abrir um site no navegador padrão.
 4. Opcionalmente, selecione um arquivo `.ico` personalizado. Se deixar esse campo vazio, o C-Deck extrai e exibe o ícone do próprio executável.
 5. Para remover um atalho, deixe nome e executável vazios.
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
-O programa grava as alterações em `config/apps.cfg`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+O programa grava as alterações em `config/apps.cfg`. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
 Também é possível editar o arquivo manualmente:
 
@@ -95,7 +96,7 @@ O executável será criado em `build/C-Deck.exe`.
 - Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível.\n- O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - São suportados três atalhos configuráveis.
-- Ainda não há macros, perfis, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
+- Ainda não há macros, perfis múltiplos, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
 
