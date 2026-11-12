@@ -9,8 +9,9 @@ O C-DECK reúne controles básicos de áudio e atalhos para aplicativos em uma p
 - Aumentar e diminuir o volume principal em passos de 5%.
 - Alternar o mute do dispositivo de reprodução padrão.
 - Abrir até três aplicativos definidos pelo usuário.
-- Carregar a configuração a partir da pasta do executável.
-- Interface Win32 nativa, sem runtime web.
+- Configurar nomes e caminhos dos atalhos pela própria interface.
+- Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
+- Interface Win32 nativa, com tema escuro e janela redimensionável.
 
 ## Baixar e executar
 
@@ -27,9 +28,17 @@ O pacote portátil contém:
 
 Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
 
-## Configurar os atalhos
+## Configurar os atalhos pelo aplicativo
 
-Edite `config/apps.cfg` em um editor de texto. O arquivo usa três blocos:
+1. Abra o C-DECK.
+2. Clique em **Configurar atalhos**.
+3. Informe o nome que aparecerá no botão e o caminho do executável ou comando.
+4. Para remover um atalho, deixe os dois campos correspondentes vazios.
+5. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
+
+O programa grava as alterações em `config/apps.cfg`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+
+Também é possível editar o arquivo manualmente:
 
 ```ini
 [app1]
@@ -48,8 +57,6 @@ path=mspaint.exe
 - `name`: texto mostrado no botão.
 - `path`: caminho absoluto do executável ou comando disponível no PATH.
 
-Salve o arquivo e reinicie o C-DECK para carregar os novos nomes e caminhos.
-
 ## Compilar no Windows
 
 Requisitos: Windows 10/11 e MinGW-w64 GCC no PATH.
@@ -65,20 +72,19 @@ O executável será criado em `build/C-Deck.exe`.
 ## Estrutura
 
 - `src/main.c`: inicialização e localização da configuração.
-- `src/interface.c`: janela e botões Win32.
+- `src/interface.c`: janela principal e editor de atalhos Win32.
 - `src/actions.c`: ações de áudio e abertura de aplicativos.
-- `src/config.c`: leitura de configuração.
-- `config/apps.cfg`: atalhos de exemplo.
-- `tests/`: teste do parser.
+- `src/config.c`: leitura e gravação da configuração.
+- `config/apps.cfg`: atalhos.
+- `tests/`: testes de leitura e gravação da configuração.
 - `web/`: landing page estática.
-- `.github/workflows/ci.yml`: compilação, teste e empacotamento automatizados.
+- `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
 
 ## Limitações atuais
 
 - O áudio é controlado no dispositivo de reprodução padrão do Windows.
 - O volume muda em passos fixos de 5%.
 - São suportados três atalhos configuráveis.
-- A configuração é carregada ao iniciar o programa.
 - Ainda não há macros, perfis, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
