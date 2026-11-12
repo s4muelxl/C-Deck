@@ -5,7 +5,7 @@ if (-not (Get-Command windres -ErrorAction SilentlyContinue)) { throw "windres n
 
 $iconBase64 = (Get-Content "brand/cdeck.ico.b64" -Raw).Trim()
 [IO.File]::WriteAllBytes((Join-Path (Get-Location) "build/cdeck.ico"), [Convert]::FromBase64String($iconBase64))
-$resource = 'IDI_APP_ICON ICON "cdeck.ico"' + "`r`n"
+$resource = 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n"
 Set-Content -Path "build/cdeck.rc" -Value $resource -Encoding Ascii
 windres build/cdeck.rc build/cdeck-res.o
 if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar o recurso de icone." }
