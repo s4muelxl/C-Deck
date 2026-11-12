@@ -22,6 +22,24 @@ ActionResult action_volume_step(float delta) {
  if (SUCCEEDED(hr)) { float next=current+delta; if(next<0.0f)next=0.0f;if(next>1.0f)next=1.0f;hr=IAudioEndpointVolume_SetMasterVolumeLevelScalar(volume,next,NULL); }
  IAudioEndpointVolume_Release(volume); return SUCCEEDED(hr)?ACTION_SUCCESS:ACTION_AUDIO_UNAVAILABLE;
 }
+ActionResult action_get_volume(float *level, int *muted) {
+ IAudioEndpointVolume *volume; float current=0.0f; BOOL is_muted=FALSE; HRESULT hr;
+ if (!level || !muted) return ACTION_INVALID_ARGUMENT;
+ volume=get_endpoint_volume(); if (!volume) return ACTION_AUDIO_UNAVAILABLE;
+ hr=IAudioEndpointVolume_GetMasterVolumeLevelScalar(volume,&current);
+ if (SUCCEEDED(hr)) hr=IAudioEndpointVolume_GetMute(volume,&is_muted);
+ IAudioEndpointVolume_Release(volume);
+ if (FAILED(hr)) return ACTION_AUDIO_UNAVAILABLE;
+ *level=current; *muted=is_muted?1:0; return ACTION_SUCCESS;
+}
+ActionResult action_set_volume(float level) {
+ IAudioEndpointVolume *volume; HRESULT hr;
+ if (level<0.0f || level>1.0f) return ACTION_INVALID_ARGUMENT;
+ volume=get_endpoint_volume(); if (!volume) return ACTION_AUDIO_UNAVAILABLE;
+ hr=IAudioEndpointVolume_SetMasterVolumeLevelScalar(volume,level,NULL);
+ IAudioEndpointVolume_Release(volume);
+ return SUCCEEDED(hr)?ACTION_SUCCESS:ACTION_AUDIO_UNAVAILABLE;
+}
 ActionResult action_toggle_mute(void) { IAudioEndpointVolume *volume=get_endpoint_volume(); BOOL muted=FALSE; HRESULT hr; if(!volume)return ACTION_AUDIO_UNAVAILABLE; hr=IAudioEndpointVolume_GetMute(volume,&muted); if(SUCCEEDED(hr))hr=IAudioEndpointVolume_SetMute(volume,!muted,NULL); IAudioEndpointVolume_Release(volume); return SUCCEEDED(hr)?ACTION_SUCCESS:ACTION_AUDIO_UNAVAILABLE; }
 ActionResult action_launch_app(const DeckApp *app) { HINSTANCE result; if(!app||!app->configured||!app->path[0])return ACTION_NOT_CONFIGURED; result=ShellExecuteA(NULL,"open",app->path,NULL,NULL,SW_SHOWNORMAL); return (INT_PTR)result>32?ACTION_SUCCESS:ACTION_LAUNCH_FAILED; }
 
