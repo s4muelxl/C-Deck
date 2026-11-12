@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 210">
+<defs>
+ <linearGradient id="silver" x1=".1" y1="0" x2=".8" y2="1"><stop stop-color="#fff"/><stop offset=".5" stop-color="#e8ebf0"/><stop offset=".78" stop-color="#aeb5c1"/><stop offset="1" stop-color="#fff"/></linearGradient>
+</defs>
+<g transform="translate(0 5) scale(.95)">
+ <path d="M164 28H94L34 88V158L94 218H164V174H110L78 142V104L110 72H164Z" fill="url(#silver)"/>
+ <path d="M126 218H182L224 174H168Z" fill="#9DFF00" transform="translate(-18 -4)"/>
+</g>
+<text x="245" y="151" fill="#f5f6f8" font-family="Manrope,Segoe UI,Arial,sans-serif" font-size="112" font-weight="700" letter-spacing="-5">-Deck</text>
+</svg>
