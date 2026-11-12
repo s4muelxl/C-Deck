@@ -19,6 +19,11 @@ jobs:
         run: |
           mkdir -p build
           gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid
+      - name: Run configuration parser test
+        shell: msys2 {0}
+        run: |
+          gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
+          ./build/config-test.exe
       - uses: actions/upload-artifact@v4
         with:
           name: C-Deck-Windows
