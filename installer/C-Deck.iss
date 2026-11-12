@@ -16,7 +16,6 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=..\build\installer
 OutputBaseFilename=C-Deck-Setup
-SetupIconFile=
 UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2
 SolidCompression=yes
