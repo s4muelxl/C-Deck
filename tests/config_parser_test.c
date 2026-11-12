@@ -24,7 +24,7 @@ int main(void) {
         "[APP1]\n"
         " name = Editor de texto  \n"
         " path = notepad.exe\n"
-        " icon = C:\\\\Icons\\\\editor.ico\n"
+        " icon = C:\\Icons\\editor.ico\n"
         "\n"
         "[app2]\n"
         "name=Navegador\n"
@@ -41,7 +41,7 @@ int main(void) {
     assert(config.apps[0].configured == 1);
     assert(strcmp(config.apps[0].name, "Editor de texto") == 0);
     assert(strcmp(config.apps[0].path, "notepad.exe") == 0);
-    assert(strcmp(config.apps[0].icon_path, "C:\\\\Icons\\\\editor.ico") == 0);
+    assert(strcmp(config.apps[0].icon_path, "C:\\Icons\\editor.ico") == 0);
     assert(config.apps[1].configured == 1);
     assert(strcmp(config.apps[1].name, "Navegador") == 0);
     assert(config.apps[2].configured == 0);
@@ -63,6 +63,7 @@ int main(void) {
     memset(&config, 0, sizeof(config));
     strcpy(config.apps[0].name, "Editor");
     strcpy(config.apps[0].path, "notepad.exe");
+    strcpy(config.apps[0].icon_path, "C:\\Icons\\editor.ico");
     strcpy(config.apps[1].name, "Calculadora");
     strcpy(config.apps[1].path, "calc.exe");
     assert(config_save("test-apps-saved.cfg", &config) == 1);
