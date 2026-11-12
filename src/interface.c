@@ -248,7 +248,7 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
 static void browse_editor_file(HWND hwnd, int index, int choose_icon) {
     OPENFILENAMEA dialog;
     char selected[DECK_TEXT_MAX];
-    char filter[] = choose_icon
+    const char *filter = choose_icon
         ? "Icones do Windows (*.ico)\0*.ico\0Todos os arquivos (*.*)\0*.*\0\0"
         : "Aplicativos (*.exe;*.com;*.bat;*.cmd)\0*.exe;*.com;*.bat;*.cmd\0Todos os arquivos (*.*)\0*.*\0\0";
     int control_id = choose_icon ? ID_ICON_BASE + index : ID_PATH_BASE + index;
