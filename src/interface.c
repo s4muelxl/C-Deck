@@ -233,6 +233,18 @@ static void draw_button(const DRAWITEMSTRUCT *draw) {
             DrawIconEx(dc, icon_x, rect.top + 16, app_icon, 48, 48, 0, NULL, DI_NORMAL);
             rect.top += 62;
             if (owns_icon) DestroyIcon(app_icon);
+        } else if (_strnicmp(app->path, "http://", 7) == 0 || _strnicmp(app->path, "https://", 8) == 0) {
+            HPEN globe_pen = CreatePen(PS_SOLID, 2, RGB(190, 255, 55));
+            HGDIOBJ previous_pen = SelectObject(dc, globe_pen);
+            HGDIOBJ previous_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+            int cx = (rect.left + rect.right) / 2, cy = rect.top + 38;
+            Ellipse(dc, cx - 22, cy - 22, cx + 22, cy + 22);
+            Arc(dc, cx - 11, cy - 22, cx + 11, cy + 22, cx, cy - 22, cx, cy + 22);
+            MoveToEx(dc, cx - 20, cy, NULL); LineTo(dc, cx + 20, cy);
+            SelectObject(dc, previous_brush);
+            SelectObject(dc, previous_pen);
+            DeleteObject(globe_pen);
+            rect.top += 68;
         }
     }
 
