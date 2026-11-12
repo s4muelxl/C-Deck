@@ -25,7 +25,7 @@ O pacote portátil contém:
 - `config/apps.cfg`
 - `README.md`
 
-Na instalação guiada, o programa fica em `%LOCALAPPDATA%\\Programs\\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
+Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
 
 ## Configurar os atalhos
 
