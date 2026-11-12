@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.3.1.**
+**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C++ e Win32 API. Versão 1.3.1.**
 
 O C-DECK reúne controles de áudio, comandos multimídia e atalhos para aplicativos e sites em um teclado virtual desktop estilo Stream Deck. A página em `web/` é a apresentação oficial do projeto; as ações do computador são executadas nativamente pelo aplicativo Windows.
 

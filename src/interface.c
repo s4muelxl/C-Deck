@@ -826,7 +826,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             SelectObject(dc, g_font_sub);
             SetTextColor(dc, COLOR_TEXT_MUTED);
             RECT info_rect = { width - 220, height - statusbar_h, width - 16, height };
-            DrawTextA(dc, "Windows Core Audio · C11 Win32", -1, &info_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+            DrawTextA(dc, "Windows Core Audio · C++ Win32", -1, &info_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 
             SelectObject(dc, old_pen);
             DeleteObject(div_pen);

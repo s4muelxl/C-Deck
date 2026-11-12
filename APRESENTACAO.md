@@ -26,7 +26,7 @@ Atualmente, o C-DECK oferece estas funções:
 
 ## 4. Tecnologias utilizadas
 
-- **Linguagem C (C11):** implementação da lógica do programa.
+- **Linguagem C++:** implementação da lógica do programa.
 - **Win32 API:** criação da janela, botões e campos de configuração.
 - **Windows Core Audio:** acesso ao volume principal e ao estado de mudo do dispositivo de áudio padrão.
 - **ShellExecute:** abertura dos programas configurados.
