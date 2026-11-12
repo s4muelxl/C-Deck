@@ -17,14 +17,22 @@ jobs:
       - name: Build Windows desktop app
         shell: msys2 {0}
         run: |
-          mkdir -p build
+          mkdir -p build/config
           gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid
+          cp config/apps.cfg build/config/apps.cfg
+          cp README.md build/README.md
       - name: Run configuration parser test
         shell: msys2 {0}
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
           ./build/config-test.exe
-      - uses: actions/upload-artifact@v4
+      - name: Create portable package
+        shell: pwsh
+        run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
         with:
           name: C-Deck-Windows
-          path: build/C-Deck.exe
+          path: |
+            build/C-Deck.exe
+            build/C-Deck-Portable.zip
