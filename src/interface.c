@@ -10,6 +10,7 @@
 
 #define IDI_APP_ICON        101
 #define CLASS_NAME          L"CDeckMainWindow"
+#define SETTINGS_CLASS_NAME L"CDeckSettingsWindow"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -64,6 +65,15 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_LIB_NAVIGATION   1306
 #define ID_LIB_MULTIACTION  1307
 
+// Settings Dialog IDs
+#define ID_SET_STARTUP_CHK   2101
+#define ID_SET_TRAY_CHK      2102
+#define ID_SET_HOTKEYS_CHK   2103
+#define ID_SET_OPACITY_SLD   2104
+#define ID_SET_PROFILE_CMB   2105
+#define ID_SET_SAVE_BTN      2106
+#define ID_SET_CANCEL_BTN    2107
+
 // Tray and Hotkeys
 #define ID_TRAY_OPEN        3001
 #define ID_TRAY_EXIT        3002
@@ -73,6 +83,17 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define WM_TRAYICON         (WM_APP + 1)
 #define ID_VOLUME_TIMER     1
 
+// Extended App Slots for Keys 9..14
+#define EXTRA_APP_COUNT     6
+static DeckApp g_extra_apps[EXTRA_APP_COUNT] = {
+    { "Pasta", "explorer.exe", "", 1 },
+    { "Atalho", "cmd.exe", "", 1 },
+    { "Navegador", "https://www.google.com", "", 1 },
+    { "Tarefas", "taskmgr.exe", "", 1 },
+    { "Captura", "SnippingTool.exe", "", 1 },
+    { "Configurações", "ms-settings:", "", 1 }
+};
+
 // Global application state
 static DeckConfig g_config;
 static char g_config_path[MAX_PATH];
@@ -81,6 +102,12 @@ static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
 static int g_selected_key = 8; // Default to Key 8 (Paint)
 static int g_selected_category = ID_LIB_SYSTEM;
+
+// Preferences and Profiles
+static wchar_t g_current_profile[64] = L"Default Profile";
+static int g_minimize_to_tray = 1;
+static int g_enable_hotkeys = 1;
+static int g_window_opacity = 100; // 70% to 100%
 
 // Inspector controls
 static HWND g_insp_title_edit;
@@ -116,7 +143,10 @@ static void draw_settings_button(const DRAWITEMSTRUCT *draw);
 static void draw_inspector_button(const DRAWITEMSTRUCT *draw, const wchar_t *text);
 static void draw_browse_button(const DRAWITEMSTRUCT *draw);
 static void draw_inspector_preview(HDC dc, RECT rect);
-static const wchar_t *get_key_default_title(int idx);
+static const wchar_t *get_key_display_title(int idx);
+static void show_profile_menu(HWND hwnd, int x, int y);
+static void show_settings_dialog(HWND parent);
+static void apply_profile(const wchar_t *profile);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
     if (!utf8 || !wide || max_chars <= 0) return;
@@ -173,6 +203,58 @@ static void enable_dark_titlebar(HWND hwnd) {
     }
 }
 
+static int is_run_on_startup_enabled(void) {
+    HKEY key;
+    LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_READ, &key);
+    if (res != ERROR_SUCCESS) return 0;
+    DWORD type = 0, size = 0;
+    res = RegQueryValueExW(key, L"CDeck", NULL, &type, NULL, &size);
+    RegCloseKey(key);
+    return (res == ERROR_SUCCESS && size > 0);
+}
+
+static void set_run_on_startup(int enable) {
+    HKEY key;
+    LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &key);
+    if (res != ERROR_SUCCESS) return;
+    if (enable) {
+        wchar_t exe_path[MAX_PATH];
+        GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+        RegSetValueExW(key, L"CDeck", 0, REG_SZ, (const BYTE *)exe_path, (DWORD)((wcslen(exe_path) + 1) * sizeof(wchar_t)));
+    } else {
+        RegDeleteValueW(key, L"CDeck");
+    }
+    RegCloseKey(key);
+}
+
+static void apply_window_opacity(HWND hwnd, int opacity_percent) {
+    if (opacity_percent < 60) opacity_percent = 60;
+    if (opacity_percent > 100) opacity_percent = 100;
+    g_window_opacity = opacity_percent;
+
+    LONG ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+    if (opacity_percent == 100) {
+        SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style & ~WS_EX_LAYERED);
+        RedrawWindow(hwnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
+    } else {
+        SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_LAYERED);
+        BYTE alpha = (BYTE)(opacity_percent * 255 / 100);
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+    }
+}
+
+static void apply_hotkeys(HWND hwnd, int enable) {
+    g_enable_hotkeys = enable;
+    UnregisterHotKey(hwnd, ID_HOTKEY_UP);
+    UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
+    UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
+    if (enable) {
+        RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
+        RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
+        RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
+    }
+}
+
 static int add_tray_icon(HWND hwnd) {
     if (g_tray_added) return 1;
     ZeroMemory(&g_tray_data, sizeof(g_tray_data));
@@ -183,7 +265,7 @@ static int add_tray_icon(HWND hwnd) {
     g_tray_data.uCallbackMessage = WM_TRAYICON;
     g_tray_data.hIcon = LoadIconA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(IDI_APP_ICON));
     if (!g_tray_data.hIcon) g_tray_data.hIcon = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
-    lstrcpynW(g_tray_data.szTip, L"C-Deck — Elgato Stream Deck Edition", (int)(sizeof(g_tray_data.szTip) / sizeof(wchar_t)));
+    lstrcpynW(g_tray_data.szTip, L"C-Deck — Stream Deck para Windows", (int)(sizeof(g_tray_data.szTip) / sizeof(wchar_t)));
     g_tray_added = Shell_NotifyIconW(NIM_ADD, &g_tray_data) ? 1 : 0;
     return g_tray_added;
 }
@@ -197,6 +279,8 @@ static void show_tray_menu(HWND hwnd) {
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
     AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN, L"Abrir C-Deck");
+    AppendMenuW(menu, MF_STRING, ID_SETTINGS, L"Configurações...");
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Sair");
     SetForegroundWindow(hwnd);
     {
@@ -240,12 +324,23 @@ static void execute_key_action(int key_index) {
         case 8: // App Slot 3 (Paint)
             report_result(action_launch_app(&g_config.apps[2]), L"Atalho executado.");
             break;
-        case 9: // Pasta
-            ShellExecuteA(NULL, "open", "explorer.exe", NULL, NULL, SW_SHOWNORMAL);
-            set_status(L"Abrindo Explorador de Arquivos.");
+        case 9:  // Extra Slot 1 (Pasta)
+        case 10: // Extra Slot 2 (Atalho)
+        case 11: // Extra Slot 3 (Navegador)
+        case 12: // Extra Slot 4 (Tarefas)
+        case 13: // Extra Slot 5 (Captura)
+        case 14: // Extra Slot 6 (Config)
+        {
+            int extra_idx = key_index - 9;
+            if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].path[0]) {
+                report_result(action_launch_app(&g_extra_apps[extra_idx]), L"Atalho executado com sucesso.");
+            } else {
+                set_status(L"Slot vazio selecionado. Configure o atalho ao lado.");
+            }
             break;
+        }
         default:
-            set_status(L"Slot vazio selecionado. Configure ao lado.");
+            set_status(L"Slot selecionado.");
             break;
     }
     update_inspector_ui();
@@ -272,8 +367,8 @@ static void browse_file_for_inspector(HWND hwnd) {
 }
 
 static void save_inspector_changes(void) {
-    if (g_selected_key < 6 || g_selected_key > 8) return;
-    int app_idx = g_selected_key - 6;
+    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
+
     wchar_t wname[DECK_TEXT_MAX];
     wchar_t wpath[DECK_TEXT_MAX];
     char name[DECK_TEXT_MAX];
@@ -292,24 +387,40 @@ static void save_inspector_changes(void) {
     s = path; while (*s && isspace((unsigned char)*s)) ++s; memmove(path, s, strlen(s) + 1);
     e = path + strlen(path); while (e > path && isspace((unsigned char)e[-1])) *--e = '\0';
 
-    strcpy(g_config.apps[app_idx].name, name);
-    strcpy(g_config.apps[app_idx].path, path);
-    g_config.apps[app_idx].configured = (name[0] != '\0' && path[0] != '\0');
+    if (g_selected_key >= 6 && g_selected_key <= 8) {
+        int app_idx = g_selected_key - 6;
+        strcpy(g_config.apps[app_idx].name, name);
+        strcpy(g_config.apps[app_idx].path, path);
+        g_config.apps[app_idx].configured = (name[0] != '\0' && path[0] != '\0');
 
-    if (config_save(g_config_path, &g_config)) {
-        set_status(L"Atalho salvo com sucesso.");
+        if (config_save(g_config_path, &g_config)) {
+            set_status(L"Atalho salvo com sucesso.");
+        } else {
+            set_status(L"Erro ao salvar configuração.");
+        }
     } else {
-        set_status(L"Erro ao salvar configuração.");
+        int extra_idx = g_selected_key - 9;
+        strcpy(g_extra_apps[extra_idx].name, name);
+        strcpy(g_extra_apps[extra_idx].path, path);
+        g_extra_apps[extra_idx].configured = (name[0] != '\0' && path[0] != '\0');
+        set_status(L"Atalho salvo com sucesso.");
     }
 
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
 }
 
 static void remove_selected_action(void) {
-    if (g_selected_key < 6 || g_selected_key > 8) return;
-    int app_idx = g_selected_key - 6;
-    ZeroMemory(&g_config.apps[app_idx], sizeof(DeckApp));
-    config_save(g_config_path, &g_config);
+    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
+
+    if (g_selected_key >= 6 && g_selected_key <= 8) {
+        int app_idx = g_selected_key - 6;
+        ZeroMemory(&g_config.apps[app_idx], sizeof(DeckApp));
+        config_save(g_config_path, &g_config);
+    } else {
+        int extra_idx = g_selected_key - 9;
+        ZeroMemory(&g_extra_apps[extra_idx], sizeof(DeckApp));
+    }
+
     update_inspector_ui();
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
     set_status(L"Ação removida do slot.");
@@ -318,9 +429,12 @@ static void remove_selected_action(void) {
 static void update_inspector_ui(void) {
     if (!g_insp_title_edit) return;
 
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        const DeckApp *app = &g_config.apps[app_idx];
+    if (g_selected_key >= 6) {
+        // App slots (6..14)
+        const DeckApp *app = (g_selected_key <= 8)
+            ? &g_config.apps[g_selected_key - 6]
+            : &g_extra_apps[g_selected_key - 9];
+
         ShowWindow(g_insp_title_edit, SW_SHOW);
         ShowWindow(g_insp_path_edit, SW_SHOW);
         ShowWindow(g_insp_path_browse, SW_SHOW);
@@ -338,23 +452,11 @@ static void update_inspector_ui(void) {
         SetWindowTextW(g_insp_title_edit, wname);
         SetWindowTextW(g_insp_path_edit, wpath);
     } else if (g_selected_key == 0 || g_selected_key == 1 || g_selected_key == 5) {
+        // Volume / Mute
         ShowWindow(g_insp_title_edit, SW_HIDE);
         ShowWindow(g_insp_path_edit, SW_HIDE);
         ShowWindow(g_insp_path_browse, SW_HIDE);
         ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_HIDE);
-        ShowWindow(g_insp_remove_btn, SW_HIDE);
-        ShowWindow(g_insp_vol_track, SW_SHOW);
-        ShowWindow(g_insp_mute_btn, SW_HIDE);
-
-        float level = 0.0f; int muted = 0;
-        action_get_volume(&level, &muted);
-        SendMessageW(g_insp_vol_track, TBM_SETPOS, TRUE, (int)(level * 100.0f + 0.5f));
-    } else if (g_selected_key == 2) {
-        ShowWindow(g_insp_title_edit, SW_HIDE);
-        ShowWindow(g_insp_path_edit, SW_HIDE);
-        ShowWindow(g_insp_path_browse, SW_HIDE);
-        ShowWindow(g_insp_test_btn, SW_HIDE);
         ShowWindow(g_insp_save_btn, SW_HIDE);
         ShowWindow(g_insp_remove_btn, SW_HIDE);
         ShowWindow(g_insp_vol_track, SW_SHOW);
@@ -363,7 +465,9 @@ static void update_inspector_ui(void) {
         float level = 0.0f; int muted = 0;
         action_get_volume(&level, &muted);
         SendMessageW(g_insp_vol_track, TBM_SETPOS, TRUE, (int)(level * 100.0f + 0.5f));
+        SetWindowTextW(g_insp_mute_btn, muted ? L"Desmutar Áudio" : L"Mutar Áudio");
     } else {
+        // Media controls (2, 3, 4)
         ShowWindow(g_insp_title_edit, SW_HIDE);
         ShowWindow(g_insp_path_edit, SW_HIDE);
         ShowWindow(g_insp_path_browse, SW_HIDE);
@@ -394,24 +498,24 @@ static void layout_controls(HWND hwnd) {
 
     // Top Bar Controls
     HWND profile_btn = GetDlgItem(hwnd, ID_PROFILE_BTN);
-    if (profile_btn) MoveWindow(profile_btn, 172, 10, 150, 32, TRUE);
+    if (profile_btn) MoveWindow(profile_btn, 172, 10, 154, 32, TRUE);
 
     HWND settings_btn = GetDlgItem(hwnd, ID_SETTINGS);
     if (settings_btn) MoveWindow(settings_btn, width - 120, 10, 104, 32, TRUE);
 
-    // Sidebar Category Buttons (7 categories, start at y=68)
+    // Sidebar Category Buttons (7 categories)
     int side_top = topbar_h + 16;
     for (int i = 0; i < 7; ++i) {
         HWND btn = GetDlgItem(hwnd, ID_LIB_FAVORITES + i);
         if (btn) MoveWindow(btn, 12, side_top + i * 42, sidebar_w - 24, 36, TRUE);
     }
 
-    // 15 Keys in Canvas (5 cols x 3 rows)
+    // 15 Keys in Canvas (5 cols x 3 rows) - Spacious Rounded Keys
     int grid_cols = 5;
     int grid_rows = 3;
     int gap = 14;
-    int max_key_w = (canvas_w - 60 - (grid_cols - 1) * gap) / grid_cols;
-    int max_key_h = (content_h - 100 - (grid_rows - 1) * gap) / grid_rows;
+    int max_key_w = (canvas_w - 50 - (grid_cols - 1) * gap) / grid_cols;
+    int max_key_h = (content_h - 90 - (grid_rows - 1) * gap) / grid_rows;
     int key_size = max_key_w < max_key_h ? max_key_w : max_key_h;
     if (key_size > 108) key_size = 108;
     if (key_size < 64) key_size = 64;
@@ -419,7 +523,7 @@ static void layout_controls(HWND hwnd) {
     int grid_total_w = grid_cols * key_size + (grid_cols - 1) * gap;
     int grid_total_h = grid_rows * key_size + (grid_rows - 1) * gap;
     int grid_start_x = canvas_x + (canvas_w - grid_total_w) / 2;
-    int grid_start_y = topbar_h + 60 + (content_h - 90 - grid_total_h) / 2;
+    int grid_start_y = topbar_h + 56 + (content_h - 80 - grid_total_h) / 2;
 
     for (int row = 0; row < grid_rows; ++row) {
         for (int col = 0; col < grid_cols; ++col) {
@@ -454,7 +558,7 @@ static void layout_controls(HWND hwnd) {
     if (g_status) MoveWindow(g_status, 16, height - statusbar_h + 4, width - 260, 20, TRUE);
 }
 
-// Draw the official faceted C-Deck logo from brand specification
+// Draw the official faceted C-Deck logo
 static void draw_logo(HDC dc, int ox, int oy) {
     // 1. Faceted White / Silver C ribbon
     POINT ribbon_pts[] = {
@@ -509,16 +613,16 @@ static void draw_logo(HDC dc, int ox, int oy) {
     DeleteObject(null_pen);
 }
 
-// Glowing Lime Selection Border for active key and preview
+// Glowing Lime Selection Border with smooth rounded corners
 static void draw_lime_glow_border(HDC dc, RECT rc, int radius) {
-    HPEN glow_pen1 = CreatePen(PS_SOLID, 1, RGB(42, 75, 14));
+    HPEN glow_pen1 = CreatePen(PS_SOLID, 1, RGB(40, 75, 14));
     HGDIOBJ old_p = SelectObject(dc, glow_pen1);
     HGDIOBJ old_b = SelectObject(dc, GetStockObject(NULL_BRUSH));
-    RoundRect(dc, rc.left - 2, rc.top - 2, rc.right + 2, rc.bottom + 2, radius + 2, radius + 2);
+    RoundRect(dc, rc.left - 2, rc.top - 2, rc.right + 2, rc.bottom + 2, radius + 4, radius + 4);
 
-    HPEN glow_pen2 = CreatePen(PS_SOLID, 1, RGB(85, 150, 18));
+    HPEN glow_pen2 = CreatePen(PS_SOLID, 1, RGB(80, 150, 18));
     SelectObject(dc, glow_pen2);
-    RoundRect(dc, rc.left - 1, rc.top - 1, rc.right + 1, rc.bottom + 1, radius + 1, radius + 1);
+    RoundRect(dc, rc.left - 1, rc.top - 1, rc.right + 1, rc.bottom + 1, radius + 2, radius + 2);
 
     HPEN lime_pen = CreatePen(PS_SOLID, 2, COLOR_ACCENT_LIME);
     SelectObject(dc, lime_pen);
@@ -560,7 +664,6 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
             SelectObject(dc, GetStockObject(NULL_BRUSH));
             Ellipse(dc, cx - 6, cy - 6, cx + 6, cy + 6);
             Ellipse(dc, cx - 2, cy - 2, cx + 2, cy + 2);
-            // 6 Gear teeth
             for (int a = 0; a < 6; ++a) {
                 int dx = (a == 0 || a == 3) ? 0 : ((a == 1 || a == 2) ? 6 : -6);
                 int dy = (a == 0) ? -7 : ((a == 3) ? 7 : ((a == 1 || a == 5) ? -4 : 4));
@@ -636,7 +739,6 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             Polygon(dc, cone, 6);
-            // Plus sign
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
             MoveToEx(dc, cx + 6, cy - 3, NULL); LineTo(dc, cx + 6, cy + 4);
             break;
@@ -647,7 +749,6 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             Polygon(dc, cone, 6);
-            // Slash line
             HPEN slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
             SelectObject(dc, slash_pen);
             MoveToEx(dc, cx - 9, cy + 9, NULL); LineTo(dc, cx + 9, cy - 9);
@@ -683,7 +784,6 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             Polygon(dc, cone, 6);
-            // Minus sign
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
             break;
         }
@@ -693,13 +793,11 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             RoundRect(dc, cx - 11, cy - 13, cx + 11, cy + 13, 4, 4);
             DeleteObject(paper_br);
 
-            // Blue spiral header
             HBRUSH blue_br = CreateSolidBrush(RGB(74, 144, 226));
             RECT hdr = { cx - 11, cy - 13, cx + 11, cy - 7 };
             FillRect(dc, &hdr, blue_br);
             DeleteObject(blue_br);
 
-            // Notebook rule lines
             HPEN line_pen = CreatePen(PS_SOLID, 1, RGB(180, 192, 208));
             SelectObject(dc, line_pen);
             MoveToEx(dc, cx - 7, cy - 2, NULL); LineTo(dc, cx + 7, cy - 2);
@@ -717,13 +815,11 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             DeleteObject(calc_br);
             DeleteObject(calc_pen);
 
-            // LCD Display screen
             HBRUSH lcd_br = CreateSolidBrush(RGB(145, 168, 188));
             RECT lcd = { cx - 7, cy - 10, cx + 7, cy - 5 };
             FillRect(dc, &lcd, lcd_br);
             DeleteObject(lcd_br);
 
-            // 6 Button dots
             HBRUSH btn_br = CreateSolidBrush(COLOR_WHITE);
             SelectObject(dc, btn_br);
             for (int r = 0; r < 2; ++r) {
@@ -741,26 +837,20 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             Ellipse(dc, cx - 13, cy - 9, cx + 13, cy + 9);
             DeleteObject(pal_br);
 
-            // Thumb hole
             HBRUSH hole_br = CreateSolidBrush(RGB(25, 28, 35));
             SelectObject(dc, hole_br);
             Ellipse(dc, cx + 4, cy + 1, cx + 8, cy + 5);
             DeleteObject(hole_br);
 
-            // Paint spots (Red, Yellow, Lime, Blue)
             HBRUSH r_br = CreateSolidBrush(RGB(245, 60, 60));
             SelectObject(dc, r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); DeleteObject(r_br);
-
             HBRUSH y_br = CreateSolidBrush(RGB(255, 205, 30));
             SelectObject(dc, y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); DeleteObject(y_br);
-
             HBRUSH g_br = CreateSolidBrush(COLOR_ACCENT_LIME);
             SelectObject(dc, g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); DeleteObject(g_br);
-
             HBRUSH b_br = CreateSolidBrush(RGB(40, 140, 255));
             SelectObject(dc, b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); DeleteObject(b_br);
 
-            // Paintbrush
             HPEN brush_pen = CreatePen(PS_SOLID, 2, RGB(195, 140, 85));
             SelectObject(dc, brush_pen);
             MoveToEx(dc, cx + 9, cy - 12, NULL); LineTo(dc, cx - 2, cy + 6);
@@ -785,7 +875,6 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             DeleteObject(kb_br);
             DeleteObject(kb_pen);
 
-            // Miniature key dots
             HBRUSH key_br = CreateSolidBrush(COLOR_WHITE);
             SelectObject(dc, key_br);
             for (int r = 0; r < 2; ++r) {
@@ -794,10 +883,52 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                     FillRect(dc, &k, key_br);
                 }
             }
-            // Spacebar
             RECT sp = { cx - 6, cy + 4, cx + 6, cy + 6 };
             FillRect(dc, &sp, key_br);
             DeleteObject(key_br);
+            break;
+        }
+        case 11: { // Navegador Web (Globe)
+            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            HPEN globe_pen = CreatePen(PS_SOLID, 1, RGB(90, 180, 255));
+            SelectObject(dc, globe_pen);
+            Ellipse(dc, cx - 9, cy - 9, cx + 9, cy + 9);
+            MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx + 9, cy);
+            Ellipse(dc, cx - 4, cy - 9, cx + 4, cy + 9);
+            DeleteObject(globe_pen);
+            break;
+        }
+        case 12: { // Gerenciador de Tarefas (Pulse)
+            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 4, 4);
+            HPEN pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
+            SelectObject(dc, pulse_pen);
+            MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
+            LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
+            LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
+            DeleteObject(pulse_pen);
+            break;
+        }
+        case 13: { // Captura de Tela (Crop / Frame)
+            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            HPEN crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
+            SelectObject(dc, crop_pen);
+            RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
+            MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
+            MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
+            DeleteObject(crop_pen);
+            break;
+        }
+        case 14: { // Configurações (Gear)
+            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            Ellipse(dc, cx - 7, cy - 7, cx + 7, cy + 7);
+            Ellipse(dc, cx - 3, cy - 3, cx + 3, cy + 3);
+            for (int a = 0; a < 6; ++a) {
+                int dx = (a == 0 || a == 3) ? 0 : ((a == 1 || a == 2) ? 8 : -8);
+                int dy = (a == 0) ? -9 : ((a == 3) ? 9 : ((a == 1 || a == 5) ? -5 : 5));
+                MoveToEx(dc, cx + dx / 2, cy + dy / 2, NULL);
+                LineTo(dc, cx + dx, cy + dy);
+            }
             break;
         }
         default: { // Empty slot centered +
@@ -816,7 +947,26 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
     DeleteObject(brush);
 }
 
-static const wchar_t *get_key_default_title(int idx) {
+static const wchar_t *get_key_display_title(int idx) {
+    static wchar_t custom_name[DECK_TEXT_MAX];
+    if (idx >= 6 && idx <= 8) {
+        int app_idx = idx - 6;
+        if (g_config.apps[app_idx].configured && g_config.apps[app_idx].name[0]) {
+            utf8_to_wide(g_config.apps[app_idx].name, custom_name, DECK_TEXT_MAX);
+            return custom_name;
+        }
+        if (idx == 6) return L"Bloco de Notas";
+        if (idx == 7) return L"Calculadora";
+        return L"Paint";
+    }
+    if (idx >= 9 && idx < ID_KEY_COUNT) {
+        int extra_idx = idx - 9;
+        if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].name[0]) {
+            utf8_to_wide(g_extra_apps[extra_idx].name, custom_name, DECK_TEXT_MAX);
+            return custom_name;
+        }
+        return L"";
+    }
     switch (idx) {
         case 0: return L"Volume +";
         case 1: return L"Mudo";
@@ -824,16 +974,11 @@ static const wchar_t *get_key_default_title(int idx) {
         case 3: return L"Anterior";
         case 4: return L"Próximo";
         case 5: return L"Volume -";
-        case 6: return L"Bloco de Notas";
-        case 7: return L"Calculadora";
-        case 8: return L"Paint";
-        case 9: return L"Pasta";
-        case 10: return L"Atalho";
         default: return L"";
     }
 }
 
-// Draw Individual 15 Keys
+// Draw Individual 15 Keys as Visibly Rounded Floating Cards
 static void draw_key(const DRAWITEMSTRUCT *draw) {
     HDC dc = draw->hDC;
     RECT rect = draw->rcItem;
@@ -843,30 +988,42 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
 
     SetBkMode(dc, TRANSPARENT);
 
-    // Key base
-    COLORREF bg_col = is_pressed ? COLOR_KEY_PRESSED : (is_selected ? RGB(20, 24, 28) : COLOR_KEY_BASE);
+    // 1. Erase background of the button window with parent canvas background
+    // This eliminates any square artifacts outside the rounded corners!
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_BG);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    // Inset slightly to leave breathing room for rounded card look
+    RECT card_rc = { rect.left + 2, rect.top + 2, rect.right - 2, rect.bottom - 2 };
+    int radius = 20; // Visible, smooth rounded corners
+
+    // 2. Base Fill & Border
+    COLORREF bg_col = is_pressed ? COLOR_KEY_PRESSED : (is_selected ? RGB(22, 27, 34) : COLOR_KEY_BASE);
+    COLORREF bdr_col = is_selected ? COLOR_ACCENT_LIME : COLOR_BORDER_KEY;
+
     HBRUSH brush = CreateSolidBrush(bg_col);
-    HPEN pen = CreatePen(PS_SOLID, 1, is_selected ? COLOR_ACCENT_LIME : COLOR_BORDER_KEY);
+    HPEN pen = CreatePen(PS_SOLID, 1, bdr_col);
     HGDIOBJ old_b = SelectObject(dc, brush);
     HGDIOBJ old_p = SelectObject(dc, pen);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 14, 14);
+    RoundRect(dc, card_rc.left, card_rc.top, card_rc.right, card_rc.bottom, radius, radius);
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(brush);
     DeleteObject(pen);
 
-    // Glowing border for selected key
+    // 3. Glowing border for selected key
     if (is_selected) {
-        draw_lime_glow_border(dc, rect, 14);
+        draw_lime_glow_border(dc, card_rc, radius);
     }
 
-    RECT content = rect;
+    RECT content = card_rc;
     if (is_pressed) OffsetRect(&content, 0, 1);
 
     int cx = (content.left + content.right) / 2;
     int cy = content.top + (content.bottom - content.top) / 2 - 10;
 
-    // Custom Icon or Vector Icon
+    // Check if configured app has a custom icon file
     HICON app_icon = NULL;
     BOOL owns_icon = FALSE;
     if (idx >= 6 && idx <= 8) {
@@ -887,23 +1044,7 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
     }
 
     // Title label
-    const wchar_t *title = NULL;
-    static wchar_t custom_name[DECK_TEXT_MAX];
-
-    if (idx >= 6 && idx <= 8) {
-        int app_idx = idx - 6;
-        if (g_config.apps[app_idx].configured) {
-            utf8_to_wide(g_config.apps[app_idx].name, custom_name, DECK_TEXT_MAX);
-            title = custom_name;
-        } else {
-            if (idx == 6) title = L"Bloco de Notas";
-            else if (idx == 7) title = L"Calculadora";
-            else title = L"Paint";
-        }
-    } else {
-        title = get_key_default_title(idx);
-    }
-
+    const wchar_t *title = get_key_display_title(idx);
     if (title && title[0]) {
         HGDIOBJ old_f = SelectObject(dc, g_font_label);
         SetTextColor(dc, is_selected ? COLOR_WHITE : COLOR_TEXT_MUTED);
@@ -913,7 +1054,7 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
     }
 }
 
-// Sidebar Category Buttons
+// Sidebar Category Buttons with rounded pill shape
 static void draw_sidebar_button(const DRAWITEMSTRUCT *draw) {
     HDC dc = draw->hDC;
     RECT rect = draw->rcItem;
@@ -922,30 +1063,33 @@ static void draw_sidebar_button(const DRAWITEMSTRUCT *draw) {
 
     SetBkMode(dc, TRANSPARENT);
 
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_SIDEBAR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    RECT pill_rc = { rect.left + 4, rect.top + 1, rect.right - 4, rect.bottom - 1 };
+    int radius = 14;
+
     if (is_active) {
         HBRUSH br = CreateSolidBrush(COLOR_ACCENT_BG);
         HPEN pen = CreatePen(PS_SOLID, 1, RGB(38, 65, 30));
         HGDIOBJ old_b = SelectObject(dc, br);
         HGDIOBJ old_p = SelectObject(dc, pen);
-        RoundRect(dc, rect.left + 4, rect.top + 1, rect.right - 4, rect.bottom - 1, 10, 10);
+        RoundRect(dc, pill_rc.left, pill_rc.top, pill_rc.right, pill_rc.bottom, radius, radius);
         SelectObject(dc, old_b);
         SelectObject(dc, old_p);
         DeleteObject(br);
         DeleteObject(pen);
 
         // Vertical lime indicator on the far left
-        RECT bar = { rect.left + 6, rect.top + 6, rect.left + 10, rect.bottom - 6 };
+        RECT bar = { pill_rc.left + 4, pill_rc.top + 6, pill_rc.left + 8, pill_rc.bottom - 6 };
         HBRUSH acc = CreateSolidBrush(COLOR_ACCENT_LIME);
         FillRect(dc, &bar, acc);
         DeleteObject(acc);
-    } else {
-        HBRUSH br = CreateSolidBrush(COLOR_SIDEBAR);
-        FillRect(dc, &rect, br);
-        DeleteObject(br);
     }
 
     COLORREF icon_col = is_active ? COLOR_ACCENT_LIME : COLOR_TEXT_MUTED;
-    draw_category_icon(dc, id, rect.left + 24, (rect.top + rect.bottom) / 2, icon_col);
+    draw_category_icon(dc, id, pill_rc.left + 22, (pill_rc.top + pill_rc.bottom) / 2, icon_col);
 
     const wchar_t *label = L"";
     switch (id) {
@@ -960,23 +1104,30 @@ static void draw_sidebar_button(const DRAWITEMSTRUCT *draw) {
 
     HGDIOBJ old_f = SelectObject(dc, is_active ? g_font_btn : g_font_label);
     SetTextColor(dc, is_active ? COLOR_WHITE : COLOR_TEXT_MUTED);
-    RECT tr = { rect.left + 42, rect.top, rect.right - 8, rect.bottom };
+    RECT tr = { pill_rc.left + 38, pill_rc.top, pill_rc.right - 8, pill_rc.bottom };
     DrawTextW(dc, label, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_f);
 }
 
-// Top Bar Profile Button
+// Top Bar Profile Dropdown Pill Button
 static void draw_profile_button(const DRAWITEMSTRUCT *draw) {
     HDC dc = draw->hDC;
     RECT rect = draw->rcItem;
     BOOL is_pressed = (draw->itemState & ODS_SELECTED) != 0;
+
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_TOPBAR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    RECT pill_rc = { rect.left + 1, rect.top + 1, rect.right - 1, rect.bottom - 1 };
+    int radius = 16;
 
     COLORREF bg = is_pressed ? RGB(26, 29, 36) : RGB(34, 38, 47);
     HBRUSH br = CreateSolidBrush(bg);
     HPEN pen = CreatePen(PS_SOLID, 1, RGB(54, 61, 74));
     HGDIOBJ old_b = SelectObject(dc, br);
     HGDIOBJ old_p = SelectObject(dc, pen);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 12, 12);
+    RoundRect(dc, pill_rc.left, pill_rc.top, pill_rc.right, pill_rc.bottom, radius, radius);
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(br);
@@ -985,14 +1136,14 @@ static void draw_profile_button(const DRAWITEMSTRUCT *draw) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, COLOR_WHITE);
     HGDIOBJ old_f = SelectObject(dc, g_font_label);
-    RECT tr = { rect.left + 14, rect.top, rect.right - 24, rect.bottom };
-    DrawTextW(dc, L"Default Profile", -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    RECT tr = { pill_rc.left + 14, pill_rc.top, pill_rc.right - 24, pill_rc.bottom };
+    DrawTextW(dc, g_current_profile, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
     // Chevron down
     HPEN chev_pen = CreatePen(PS_SOLID, 2, RGB(160, 172, 190));
     SelectObject(dc, chev_pen);
-    int cx = rect.right - 18;
-    int cy = (rect.top + rect.bottom) / 2;
+    int cx = pill_rc.right - 16;
+    int cy = (pill_rc.top + pill_rc.bottom) / 2;
     MoveToEx(dc, cx - 4, cy - 2, NULL); LineTo(dc, cx, cy + 2);
     LineTo(dc, cx + 4, cy - 2);
     SelectObject(dc, old_p);
@@ -1006,43 +1157,57 @@ static void draw_settings_button(const DRAWITEMSTRUCT *draw) {
     RECT rect = draw->rcItem;
     BOOL is_pressed = (draw->itemState & ODS_SELECTED) != 0;
 
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_TOPBAR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    RECT pill_rc = { rect.left + 1, rect.top + 1, rect.right - 1, rect.bottom - 1 };
+    int radius = 16;
+
     COLORREF bg = is_pressed ? RGB(26, 29, 36) : RGB(34, 38, 47);
     HBRUSH br = CreateSolidBrush(bg);
     HPEN pen = CreatePen(PS_SOLID, 1, RGB(54, 61, 74));
     HGDIOBJ old_b = SelectObject(dc, br);
     HGDIOBJ old_p = SelectObject(dc, pen);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 12, 12);
+    RoundRect(dc, pill_rc.left, pill_rc.top, pill_rc.right, pill_rc.bottom, radius, radius);
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(br);
     DeleteObject(pen);
 
-    int gx = rect.left + 16;
-    int gy = (rect.top + rect.bottom) / 2;
+    int gx = pill_rc.left + 16;
+    int gy = (pill_rc.top + pill_rc.bottom) / 2;
     draw_category_icon(dc, ID_LIB_SYSTEM, gx, gy, RGB(220, 226, 235));
 
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, COLOR_WHITE);
     HGDIOBJ old_f = SelectObject(dc, g_font_label);
-    RECT tr = { rect.left + 30, rect.top, rect.right - 8, rect.bottom };
+    RECT tr = { pill_rc.left + 30, pill_rc.top, pill_rc.right - 8, pill_rc.bottom };
     DrawTextW(dc, L"Settings", -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_f);
 }
 
-// Inspector Action Buttons (Executar Ação, Salvar alterações, Remover Ação)
+// Inspector Rounded Action Buttons (Executar Ação, Salvar alterações, Remover Ação)
 static void draw_inspector_button(const DRAWITEMSTRUCT *draw, const wchar_t *text) {
     HDC dc = draw->hDC;
     RECT rect = draw->rcItem;
     BOOL is_pressed = (draw->itemState & ODS_SELECTED) != 0;
 
-    COLORREF bg = is_pressed ? RGB(26, 29, 36) : RGB(36, 40, 50);
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_INSPECTOR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    RECT btn_rc = { rect.left + 1, rect.top + 1, rect.right - 1, rect.bottom - 1 };
+    int radius = 14;
+
+    COLORREF bg = is_pressed ? RGB(22, 25, 32) : RGB(34, 38, 48);
     COLORREF border = is_pressed ? COLOR_ACCENT_LIME : COLOR_BORDER_BTN;
 
     HBRUSH br = CreateSolidBrush(bg);
     HPEN pen = CreatePen(PS_SOLID, 1, border);
     HGDIOBJ old_b = SelectObject(dc, br);
     HGDIOBJ old_p = SelectObject(dc, pen);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 10, 10);
+    RoundRect(dc, btn_rc.left, btn_rc.top, btn_rc.right, btn_rc.bottom, radius, radius);
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(br);
@@ -1051,7 +1216,7 @@ static void draw_inspector_button(const DRAWITEMSTRUCT *draw, const wchar_t *tex
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, COLOR_WHITE);
     HGDIOBJ old_f = SelectObject(dc, g_font_btn);
-    RECT tr = rect;
+    RECT tr = btn_rc;
     if (is_pressed) OffsetRect(&tr, 0, 1);
     DrawTextW(dc, text, -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_f);
@@ -1062,12 +1227,19 @@ static void draw_browse_button(const DRAWITEMSTRUCT *draw) {
     RECT rect = draw->rcItem;
     BOOL is_pressed = (draw->itemState & ODS_SELECTED) != 0;
 
-    COLORREF bg = is_pressed ? RGB(26, 29, 36) : RGB(36, 40, 50);
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_INSPECTOR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
+    RECT btn_rc = { rect.left + 1, rect.top + 1, rect.right - 1, rect.bottom - 1 };
+    int radius = 10;
+
+    COLORREF bg = is_pressed ? RGB(26, 29, 36) : RGB(34, 38, 48);
     HBRUSH br = CreateSolidBrush(bg);
     HPEN pen = CreatePen(PS_SOLID, 1, COLOR_BORDER_BTN);
     HGDIOBJ old_b = SelectObject(dc, br);
     HGDIOBJ old_p = SelectObject(dc, pen);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 8, 8);
+    RoundRect(dc, btn_rc.left, btn_rc.top, btn_rc.right, btn_rc.bottom, radius, radius);
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(br);
@@ -1076,12 +1248,16 @@ static void draw_browse_button(const DRAWITEMSTRUCT *draw) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(220, 225, 235));
     HGDIOBJ old_f = SelectObject(dc, g_font_btn);
-    DrawTextW(dc, L"...", -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, L"...", -1, &btn_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_f);
 }
 
 // Property Inspector Preview Box (Bottom Right)
 static void draw_inspector_preview(HDC dc, RECT rect) {
+    HBRUSH bg_erase = CreateSolidBrush(COLOR_INSPECTOR);
+    FillRect(dc, &rect, bg_erase);
+    DeleteObject(bg_erase);
+
     int cx = (rect.left + rect.right) / 2;
     int cy = (rect.top + rect.bottom) / 2;
 
@@ -1090,56 +1266,343 @@ static void draw_inspector_preview(HDC dc, RECT rect) {
     HPEN null_pen = CreatePen(PS_NULL, 0, 0);
     HGDIOBJ old_b = SelectObject(dc, glow1);
     HGDIOBJ old_p = SelectObject(dc, null_pen);
-    Ellipse(dc, cx - 48, cy - 48, cx + 48, cy + 48);
+    Ellipse(dc, cx - 44, cy - 44, cx + 44, cy + 44);
 
     HBRUSH glow2 = CreateSolidBrush(RGB(28, 54, 22));
     SelectObject(dc, glow2);
-    Ellipse(dc, cx - 36, cy - 36, cx + 36, cy + 36);
+    Ellipse(dc, cx - 32, cy - 32, cx + 32, cy + 32);
     DeleteObject(glow1);
     DeleteObject(glow2);
 
-    // Preview key box
+    RECT card_rc = { rect.left + 2, rect.top + 2, rect.right - 2, rect.bottom - 2 };
+    int radius = 18;
+
     HBRUSH key_br = CreateSolidBrush(COLOR_KEY_BASE);
     SelectObject(dc, key_br);
-    RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 14, 14);
+    RoundRect(dc, card_rc.left, card_rc.top, card_rc.right, card_rc.bottom, radius, radius);
     DeleteObject(key_br);
 
-    // Glowing lime-green border
-    draw_lime_glow_border(dc, rect, 14);
+    draw_lime_glow_border(dc, card_rc, radius);
 
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
     DeleteObject(null_pen);
 
-    // Render key icon inside preview
-    draw_key_icon(dc, g_selected_key, cx, rect.top + 26, (g_selected_key == 1) ? COLOR_MUTE_AMBER : COLOR_WHITE);
+    draw_key_icon(dc, g_selected_key, cx, card_rc.top + 24, (g_selected_key == 1) ? COLOR_MUTE_AMBER : COLOR_WHITE);
 
-    // Label below icon
-    const wchar_t *title = L"";
-    static wchar_t wbuf[DECK_TEXT_MAX];
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        if (g_config.apps[app_idx].configured) {
-            utf8_to_wide(g_config.apps[app_idx].name, wbuf, DECK_TEXT_MAX);
-            title = wbuf;
-        } else {
-            if (g_selected_key == 6) title = L"Bloco de Notas";
-            else if (g_selected_key == 7) title = L"Calculadora";
-            else title = L"Paint";
-        }
-    } else {
-        title = get_key_default_title(g_selected_key);
-    }
-
+    const wchar_t *title = get_key_display_title(g_selected_key);
     SetBkMode(dc, TRANSPARENT);
     HGDIOBJ old_f = SelectObject(dc, g_font_sub);
     SetTextColor(dc, COLOR_WHITE);
-    RECT tr = { rect.left + 4, rect.bottom - 22, rect.right - 4, rect.bottom - 4 };
+    RECT tr = { card_rc.left + 4, card_rc.bottom - 22, card_rc.right - 4, card_rc.bottom - 4 };
     DrawTextW(dc, title, -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     SelectObject(dc, old_f);
 }
 
-// Window Procedure
+// Profile Switcher Implementation
+static void apply_profile(const wchar_t *profile) {
+    if (wcscmp(profile, L"Streaming / OBS") == 0) {
+        strcpy(g_config.apps[0].name, "OBS Studio");
+        strcpy(g_config.apps[0].path, "obs64.exe");
+        g_config.apps[0].configured = 1;
+
+        strcpy(g_config.apps[1].name, "Discord");
+        strcpy(g_config.apps[1].path, "Discord.exe");
+        g_config.apps[1].configured = 1;
+
+        strcpy(g_config.apps[2].name, "Twitch");
+        strcpy(g_config.apps[2].path, "https://dashboard.twitch.tv");
+        g_config.apps[2].configured = 1;
+    } else if (wcscmp(profile, L"Jogos / Gaming") == 0) {
+        strcpy(g_config.apps[0].name, "Steam");
+        strcpy(g_config.apps[0].path, "steam.exe");
+        g_config.apps[0].configured = 1;
+
+        strcpy(g_config.apps[1].name, "Discord");
+        strcpy(g_config.apps[1].path, "Discord.exe");
+        g_config.apps[1].configured = 1;
+
+        strcpy(g_config.apps[2].name, "Spotify");
+        strcpy(g_config.apps[2].path, "spotify.exe");
+        g_config.apps[2].configured = 1;
+    } else if (wcscmp(profile, L"Produtividade") == 0) {
+        strcpy(g_config.apps[0].name, "Bloco de Notas");
+        strcpy(g_config.apps[0].path, "notepad.exe");
+        g_config.apps[0].configured = 1;
+
+        strcpy(g_config.apps[1].name, "Calculadora");
+        strcpy(g_config.apps[1].path, "calc.exe");
+        g_config.apps[1].configured = 1;
+
+        strcpy(g_config.apps[2].name, "Paint");
+        strcpy(g_config.apps[2].path, "mspaint.exe");
+        g_config.apps[2].configured = 1;
+    } else {
+        config_load(g_config_path, &g_config);
+    }
+    update_inspector_ui();
+    if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+}
+
+static void show_profile_menu(HWND hwnd, int x, int y) {
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return;
+
+    UINT f1 = (wcscmp(g_current_profile, L"Default Profile") == 0) ? MF_CHECKED : MF_UNCHECKED;
+    UINT f2 = (wcscmp(g_current_profile, L"Streaming / OBS") == 0) ? MF_CHECKED : MF_UNCHECKED;
+    UINT f3 = (wcscmp(g_current_profile, L"Produtividade") == 0) ? MF_CHECKED : MF_UNCHECKED;
+    UINT f4 = (wcscmp(g_current_profile, L"Jogos / Gaming") == 0) ? MF_CHECKED : MF_UNCHECKED;
+
+    AppendMenuW(menu, MF_STRING | f1, 4001, L"Default Profile");
+    AppendMenuW(menu, MF_STRING | f2, 4002, L"Streaming / OBS");
+    AppendMenuW(menu, MF_STRING | f3, 4003, L"Produtividade");
+    AppendMenuW(menu, MF_STRING | f4, 4004, L"Jogos / Gaming");
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(menu, MF_STRING, 4005, L"⚙ Configurações de Perfis...");
+
+    SetForegroundWindow(hwnd);
+    UINT cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_RETURNCMD, x, y, 0, hwnd, NULL);
+    DestroyMenu(menu);
+
+    if (cmd >= 4001 && cmd <= 4004) {
+        if (cmd == 4001) wcscpy(g_current_profile, L"Default Profile");
+        else if (cmd == 4002) wcscpy(g_current_profile, L"Streaming / OBS");
+        else if (cmd == 4003) wcscpy(g_current_profile, L"Produtividade");
+        else if (cmd == 4004) wcscpy(g_current_profile, L"Jogos / Gaming");
+
+        apply_profile(g_current_profile);
+        InvalidateRect(hwnd, NULL, FALSE);
+        set_status(L"Perfil alternado com sucesso.");
+    } else if (cmd == 4005) {
+        show_settings_dialog(hwnd);
+    }
+}
+
+// Settings Window Procedure
+static HWND g_set_chk_startup;
+static HWND g_set_chk_tray;
+static HWND g_set_chk_hotkeys;
+static HWND g_set_cmb_profile;
+static HWND g_set_sld_opacity;
+static HWND g_set_lbl_opacity;
+
+static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    switch (msg) {
+        case WM_CREATE: {
+            HINSTANCE inst = ((LPCREATESTRUCTW)lparam)->hInstance;
+
+            // Checkboxes
+            g_set_chk_startup = CreateWindowW(L"BUTTON", L"Iniciar o C-Deck automaticamente com o Windows",
+                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                30, 80, 400, 24, hwnd, (HMENU)ID_SET_STARTUP_CHK, inst, NULL);
+            SendMessageW(g_set_chk_startup, WM_SETFONT, (WPARAM)g_font_label, TRUE);
+            if (is_run_on_startup_enabled()) SendMessageW(g_set_chk_startup, BM_SETCHECK, BST_CHECKED, 0);
+
+            g_set_chk_tray = CreateWindowW(L"BUTTON", L"Minimizar para a bandeja do sistema ao fechar (X)",
+                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                30, 114, 400, 24, hwnd, (HMENU)ID_SET_TRAY_CHK, inst, NULL);
+            SendMessageW(g_set_chk_tray, WM_SETFONT, (WPARAM)g_font_label, TRUE);
+            if (g_minimize_to_tray) SendMessageW(g_set_chk_tray, BM_SETCHECK, BST_CHECKED, 0);
+
+            g_set_chk_hotkeys = CreateWindowW(L"BUTTON", L"Ativar atalhos globais de teclado (Ctrl + Alt + ↑ / ↓ / M)",
+                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                30, 148, 400, 24, hwnd, (HMENU)ID_SET_HOTKEYS_CHK, inst, NULL);
+            SendMessageW(g_set_chk_hotkeys, WM_SETFONT, (WPARAM)g_font_label, TRUE);
+            if (g_enable_hotkeys) SendMessageW(g_set_chk_hotkeys, BM_SETCHECK, BST_CHECKED, 0);
+
+            // Combobox Profile
+            g_set_cmb_profile = CreateWindowW(L"COMBOBOX", L"",
+                WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
+                30, 216, 260, 120, hwnd, (HMENU)ID_SET_PROFILE_CMB, inst, NULL);
+            SendMessageW(g_set_cmb_profile, WM_SETFONT, (WPARAM)g_font_label, TRUE);
+            SendMessageW(g_set_cmb_profile, CB_ADDSTRING, 0, (LPARAM)L"Default Profile");
+            SendMessageW(g_set_cmb_profile, CB_ADDSTRING, 0, (LPARAM)L"Streaming / OBS");
+            SendMessageW(g_set_cmb_profile, CB_ADDSTRING, 0, (LPARAM)L"Produtividade");
+            SendMessageW(g_set_cmb_profile, CB_ADDSTRING, 0, (LPARAM)L"Jogos / Gaming");
+
+            int sel = 0;
+            if (wcscmp(g_current_profile, L"Streaming / OBS") == 0) sel = 1;
+            else if (wcscmp(g_current_profile, L"Produtividade") == 0) sel = 2;
+            else if (wcscmp(g_current_profile, L"Jogos / Gaming") == 0) sel = 3;
+            SendMessageW(g_set_cmb_profile, CB_SETCURSEL, sel, 0);
+
+            // Opacity slider
+            g_set_sld_opacity = CreateWindowExW(0, L"msctls_trackbar32", L"",
+                WS_CHILD | WS_VISIBLE | TBS_HORZ | TBS_NOTICKS,
+                30, 280, 280, 26, hwnd, (HMENU)ID_SET_OPACITY_SLD, inst, NULL);
+            SendMessageW(g_set_sld_opacity, TBM_SETRANGE, TRUE, MAKELONG(60, 100));
+            SendMessageW(g_set_sld_opacity, TBM_SETPOS, TRUE, g_window_opacity);
+
+            wchar_t op_buf[32];
+            swprintf(op_buf, 32, L"%d%%", g_window_opacity);
+            g_set_lbl_opacity = CreateWindowW(L"STATIC", op_buf,
+                WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
+                322, 280, 60, 26, hwnd, NULL, inst, NULL);
+            SendMessageW(g_set_lbl_opacity, WM_SETFONT, (WPARAM)g_font_label, TRUE);
+
+            // Action Buttons
+            CreateWindowW(L"BUTTON", L"Salvar e Aplicar",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                200, 360, 130, 34, hwnd, (HMENU)ID_SET_SAVE_BTN, inst, NULL);
+
+            CreateWindowW(L"BUTTON", L"Cancelar",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                340, 360, 90, 34, hwnd, (HMENU)ID_SET_CANCEL_BTN, inst, NULL);
+
+            return 0;
+        }
+
+        case WM_HSCROLL: {
+            if ((HWND)lparam == g_set_sld_opacity) {
+                int pos = (int)SendMessageW(g_set_sld_opacity, TBM_GETPOS, 0, 0);
+                wchar_t op_buf[32];
+                swprintf(op_buf, 32, L"%d%%", pos);
+                SetWindowTextW(g_set_lbl_opacity, op_buf);
+                if (g_main_window) apply_window_opacity(g_main_window, pos);
+            }
+            return 0;
+        }
+
+        case WM_CTLCOLORSTATIC: {
+            HDC dc = (HDC)wparam;
+            SetTextColor(dc, COLOR_WHITE);
+            SetBkColor(dc, COLOR_BG);
+            return (LRESULT)g_brush_bg;
+        }
+
+        case WM_CTLCOLORBTN: {
+            return (LRESULT)g_brush_bg;
+        }
+
+        case WM_COMMAND: {
+            int id = LOWORD(wparam);
+            if (id == ID_SET_SAVE_BTN) {
+                int chk_start = (int)SendMessageW(g_set_chk_startup, BM_GETCHECK, 0, 0) == BST_CHECKED;
+                set_run_on_startup(chk_start);
+
+                g_minimize_to_tray = (int)SendMessageW(g_set_chk_tray, BM_GETCHECK, 0, 0) == BST_CHECKED;
+
+                int chk_hot = (int)SendMessageW(g_set_chk_hotkeys, BM_GETCHECK, 0, 0) == BST_CHECKED;
+                if (g_main_window) apply_hotkeys(g_main_window, chk_hot);
+
+                int op_pos = (int)SendMessageW(g_set_sld_opacity, TBM_GETPOS, 0, 0);
+                if (g_main_window) apply_window_opacity(g_main_window, op_pos);
+
+                int prof_sel = (int)SendMessageW(g_set_cmb_profile, CB_GETCURSEL, 0, 0);
+                if (prof_sel == 1) wcscpy(g_current_profile, L"Streaming / OBS");
+                else if (prof_sel == 2) wcscpy(g_current_profile, L"Produtividade");
+                else if (prof_sel == 3) wcscpy(g_current_profile, L"Jogos / Gaming");
+                else wcscpy(g_current_profile, L"Default Profile");
+
+                apply_profile(g_current_profile);
+                set_status(L"Configurações atualizadas e salvas.");
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            if (id == ID_SET_CANCEL_BTN) {
+                if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC dc = BeginPaint(hwnd, &ps);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+
+            HBRUSH bg = CreateSolidBrush(COLOR_BG);
+            FillRect(dc, &rc, bg);
+            DeleteObject(bg);
+
+            SetBkMode(dc, TRANSPARENT);
+
+            // Title
+            HGDIOBJ old_f = SelectObject(dc, g_font_sub);
+            SetTextColor(dc, COLOR_ACCENT_LIME);
+            RECT sub_rc = { 30, 20, rc.right - 30, 36 };
+            DrawTextW(dc, L"C-DECK · PREFERÊNCIAS DO SISTEMA", -1, &sub_rc, DT_LEFT | DT_SINGLELINE);
+
+            SelectObject(dc, g_font_title);
+            SetTextColor(dc, COLOR_WHITE);
+            RECT tit_rc = { 30, 36, rc.right - 30, 64 };
+            DrawTextW(dc, L"Configurações Gerais", -1, &tit_rc, DT_LEFT | DT_SINGLELINE);
+
+            // Section labels
+            SelectObject(dc, g_font_label);
+            SetTextColor(dc, COLOR_TEXT_MUTED);
+            RECT p_lbl = { 30, 194, rc.right - 30, 212 };
+            DrawTextW(dc, L"Perfil ativo ao iniciar:", -1, &p_lbl, DT_LEFT | DT_SINGLELINE);
+
+            RECT op_lbl = { 30, 258, rc.right - 30, 276 };
+            DrawTextW(dc, L"Transparência da janela principal:", -1, &op_lbl, DT_LEFT | DT_SINGLELINE);
+
+            // Footer info
+            SelectObject(dc, g_font_sub);
+            SetTextColor(dc, COLOR_TEXT_DIM);
+            RECT info_rc = { 30, 320, rc.right - 30, 338 };
+            DrawTextW(dc, L"C-Deck v1.3.1 · Código Aberto (MIT) · Desenvolvido em C para Windows", -1, &info_rc, DT_LEFT | DT_SINGLELINE);
+
+            SelectObject(dc, old_f);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+
+        case WM_CLOSE:
+            if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+            DestroyWindow(hwnd);
+            return 0;
+
+        case WM_DESTROY:
+            return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wparam, lparam);
+}
+
+static void show_settings_dialog(HWND parent) {
+    WNDCLASSEXW sc;
+    ZeroMemory(&sc, sizeof(sc));
+    sc.cbSize = sizeof(sc);
+    sc.lpfnWndProc = settings_proc;
+    sc.hInstance = GetModuleHandleW(NULL);
+    sc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
+    sc.hbrBackground = g_brush_bg;
+    sc.lpszClassName = SETTINGS_CLASS_NAME;
+    RegisterClassExW(&sc);
+
+    RECT pr;
+    GetWindowRect(parent, &pr);
+    int dw = 460, dh = 440;
+    int dx = pr.left + (pr.right - pr.left - dw) / 2;
+    int dy = pr.top + (pr.bottom - pr.top - dh) / 2;
+
+    HWND dlg = CreateWindowExW(
+        WS_EX_DLGMODALFRAME,
+        SETTINGS_CLASS_NAME, L"C-Deck — Configurações",
+        WS_POPUP | WS_CAPTION | WS_SYSMENU,
+        dx, dy, dw, dh,
+        parent, NULL, GetModuleHandleW(NULL), NULL
+    );
+    if (!dlg) return;
+
+    enable_dark_titlebar(dlg);
+    EnableWindow(parent, FALSE);
+    ShowWindow(dlg, SW_SHOW);
+    UpdateWindow(dlg);
+
+    MSG msg;
+    while (IsWindow(dlg) && GetMessageW(&msg, NULL, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    EnableWindow(parent, TRUE);
+    SetForegroundWindow(parent);
+}
+
+// Main Window Procedure
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
     if (g_wm_close_msg != 0 && message == g_wm_close_msg) {
         remove_tray_icon();
@@ -1155,7 +1618,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
 
             // Top Bar Profile Selector Button
             CreateWindowW(L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-                172, 10, 150, 32, hwnd, (HMENU)ID_PROFILE_BTN, inst, NULL);
+                172, 10, 154, 32, hwnd, (HMENU)ID_PROFILE_BTN, inst, NULL);
 
             // Top Bar Settings Button
             CreateWindowW(L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
@@ -1205,7 +1668,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 0, 0, 100, 34, hwnd, (HMENU)ID_INSP_MUTE_BTN, inst, NULL);
 
             // Bottom status label
-            g_status = CreateWindowW(L"STATIC", L"Pronto. C-Deck Stream Deck Edition.",
+            g_status = CreateWindowW(L"STATIC", L"Pronto. C-Deck Virtual.",
                 WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
                 16, 0, 400, 20, hwnd, (HMENU)ID_STATUS, inst, NULL);
             if (g_status && g_font_sub) SendMessageW(g_status, WM_SETFONT, (WPARAM)g_font_sub, TRUE);
@@ -1213,16 +1676,13 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             update_inspector_ui();
             layout_controls(hwnd);
             SetTimer(hwnd, ID_VOLUME_TIMER, 500, NULL);
-
-            RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
-            RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
-            RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
+            apply_hotkeys(hwnd, g_enable_hotkeys);
             return 0;
         }
 
         case WM_SIZE:
             if (wparam == SIZE_MINIMIZED) {
-                if (add_tray_icon(hwnd)) ShowWindow(hwnd, SW_HIDE);
+                if (g_minimize_to_tray && add_tray_icon(hwnd)) ShowWindow(hwnd, SW_HIDE);
                 return 0;
             }
             layout_controls(hwnd);
@@ -1310,13 +1770,13 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             SelectObject(dc, g_font_header);
             SetTextColor(dc, COLOR_WHITE);
             RECT pr_type = { insp_x + 22, topbar_h + 30, width - 20, topbar_h + 52 };
-            const wchar_t *act_hdr = (g_selected_key >= 6 && g_selected_key <= 8) ? L"Sistema: Atalho"
+            const wchar_t *act_hdr = (g_selected_key >= 6) ? L"Sistema: Atalho"
                 : ((g_selected_key <= 1 || g_selected_key == 5) ? L"Sistema: Controle de Áudio"
-                : ((g_selected_key == 2) ? L"Sistema: Mute" : L"Sistema: Multimídia"));
+                : L"Sistema: Multimídia");
             DrawTextW(dc, act_hdr, -1, &pr_type, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
-            // Labels inside Property Inspector for configured app slots
-            if (g_selected_key >= 6 && g_selected_key <= 8) {
+            // Labels inside Property Inspector for app slots
+            if (g_selected_key >= 6) {
                 SelectObject(dc, g_font_label);
                 SetTextColor(dc, COLOR_TEXT_MUTED);
                 RECT l1 = { insp_x + 22, topbar_h + 62, width - 22, topbar_h + 78 };
@@ -1327,7 +1787,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 // Preview section at bottom
                 RECT prev_hdr = { insp_x + 22, height - statusbar_h - 118, width - 22, height - statusbar_h - 102 };
                 DrawTextW(dc, L"Prévia da tecla", -1, &prev_hdr, DT_LEFT | DT_SINGLELINE);
-                RECT prev_box = { insp_x + 22, height - statusbar_h - 96, insp_x + 94, height - statusbar_h - 24 };
+                RECT prev_box = { insp_x + 22, height - statusbar_h - 96, insp_x + 98, height - statusbar_h - 20 };
                 draw_inspector_preview(dc, prev_box);
             }
 
@@ -1342,7 +1802,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             SelectObject(dc, g_font_sub);
             SetTextColor(dc, COLOR_TEXT_DIM);
             RECT info_rect = { width - 240, height - statusbar_h, width - 16, height };
-            DrawTextW(dc, L"Windows Core Audio · C-Deck Native", -1, &info_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+            DrawTextW(dc, L"Windows Core Audio · C-Deck Nativo", -1, &info_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 
             SelectObject(dc, old_pen);
             DeleteObject(div_pen);
@@ -1415,6 +1875,37 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
 
             if (id >= ID_LIB_FAVORITES && id <= ID_LIB_MULTIACTION) {
                 g_selected_category = id;
+                switch (id) {
+                    case ID_LIB_FAVORITES:
+                        g_selected_key = 8;
+                        set_status(L"Categoria Favoritos: Tecla Paint e atalhos rápidos.");
+                        break;
+                    case ID_LIB_SYSTEM:
+                        g_selected_key = 6;
+                        set_status(L"Categoria Sistema: Utilitários e atalhos essenciais.");
+                        break;
+                    case ID_LIB_AUDIO:
+                        g_selected_key = 0;
+                        set_status(L"Categoria Áudio: Controle mestre de volume e mute.");
+                        break;
+                    case ID_LIB_MEDIA:
+                        g_selected_key = 2;
+                        set_status(L"Categoria Mídia: Controles de reprodução.");
+                        break;
+                    case ID_LIB_APPS:
+                        g_selected_key = 7;
+                        set_status(L"Categoria Aplicativos: Programas configurados.");
+                        break;
+                    case ID_LIB_NAVIGATION:
+                        g_selected_key = 9;
+                        set_status(L"Categoria Navegação: Explorador e sites.");
+                        break;
+                    case ID_LIB_MULTIACTION:
+                        g_selected_key = 10;
+                        set_status(L"Categoria Multi Action: Terminal e macros.");
+                        break;
+                }
+                update_inspector_ui();
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
@@ -1445,8 +1936,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 return 0;
             }
 
-            if (id == ID_SETTINGS || id == ID_PROFILE_BTN) {
-                set_status(L"Configuração de perfis ativa. Perfil atual: Default Profile.");
+            if (id == ID_PROFILE_BTN) {
+                RECT btn_r;
+                HWND p_btn = GetDlgItem(hwnd, ID_PROFILE_BTN);
+                if (p_btn && GetWindowRect(p_btn, &btn_r)) {
+                    show_profile_menu(hwnd, btn_r.left, btn_r.bottom);
+                }
+                return 0;
+            }
+
+            if (id == ID_SETTINGS) {
+                show_settings_dialog(hwnd);
                 return 0;
             }
 
@@ -1514,11 +2014,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
 
         case WM_CLOSE:
-            if (add_tray_icon(hwnd)) {
-                ShowWindow(hwnd, SW_HIDE);
+            if (g_minimize_to_tray) {
+                if (add_tray_icon(hwnd)) {
+                    ShowWindow(hwnd, SW_HIDE);
+                } else {
+                    DestroyWindow(hwnd);
+                    PostQuitMessage(0);
+                }
             } else {
-                set_status(L"Não foi possível minimizar para a bandeja.");
-                MessageBoxW(hwnd, L"O Windows não permitiu criar o ícone da bandeja. O C-Deck continuará aberto.", L"C-Deck", MB_OK | MB_ICONWARNING);
+                remove_tray_icon();
+                DestroyWindow(hwnd);
+                PostQuitMessage(0);
             }
             return 0;
 
@@ -1603,9 +2109,9 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     window_class.lpszClassName = CLASS_NAME;
     if (!RegisterClassExW(&window_class) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return 1;
 
-    // Desktop Dimensions: 1200 x 760
+    // Desktop Dimensions: 1200 x 760 (C-Deck — Stream Deck)
     hwnd = CreateWindowExW(
-        0, CLASS_NAME, L"C-DECK | Elgato Stream Deck Edition",
+        0, CLASS_NAME, L"C-DECK — Stream Deck",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 1200, 760,
         NULL, NULL, instance, NULL
