@@ -128,8 +128,10 @@ int config_load(const char *path, DeckConfig *out_config) {
          * old app1..app9 become new app7..app15 without changing their order.
          */
         int legacy_count = schema_version == 2 ? 9 : (has_extended_apps ? 9 : 3);
-        for (int i = 0; i < legacy_count; ++i) {
-            out_config->apps[i + 6] = parsed_apps[i];
+        if (has_legacy_apps || has_extended_apps) {
+            for (int i = 0; i < legacy_count; ++i) {
+                out_config->apps[i + 6] = parsed_apps[i];
+            }
         }
         if (schema_version == 1 && has_legacy_apps && !has_extended_apps) {
             static const char *legacy_names[6] = {
@@ -144,7 +146,7 @@ int config_load(const char *path, DeckConfig *out_config) {
                 set_default_action(&out_config->apps[i + 9], legacy_names[i], legacy_paths[i]);
             }
         }
-        set_builtin_actions(out_config);
+        if (has_legacy_apps || has_extended_apps) set_builtin_actions(out_config);
     }
 
     for (int i = 0; i < DECK_KEY_COUNT; ++i) {
