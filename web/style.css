@@ -14,7 +14,7 @@
   --accent-glow: rgba(215, 255, 99, 0.2);
   --danger: #ff5c5c;
   --danger-bg: rgba(255, 92, 92, 0.12);
-  --cyan: #5ce1e6;
+  --cyan: #b0b8c4;
   --mono: "DM Mono", ui-monospace, Menlo, Consolas, monospace;
   --sans: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --radius-sm: 10px;
@@ -1057,4 +1057,32 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
 
 @media (prefers-reduced-motion: reduce) {
   .skip-link { transition: none; }
+}
+
+
+/* C-DECK 1.4.2 — consistent keyboard and high-contrast states */
+:where(a, button):focus-visible {
+  outline: 2px solid #f2f4f7;
+  outline-offset: 3px;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --line: #68717d;
+    --line-strong: #aeb7c3;
+    --muted: #c5ccd5;
+    --muted-light: #e1e6ec;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(a, button):focus-visible {
+    outline: 2px solid Highlight;
+  }
+  .deck-key,
+  .github-button,
+  .sound-toggle-btn,
+  .faq-question {
+    border: 1px solid ButtonText;
+  }
 }
