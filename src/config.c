@@ -23,7 +23,6 @@ int config_load(const char *path, DeckConfig *out_config) {
     FILE *file;
     char line[1024];
     int current = -1;
-    int app_sections[DECK_APP_COUNT] = { 0 };
     int has_legacy_apps = 0;
     int has_extended_apps = 0;
 
@@ -42,7 +41,6 @@ int config_load(const char *path, DeckConfig *out_config) {
             if (strlen(entry) == 6 && _strnicmp(entry, "[app", 4) == 0 &&
                 entry[4] >= '1' && entry[4] <= '9' && entry[5] == ']') {
                 current = entry[4] - '1';
-                app_sections[current] = 1;
                 if (current < 3) has_legacy_apps = 1; else has_extended_apps = 1;
             }
             continue;
