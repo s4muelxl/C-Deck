@@ -134,8 +134,10 @@
       }
     }
 
-    if (volumeSliderEl && document.activeElement !== volumeSliderEl) {
-      volumeSliderEl.value = state.volume;
+    if (volumeSliderEl) {
+      if (document.activeElement !== volumeSliderEl) {
+        volumeSliderEl.value = state.volume;
+      }
       volumeSliderEl.setAttribute('aria-valuetext', `${state.volume}%${state.muted ? ', sem áudio' : ''}`);
     }
   }
