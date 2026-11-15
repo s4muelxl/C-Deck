@@ -142,9 +142,16 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
     if (!file) return 0;
 
     while (fgets(line, sizeof(line), file)) {
-        char *entry = trim_text(line);
+        char *entry;
         char *equals;
         int parsed;
+
+        if (!strchr(line, '\n') &&
+            (strlen(line) == sizeof(line) - 1 || !feof(file))) {
+            fclose(file);
+            return 0;
+        }
+        entry = trim_text(line);
         if (!entry[0] || entry[0] == '#' || entry[0] == ';') continue;
         if (entry[0] == '[') {
             section = (_stricmp(entry, "[meta]") == 0) ? 1 :
