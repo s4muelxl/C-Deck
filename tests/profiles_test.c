@@ -82,7 +82,7 @@ int main(void) {
     assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
     assert(active.apps[6].configured == 1);
     assert(strcmp(active.apps[6].name, "Atalho padrão") == 0);
-    assert(strcmp(profile_name(DECK_PROFILE_STREAMING), L"Streaming / OBS") == 0);
+    assert(wcscmp(profile_name(DECK_PROFILE_STREAMING), L"Streaming / OBS") == 0);
     assert(profile_id_from_name(L"Produtividade") == DECK_PROFILE_PRODUCTIVITY);
     assert(profile_id_from_name(L"perfil inexistente") == -1);
 
