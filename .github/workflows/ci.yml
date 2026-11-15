@@ -34,13 +34,24 @@ jobs:
           gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c src/profiles.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
           cp config/apps.cfg build/config/apps.cfg
           cp README.md build/README.md
-      - name: Run configuration parser test
+      - name: Run configuration and profile persistence tests
         shell: msys2 {0}
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
           ./build/config-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/profiles_test.c src/profiles.c src/config.c -o build/profiles-test.exe
           ./build/profiles-test.exe
+      - name: Set up Node.js for website checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate website demo and accessibility
+        shell: pwsh
+        run: |
+          node --check web/main.js
+          if ($LASTEXITCODE -ne 0) { throw "Website JavaScript syntax check failed." }
+          node --test web/tests/ux-contract.test.js
+          if ($LASTEXITCODE -ne 0) { throw "Website UX contract tests failed." }
       - name: Create portable package
         shell: pwsh
         run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
