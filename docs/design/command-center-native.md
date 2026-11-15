@@ -140,3 +140,16 @@ A leitura de src/interface.c na branch codex/c-deck-1.4-engineering encontrou o 
 A paleta nativa atual usa fundo #15171B e acento oficial #9DFF00 (RGB 157,255,0), com fundo de seleção #18281A. A direção nova mantém o verde oficial, mas restringe seu uso a seleção/estado ativo e evita glow amplo. A proposta de canvas mais escuro é uma mudança visual futura; deve ser validada por contraste em monitores reais.
 
 O layout ainda usa valores fixos para top bar, sidebar, inspector e posições de alguns botões. O cálculo da grade já é parcialmente responsivo, mas o layout geral não pode ser considerado per-monitor DPI até existir WM_DPICHANGED e teste em múltiplos monitores. Não modificar esses pontos nesta PR enquanto a PR #16 estiver em revisão ativa.
+
+
+## Layout contract em C11 (15/11/2026)
+
+A primeira parte executável do contrato de layout foi extraída para `src/ui_layout.c` / `src/ui_layout.h`, sem dependência Win32. O módulo calcula em DIP as regiões de top bar, sidebar, workspace, inspector, status bar e os 15 retângulos quadrados da grade.
+
+- Breakpoints por largura da área cliente: wide a partir de 1360 DIP; medium a partir de 1120 DIP; narrow a partir de 900 DIP. Em narrow a sidebar vira rail de 64 DIP; em medium o inspector fica recolhido; em wide ambos aparecem.
+- Compact é explícito e mantém top bar de 48 DIP, status bar de 30 DIP e gap de 8 DIP; o alvo mínimo de 440×320 DIP é coberto por teste.
+- O cálculo centraliza a grade 5×3 e preserva teclas quadradas com mínimo de 44 DIP. Se a área não comportar esse mínimo, retorna `DECK_UI_LAYOUT_TOO_SMALL` sem produzir slots parcialmente válidos.
+- `deck_ui_dip_to_px` converte DIP para pixels físicos com arredondamento ao inteiro mais próximo; DPI zero usa 96 como fallback e os resultados são saturados em int32.
+- Testes cobrem wide/medium/narrow/compact, os 15 slots, limites e não sobreposição, dimensões insuficientes, argumentos inválidos e escalas 96/120/144/192 DPI.
+
+**Limite de integração:** o módulo ainda não está ligado ao executável nem substitui o layout de `src/interface.c`. Não há handler `WM_DPICHANGED` adicionado nesta rodada. O próximo passo, após estabilização da PR #16, é consumir estes retângulos no ciclo Win32, tratar `WM_DPICHANGED` e validar em sessão gráfica real; até lá, os testes comprovam apenas o contrato matemático independente da janela.
