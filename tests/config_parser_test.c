@@ -130,7 +130,7 @@ int main(void) {
     assert(config_save("teste-configuração-测试.cfg", &config) == 1);
     assert(config_load("teste-configuração-测试.cfg", &loaded) == 1);
     assert(strcmp(loaded.apps[8].name, "Aplicativo 日本語") == 0);
-    assert(strcmp(loaded.apps[8].path, "C:\\\\Apps\\\\应用.exe") == 0);
+    assert(strcmp(loaded.apps[8].path, "C:\\Apps\\应用.exe") == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
