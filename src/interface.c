@@ -1,6 +1,7 @@
 #include "interface.h"
 #include "actions.h"
 #include "profiles.h"
+#include "action_library.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -76,6 +77,7 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_LIB_APPS         1305
 #define ID_LIB_NAVIGATION   1306
 #define ID_LIB_MULTIACTION  1307
+#define ID_LIBRARY_ACTION_BASE 5200
 
 // Settings Dialog IDs
 #define ID_SET_STARTUP_CHK   2101
@@ -157,6 +159,7 @@ static void show_icon_picker(HWND parent, int key_idx);
 static int apply_profile(const wchar_t *profile);
 static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
+static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
     if (!wide || max_chars <= 0) return;
@@ -1689,6 +1692,81 @@ static void show_profile_menu(HWND hwnd, int x, int y) {
     }
 }
 
+static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
+    HMENU menu = CreatePopupMenu();
+    size_t count = action_library_count(category);
+    UINT command = 0;
+    POINT point;
+
+    if (!menu) {
+        set_status(L"Não foi possível abrir a biblioteca de ações.");
+        return;
+    }
+
+    if (count == 0) {
+        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
+                    category == DECK_LIBRARY_MULTIACTION
+                        ? L"Motor de macros ainda não disponível"
+                        : L"Nenhuma ação cadastrada nesta categoria");
+    } else {
+        for (size_t i = 0; i < count; ++i) {
+            const DeckLibraryAction *action = action_library_get(category, i);
+            wchar_t label[DECK_TEXT_MAX + 32];
+            if (!action) continue;
+            swprintf(label, sizeof(label) / sizeof(label[0]), L"Adicionar: %ls", action->title);
+            AppendMenuW(menu, MF_STRING, ID_LIBRARY_ACTION_BASE + (UINT)i, label);
+        }
+    }
+
+    GetCursorPos(&point);
+    SetForegroundWindow(hwnd);
+    command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_RETURNCMD,
+                             point.x, point.y, 0, hwnd, NULL);
+    PostMessageW(hwnd, WM_NULL, 0, 0);
+    DestroyMenu(menu);
+
+    if (count == 0) {
+        if (category == DECK_LIBRARY_MULTIACTION) {
+            set_status(L"Multi Action ficará disponível após a implementação do motor de macros.");
+        }
+        return;
+    }
+
+    if (command >= ID_LIBRARY_ACTION_BASE &&
+        (size_t)(command - ID_LIBRARY_ACTION_BASE) < count &&
+        g_selected_key >= 0 && g_selected_key < ID_KEY_COUNT) {
+        const DeckLibraryAction *action =
+            action_library_get(category, (size_t)(command - ID_LIBRARY_ACTION_BASE));
+        if (action) {
+            DeckApp previous = g_config.apps[g_selected_key];
+            DeckApp *target = &g_config.apps[g_selected_key];
+
+            ZeroMemory(target, sizeof(*target));
+            snprintf(target->name, sizeof(target->name), "%s", action->name);
+            snprintf(target->path, sizeof(target->path), "%s", action->path);
+            snprintf(target->icon_path, sizeof(target->icon_path), "%s", action->icon_path);
+            target->configured = 1;
+
+            if (!save_active_profile()) {
+                *target = previous;
+                update_inspector_ui();
+                InvalidateRect(hwnd, NULL, FALSE);
+                set_status(L"Não foi possível salvar a ação. A configuração anterior foi restaurada.");
+                return;
+            }
+
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            {
+                wchar_t status[128];
+                swprintf(status, sizeof(status) / sizeof(status[0]),
+                         L"Ação adicionada e salva na tecla %d.", g_selected_key + 1);
+                set_status(status);
+            }
+        }
+    }
+}
+
 // Settings Window Procedure
 static HWND g_set_chk_startup;
 static HWND g_set_chk_tray;
@@ -2217,39 +2295,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             }
 
             if (id >= ID_LIB_FAVORITES && id <= ID_LIB_MULTIACTION) {
+                DeckLibraryCategory category = (DeckLibraryCategory)(id - ID_LIB_FAVORITES);
                 g_selected_category = id;
-                switch (id) {
-                    case ID_LIB_FAVORITES:
-                        g_selected_key = 8;
-                        set_status(L"Categoria Favoritos: Tecla Paint e atalhos rápidos.");
-                        break;
-                    case ID_LIB_SYSTEM:
-                        g_selected_key = 6;
-                        set_status(L"Categoria Sistema: Utilitários e atalhos essenciais.");
-                        break;
-                    case ID_LIB_AUDIO:
-                        g_selected_key = 0;
-                        set_status(L"Categoria Áudio: Controle mestre de volume e mute.");
-                        break;
-                    case ID_LIB_MEDIA:
-                        g_selected_key = 2;
-                        set_status(L"Categoria Mídia: Controles de reprodução.");
-                        break;
-                    case ID_LIB_APPS:
-                        g_selected_key = 7;
-                        set_status(L"Categoria Aplicativos: Programas configurados.");
-                        break;
-                    case ID_LIB_NAVIGATION:
-                        g_selected_key = 9;
-                        set_status(L"Categoria Navegação: Explorador e sites.");
-                        break;
-                    case ID_LIB_MULTIACTION:
-                        g_selected_key = 10;
-                        set_status(L"Categoria Multi Action: Terminal e macros.");
-                        break;
-                }
-                update_inspector_ui();
                 InvalidateRect(hwnd, NULL, FALSE);
+                show_action_library_menu(hwnd, category);
                 return 0;
             }
 
