@@ -76,7 +76,7 @@ step2=open:obs64.exe
 step3=delay:500
 ```
 
-A categoria Multi Action oferece **Gerenciar macros...** para abrir o editor gráfico nativo. Ele permite escolher um dos oito slots, criar macros, adicionar/atualizar/remover etapas e reordená-las. A edição é feita em uma cópia de trabalho; somente **Salvar alterações** grava o arquivo, mantendo backup e substituição atômica. O editor não remove macros existentes para evitar invalidar referências já atribuídas às teclas; slots vazios podem ser reutilizados. A categoria mostra apenas macros carregadas e validadas. A execução ocorre em thread separada, interrompe no primeiro passo com falha e pode ser cancelada quando o aplicativo encerra. Não são executados comandos arbitrários.
+A categoria Multi Action oferece **Gerenciar macros...** para abrir o editor gráfico nativo. Ele permite escolher um dos oito slots, criar macros, adicionar/atualizar/remover etapas e reordená-las. A edição é feita em uma cópia de trabalho; somente **Salvar alterações** grava o arquivo, mantendo backup e substituição atômica. O editor não remove macros existentes para evitar invalidar referências já atribuídas às teclas; slots vazios podem ser reutilizados. A categoria mostra apenas macros carregadas e validadas. A execução ocorre em thread separada, interrompe no primeiro passo com falha e pode ser cancelada quando o aplicativo encerra. Não são executados comandos arbitrários. O workflow Windows também automatiza o fluxo dos controles Win32 para criar uma macro, adicionar uma ação, salvar, recarregar do disco e cancelar uma edição sem alterar o estado persistido. Esse teste valida mensagens e persistência em janela real, mas não substitui inspeção visual manual em uma sessão gráfica.
 
 ## Configurar os atalhos pelo aplicativo
 
@@ -158,7 +158,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - `src/gdi_scope.c` / `src/gdi_scope.h`: restauração de objetos GDI selecionados antes da liberação de brushes/pens temporários.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, encerramento do editor modal, registro de hotkeys e ciclo de vida GDI.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, ciclo de vida do editor modal, fluxo Win32 automatizado de criação/salvamento/reabertura/cancelamento de macros, registro de hotkeys e ciclo de vida GDI.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados, sem publicação automática.
 - `.github/workflows/release.yml`: publicação manual e versionada, condicionada a tag e confirmação humana.
