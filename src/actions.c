@@ -148,9 +148,9 @@ ActionResult action_get_mic_mute(int *muted) {
 }
 
 ActionResult action_open_sound_devices(void) {
-    HINSTANCE result = ShellExecuteA(NULL, "open", "ms-settings:sound", NULL, NULL, SW_SHOWNORMAL);
+    HINSTANCE result = ShellExecuteW(NULL, L"open", L"ms-settings:sound", NULL, NULL, SW_SHOWNORMAL);
     if ((INT_PTR)result <= 32) {
-        result = ShellExecuteA(NULL, "open", "control.exe", "mmsys.cpl sounds", NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", L"control.exe", L"mmsys.cpl sounds", NULL, SW_SHOWNORMAL);
     }
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
 }
