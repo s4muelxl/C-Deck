@@ -26,12 +26,18 @@ typedef struct EditorDriver {
     volatile LONG window_found;
     volatile LONG completed;
     volatile LONG failed;
+    volatile LONG failure_stage;
 } EditorDriver;
 
 static HWND wait_for_editor(void) {
     for (unsigned int attempt = 0; attempt < 500; ++attempt) {
         HWND editor = FindWindowW(EDITOR_CLASS_NAME, NULL);
-        if (editor) return editor;
+        if (editor && IsWindowVisible(editor) &&
+            GetDlgItem(editor, ID_EDITOR_NAME) &&
+            GetDlgItem(editor, ID_EDITOR_STEP_VALUE) &&
+            GetDlgItem(editor, ID_EDITOR_STEPS)) {
+            return editor;
+        }
         Sleep(10);
     }
     return NULL;
@@ -52,6 +58,7 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
     HWND steps_list;
 
     if (!editor) {
+        InterlockedExchange(&driver->failure_stage, 1);
         InterlockedExchange(&driver->failed, 1);
         PostThreadMessageW(driver->ui_thread_id, WM_QUIT, 91, 0);
         InterlockedExchange(&driver->completed, 1);
@@ -63,6 +70,7 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
     step_value = GetDlgItem(editor, ID_EDITOR_STEP_VALUE);
     steps_list = GetDlgItem(editor, ID_EDITOR_STEPS);
     if (!name_edit || !step_value || !steps_list) {
+        InterlockedExchange(&driver->failure_stage, 2);
         InterlockedExchange(&driver->failed, 1);
         PostMessageW(editor, WM_CLOSE, 0, 0);
         InterlockedExchange(&driver->completed, 1);
@@ -71,6 +79,9 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
 
     if (driver->scenario == EDITOR_SCENARIO_CREATE_AND_SAVE) {
         if (!click_control(editor, ID_EDITOR_NEW_MACRO)) {
+            InterlockedExchange(&driver->failure_stage, 3);
+            InterlockedExchange(&driver->failure_stage, 5);
+            InterlockedExchange(&driver->failure_stage, 6);
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
             InterlockedExchange(&driver->completed, 1);
@@ -81,6 +92,7 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
         SetWindowTextW(step_value, L"volume_up");
         if (!click_control(editor, ID_EDITOR_ADD_STEP) ||
             SendMessageW(steps_list, LB_GETCOUNT, 0, 0) != 1) {
+            InterlockedExchange(&driver->failure_stage, 4);
             InterlockedExchange(&driver->failed, 1);
             click_control(editor, ID_EDITOR_CANCEL);
             InterlockedExchange(&driver->completed, 1);
@@ -132,6 +144,10 @@ static int run_editor_scenario(HWND parent, DeckMacroStore *store,
     CloseHandle(thread);
     assert(driver.completed == 1);
     assert(driver.window_found == 1);
+    if (driver.failed) {
+        fprintf(stderr, "macro editor workflow driver failed at stage %ld\n",
+                (long)driver.failure_stage);
+    }
     assert(driver.failed == 0);
     assert(result == expected_result);
     assert(IsWindow(parent));
