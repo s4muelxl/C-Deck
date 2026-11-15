@@ -100,7 +100,6 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 
 // Global application state: all nine configurable slots share one persistent model.
 static DeckConfig g_config;
-#define g_extra_apps (g_config.apps + 3)
 static char g_config_path[MAX_PATH * 4];
 static HWND g_main_window;
 static HWND g_status;
@@ -340,70 +339,45 @@ static void toggle_mini_mode(HWND hwnd) {
 
 // Key Action Execution
 static void execute_key_action(int key_index) {
-    switch (key_index) {
-        case 0: // Volume +
-            report_result(action_volume_step(0.05f), L"Volume aumentado em +5%.");
-            break;
-        case 1: // Mudo
-            report_result(action_toggle_mute(), L"Mudo de áudio alternado.");
-            break;
-        case 2: // Play / Pause
-            report_result(action_media_play_pause(), L"Play / Pause enviado ao Windows.");
-            break;
-        case 3: // Faixa Anterior
-            report_result(action_media_previous(), L"Comando de faixa anterior enviado.");
-            break;
-        case 4: // Proxima Faixa
-            report_result(action_media_next(), L"Comando de próxima faixa enviado.");
-            break;
-        case 5: // Volume -
-            report_result(action_volume_step(-0.05f), L"Volume reduzido em −5%.");
-            break;
-        case 6: // App Slot 1 (Bloco de Notas)
-            report_result(action_launch_app(&g_config.apps[0]), L"Atalho executado.");
-            break;
-        case 7: // App Slot 2 (Calculadora)
-            report_result(action_launch_app(&g_config.apps[1]), L"Atalho executado.");
-            break;
-        case 8: // App Slot 3 (Paint)
-            report_result(action_launch_app(&g_config.apps[2]), L"Atalho executado.");
-            break;
-        case 9: { // Mudo Microfone (Option B)
-            if (strcmp(g_extra_apps[0].path, "action:mic_mute") == 0) {
-                int mic_muted = 0;
-                report_result(action_toggle_mic_mute(), L"Mudo do microfone alternado.");
-                action_get_mic_mute(&mic_muted);
-                set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
-            } else {
-                report_result(action_launch_app(&g_extra_apps[0]), L"Atalho executado.");
-            }
-            break;
-        }
-        case 10: { // Trocar Dispositivo de Saída (Option B)
-            if (strcmp(g_extra_apps[1].path, "action:sound_devices") == 0) {
-                report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
-            } else {
-                report_result(action_launch_app(&g_extra_apps[1]), L"Atalho executado.");
-            }
-            break;
-        }
-        case 11:
-        case 12:
-        case 13:
-        case 14:
-        {
-            int extra_idx = key_index - 9;
-            if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].path[0]) {
-                report_result(action_launch_app(&g_extra_apps[extra_idx]), L"Atalho executado com sucesso.");
-            } else {
-                set_status(L"Slot vazio selecionado. Configure o atalho ao lado.");
-            }
-            break;
-        }
-        default:
-            set_status(L"Slot selecionado.");
-            break;
+    const DeckApp *app;
+    ActionResult result;
+
+    if (key_index < 0 || key_index >= ID_KEY_COUNT) return;
+    app = &g_config.apps[key_index];
+    if (!app->configured || !app->path[0]) {
+        set_status(L"Slot vazio selecionado. Configure a ação ao lado.");
+        update_inspector_ui();
+        return;
     }
+
+    if (strcmp(app->path, "action:volume_up") == 0) {
+        report_result(action_volume_step(0.05f), L"Volume aumentado em +5%.");
+    } else if (strcmp(app->path, "action:volume_down") == 0) {
+        report_result(action_volume_step(-0.05f), L"Volume reduzido em −5%.");
+    } else if (strcmp(app->path, "action:audio_mute") == 0) {
+        report_result(action_toggle_mute(), L"Mudo de áudio alternado.");
+    } else if (strcmp(app->path, "action:media_play_pause") == 0) {
+        report_result(action_media_play_pause(), L"Play / Pause enviado ao Windows.");
+    } else if (strcmp(app->path, "action:media_previous") == 0) {
+        report_result(action_media_previous(), L"Comando de faixa anterior enviado.");
+    } else if (strcmp(app->path, "action:media_next") == 0) {
+        report_result(action_media_next(), L"Comando de próxima faixa enviado.");
+    } else if (strcmp(app->path, "action:mic_mute") == 0) {
+        int mic_muted = 0;
+        result = action_toggle_mic_mute();
+        if (result != ACTION_SUCCESS) {
+            report_result(result, L"Microfone alternado.");
+        } else {
+            result = action_get_mic_mute(&mic_muted);
+            if (result != ACTION_SUCCESS) report_result(result, L"Microfone alternado.");
+            else set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
+        }
+    } else if (strcmp(app->path, "action:sound_devices") == 0) {
+        report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
+    } else {
+        report_result(action_launch_app(app), L"Atalho executado com sucesso.");
+    }
+
     update_inspector_ui();
 }
 
@@ -428,65 +402,52 @@ static void browse_file_for_inspector(HWND hwnd) {
 }
 
 static void save_inspector_changes(void) {
-    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
-
+    DeckApp *app;
     wchar_t wname[DECK_TEXT_MAX];
     wchar_t wpath[DECK_TEXT_MAX];
     char name[DECK_TEXT_MAX];
     char path[DECK_TEXT_MAX];
+    char *start;
+    char *end;
 
+    if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
     GetWindowTextW(g_insp_title_edit, wname, DECK_TEXT_MAX);
     GetWindowTextW(g_insp_path_edit, wpath, DECK_TEXT_MAX);
-
     wide_to_utf8(wname, name, DECK_TEXT_MAX);
     wide_to_utf8(wpath, path, DECK_TEXT_MAX);
 
-    char *s = name; while (*s && isspace((unsigned char)*s)) ++s; memmove(name, s, strlen(s) + 1);
-    char *e = name + strlen(name); while (e > name && isspace((unsigned char)e[-1])) *--e = '\0';
+    start = name;
+    while (*start && isspace((unsigned char)*start)) ++start;
+    memmove(name, start, strlen(start) + 1);
+    end = name + strlen(name);
+    while (end > name && isspace((unsigned char)end[-1])) *--end = '\0';
 
-    s = path; while (*s && isspace((unsigned char)*s)) ++s; memmove(path, s, strlen(s) + 1);
-    e = path + strlen(path); while (e > path && isspace((unsigned char)e[-1])) *--e = '\0';
+    start = path;
+    while (*start && isspace((unsigned char)*start)) ++start;
+    memmove(path, start, strlen(start) + 1);
+    end = path + strlen(path);
+    while (end > path && isspace((unsigned char)end[-1])) *--end = '\0';
 
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        strcpy(g_config.apps[app_idx].name, name);
-        strcpy(g_config.apps[app_idx].path, path);
-        g_config.apps[app_idx].configured = (name[0] != '\0' && path[0] != '\0');
+    app = &g_config.apps[g_selected_key];
+    strcpy(app->name, name);
+    strcpy(app->path, path);
+    app->configured = (name[0] != '\0' && path[0] != '\0');
 
-        if (config_save(g_config_path, &g_config)) {
-            set_status(L"Atalho salvo com sucesso.");
-        } else {
-            set_status(L"Erro ao salvar configuração.");
-        }
+    if (config_save(g_config_path, &g_config)) {
+        set_status(L"Ação salva com sucesso.");
     } else {
-        int extra_idx = g_selected_key - 9;
-        strcpy(g_extra_apps[extra_idx].name, name);
-        strcpy(g_extra_apps[extra_idx].path, path);
-        g_extra_apps[extra_idx].configured = (name[0] != '\0' && path[0] != '\0');
-        if (config_save(g_config_path, &g_config)) set_status(L"Atalho salvo com sucesso.");
-        else set_status(L"Erro ao salvar configuração.");
+        set_status(L"Erro ao salvar configuração. O arquivo anterior foi preservado.");
     }
-
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
 }
 
 static void remove_selected_action(void) {
-    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
+    if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
 
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        ZeroMemory(&g_config.apps[app_idx], sizeof(DeckApp));
-        if (!config_save(g_config_path, &g_config)) {
-            set_status(L"Erro ao salvar a remoção do atalho.");
-            return;
-        }
-    } else {
-        int extra_idx = g_selected_key - 9;
-        ZeroMemory(&g_extra_apps[extra_idx], sizeof(DeckApp));
-        if (!config_save(g_config_path, &g_config)) {
-            set_status(L"Erro ao salvar a remoção do atalho.");
-            return;
-        }
+    ZeroMemory(&g_config.apps[g_selected_key], sizeof(DeckApp));
+    if (!config_save(g_config_path, &g_config)) {
+        set_status(L"Erro ao salvar a remoção da ação. O arquivo anterior foi preservado.");
+        return;
     }
 
     update_inspector_ui();
@@ -495,10 +456,13 @@ static void remove_selected_action(void) {
 }
 
 static void update_inspector_ui(void) {
+    const DeckApp *app;
+    wchar_t wname[DECK_TEXT_MAX];
+    wchar_t wpath[DECK_TEXT_MAX];
+
     if (!g_insp_title_edit) return;
 
-    if (g_is_mini_mode) {
-        // Hide all inspector items in mini mode
+    if (g_is_mini_mode || g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) {
         ShowWindow(g_insp_title_edit, SW_HIDE);
         ShowWindow(g_insp_path_edit, SW_HIDE);
         ShowWindow(g_insp_path_browse, SW_HIDE);
@@ -511,54 +475,21 @@ static void update_inspector_ui(void) {
         return;
     }
 
-    if (g_selected_key >= 6) {
-        const DeckApp *app = (g_selected_key <= 8)
-            ? &g_config.apps[g_selected_key - 6]
-            : &g_extra_apps[g_selected_key - 9];
+    app = &g_config.apps[g_selected_key];
+    ShowWindow(g_insp_title_edit, SW_SHOW);
+    ShowWindow(g_insp_path_edit, SW_SHOW);
+    ShowWindow(g_insp_path_browse, SW_SHOW);
+    ShowWindow(g_insp_icon_btn, SW_SHOW);
+    ShowWindow(g_insp_test_btn, SW_SHOW);
+    ShowWindow(g_insp_save_btn, SW_SHOW);
+    ShowWindow(g_insp_remove_btn, SW_SHOW);
+    ShowWindow(g_insp_vol_track, SW_HIDE);
+    ShowWindow(g_insp_mute_btn, SW_HIDE);
 
-        ShowWindow(g_insp_title_edit, SW_SHOW);
-        ShowWindow(g_insp_path_edit, SW_SHOW);
-        ShowWindow(g_insp_path_browse, SW_SHOW);
-        ShowWindow(g_insp_icon_btn, SW_SHOW);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_SHOW);
-        ShowWindow(g_insp_remove_btn, SW_SHOW);
-        ShowWindow(g_insp_vol_track, SW_HIDE);
-        ShowWindow(g_insp_mute_btn, SW_HIDE);
-
-        wchar_t wname[DECK_TEXT_MAX];
-        wchar_t wpath[DECK_TEXT_MAX];
-        utf8_to_wide(app->name, wname, DECK_TEXT_MAX);
-        utf8_to_wide(app->path, wpath, DECK_TEXT_MAX);
-
-        SetWindowTextW(g_insp_title_edit, wname);
-        SetWindowTextW(g_insp_path_edit, wpath);
-    } else if (g_selected_key == 0 || g_selected_key == 1 || g_selected_key == 5) {
-        ShowWindow(g_insp_title_edit, SW_HIDE);
-        ShowWindow(g_insp_path_edit, SW_HIDE);
-        ShowWindow(g_insp_path_browse, SW_HIDE);
-        ShowWindow(g_insp_icon_btn, SW_HIDE);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_HIDE);
-        ShowWindow(g_insp_remove_btn, SW_HIDE);
-        ShowWindow(g_insp_vol_track, SW_SHOW);
-        ShowWindow(g_insp_mute_btn, SW_SHOW);
-
-        float level = 0.0f; int muted = 0;
-        action_get_volume(&level, &muted);
-        SendMessageW(g_insp_vol_track, TBM_SETPOS, TRUE, (int)(level * 100.0f + 0.5f));
-        SetWindowTextW(g_insp_mute_btn, muted ? L"Desmutar Áudio" : L"Mutar Áudio");
-    } else {
-        ShowWindow(g_insp_title_edit, SW_HIDE);
-        ShowWindow(g_insp_path_edit, SW_HIDE);
-        ShowWindow(g_insp_path_browse, SW_HIDE);
-        ShowWindow(g_insp_icon_btn, SW_HIDE);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_HIDE);
-        ShowWindow(g_insp_remove_btn, SW_HIDE);
-        ShowWindow(g_insp_vol_track, SW_HIDE);
-        ShowWindow(g_insp_mute_btn, SW_HIDE);
-    }
+    utf8_to_wide(app->name, wname, DECK_TEXT_MAX);
+    utf8_to_wide(app->path, wpath, DECK_TEXT_MAX);
+    SetWindowTextW(g_insp_title_edit, wname);
+    SetWindowTextW(g_insp_path_edit, wpath);
 
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
 }
@@ -1036,9 +967,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
 // Drawing for 15 Keys in Canvas Grid
 static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
     // Check if custom icon is chosen via Icon Picker
-    const DeckApp *app = NULL;
-    if (idx >= 6 && idx <= 8) app = &g_config.apps[idx - 6];
-    else if (idx >= 9 && idx < ID_KEY_COUNT) app = &g_extra_apps[idx - 9];
+    const DeckApp *app = (idx >= 0 && idx < ID_KEY_COUNT) ? &g_config.apps[idx] : NULL;
 
     if (app && strncmp(app->icon_path, "icon:", 5) == 0) {
         int icon_id = atoi(app->icon_path + 5);
@@ -1174,33 +1103,12 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
 
 static const wchar_t *get_key_display_title(int idx) {
     static wchar_t custom_name[DECK_TEXT_MAX];
-    if (idx >= 6 && idx <= 8) {
-        int app_idx = idx - 6;
-        if (g_config.apps[app_idx].configured && g_config.apps[app_idx].name[0]) {
-            utf8_to_wide(g_config.apps[app_idx].name, custom_name, DECK_TEXT_MAX);
-            return custom_name;
-        }
-        if (idx == 6) return L"Bloco de Notas";
-        if (idx == 7) return L"Calculadora";
-        return L"Paint";
+    if (idx < 0 || idx >= ID_KEY_COUNT) return L"";
+    if (g_config.apps[idx].configured && g_config.apps[idx].name[0]) {
+        utf8_to_wide(g_config.apps[idx].name, custom_name, DECK_TEXT_MAX);
+        return custom_name;
     }
-    if (idx >= 9 && idx < ID_KEY_COUNT) {
-        int extra_idx = idx - 9;
-        if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].name[0]) {
-            utf8_to_wide(g_extra_apps[extra_idx].name, custom_name, DECK_TEXT_MAX);
-            return custom_name;
-        }
-        return L"";
-    }
-    switch (idx) {
-        case 0: return L"Volume +";
-        case 1: return L"Mudo Som";
-        case 2: return L"Play / Pause";
-        case 3: return L"Anterior";
-        case 4: return L"Próximo";
-        case 5: return L"Volume -";
-        default: return L"";
-    }
+    return L"";
 }
 
 // Draw Individual 15 Keys as Visibly Rounded Floating Cards
@@ -1246,9 +1154,8 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
 
     HICON app_icon = NULL;
     BOOL owns_icon = FALSE;
-    if (idx >= 6 && idx <= 8) {
-        int app_idx = idx - 6;
-        const DeckApp *app = &g_config.apps[app_idx];
+    if (idx >= 0 && idx < ID_KEY_COUNT) {
+        const DeckApp *app = &g_config.apps[idx];
         if (app->icon_path[0] && strncmp(app->icon_path, "icon:", 5) != 0) {
             wchar_t wide_icon_path[DECK_TEXT_MAX];
             utf8_to_wide(app->icon_path, wide_icon_path, DECK_TEXT_MAX);
@@ -1648,17 +1555,15 @@ static LRESULT CALLBACK icon_picker_proc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 char icon_str[32];
                 snprintf(icon_str, sizeof(icon_str), "icon:%d", icon_id);
 
-                if (g_picker_target_key >= 6 && g_picker_target_key <= 8) {
-                    int app_idx = g_picker_target_key - 6;
-                    strcpy(g_config.apps[app_idx].icon_path, icon_str);
-                    config_save(g_config_path, &g_config);
-                } else if (g_picker_target_key >= 9 && g_picker_target_key < ID_KEY_COUNT) {
-                    int extra_idx = g_picker_target_key - 9;
-                    strcpy(g_extra_apps[extra_idx].icon_path, icon_str);
+                if (g_picker_target_key >= 0 && g_picker_target_key < ID_KEY_COUNT) {
+                    strcpy(g_config.apps[g_picker_target_key].icon_path, icon_str);
+                    if (config_save(g_config_path, &g_config)) {
+                        if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+                        set_status(L"Ícone atualizado com sucesso.");
+                    } else {
+                        set_status(L"Erro ao salvar o ícone. O arquivo anterior foi preservado.");
+                    }
                 }
-
-                if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
-                set_status(L"Ícone atualizado com sucesso!");
                 DestroyWindow(hwnd);
                 return 0;
             }
@@ -1732,50 +1637,50 @@ static void show_icon_picker(HWND parent, int key_idx) {
 // Profile Switcher Implementation
 static void apply_profile(const wchar_t *profile) {
     if (wcscmp(profile, L"Streaming / OBS") == 0) {
-        strcpy(g_config.apps[0].name, "OBS Studio");
-        strcpy(g_config.apps[0].path, "obs64.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:9");
-        g_config.apps[0].configured = 1;
+        strcpy(g_config.apps[6].name, "OBS Studio");
+        strcpy(g_config.apps[6].path, "obs64.exe");
+        strcpy(g_config.apps[6].icon_path, "icon:9");
+        g_config.apps[6].configured = 1;
 
-        strcpy(g_config.apps[1].name, "Discord");
-        strcpy(g_config.apps[1].path, "Discord.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:8");
-        g_config.apps[1].configured = 1;
+        strcpy(g_config.apps[7].name, "Discord");
+        strcpy(g_config.apps[7].path, "Discord.exe");
+        strcpy(g_config.apps[7].icon_path, "icon:8");
+        g_config.apps[7].configured = 1;
 
-        strcpy(g_config.apps[2].name, "Twitch");
-        strcpy(g_config.apps[2].path, "https://dashboard.twitch.tv");
-        strcpy(g_config.apps[2].icon_path, "icon:11");
-        g_config.apps[2].configured = 1;
+        strcpy(g_config.apps[8].name, "Twitch");
+        strcpy(g_config.apps[8].path, "https://dashboard.twitch.tv");
+        strcpy(g_config.apps[8].icon_path, "icon:11");
+        g_config.apps[8].configured = 1;
     } else if (wcscmp(profile, L"Jogos / Gaming") == 0) {
-        strcpy(g_config.apps[0].name, "Steam");
-        strcpy(g_config.apps[0].path, "steam.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:10");
-        g_config.apps[0].configured = 1;
+        strcpy(g_config.apps[6].name, "Steam");
+        strcpy(g_config.apps[6].path, "steam.exe");
+        strcpy(g_config.apps[6].icon_path, "icon:10");
+        g_config.apps[6].configured = 1;
 
-        strcpy(g_config.apps[1].name, "Discord");
-        strcpy(g_config.apps[1].path, "Discord.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:8");
-        g_config.apps[1].configured = 1;
+        strcpy(g_config.apps[7].name, "Discord");
+        strcpy(g_config.apps[7].path, "Discord.exe");
+        strcpy(g_config.apps[7].icon_path, "icon:8");
+        g_config.apps[7].configured = 1;
 
-        strcpy(g_config.apps[2].name, "Spotify");
-        strcpy(g_config.apps[2].path, "spotify.exe");
-        strcpy(g_config.apps[2].icon_path, "icon:7");
-        g_config.apps[2].configured = 1;
+        strcpy(g_config.apps[8].name, "Spotify");
+        strcpy(g_config.apps[8].path, "spotify.exe");
+        strcpy(g_config.apps[8].icon_path, "icon:7");
+        g_config.apps[8].configured = 1;
     } else if (wcscmp(profile, L"Produtividade") == 0) {
-        strcpy(g_config.apps[0].name, "Bloco de Notas");
-        strcpy(g_config.apps[0].path, "notepad.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:1");
-        g_config.apps[0].configured = 1;
+        strcpy(g_config.apps[6].name, "Bloco de Notas");
+        strcpy(g_config.apps[6].path, "notepad.exe");
+        strcpy(g_config.apps[6].icon_path, "icon:1");
+        g_config.apps[6].configured = 1;
 
-        strcpy(g_config.apps[1].name, "Calculadora");
-        strcpy(g_config.apps[1].path, "calc.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:2");
-        g_config.apps[1].configured = 1;
+        strcpy(g_config.apps[7].name, "Calculadora");
+        strcpy(g_config.apps[7].path, "calc.exe");
+        strcpy(g_config.apps[7].icon_path, "icon:2");
+        g_config.apps[7].configured = 1;
 
-        strcpy(g_config.apps[2].name, "Paint");
-        strcpy(g_config.apps[2].path, "mspaint.exe");
-        strcpy(g_config.apps[2].icon_path, "icon:3");
-        g_config.apps[2].configured = 1;
+        strcpy(g_config.apps[8].name, "Paint");
+        strcpy(g_config.apps[8].path, "mspaint.exe");
+        strcpy(g_config.apps[8].icon_path, "icon:3");
+        g_config.apps[8].configured = 1;
     } else {
         config_load(g_config_path, &g_config);
     }
@@ -2215,12 +2120,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 SelectObject(dc, g_font_header);
                 SetTextColor(dc, COLOR_WHITE);
                 RECT pr_type = { insp_x + 22, topbar_h + 30, width - 20, topbar_h + 52 };
-                const wchar_t *act_hdr = (g_selected_key >= 6) ? L"Sistema: Atalho"
-                    : ((g_selected_key <= 1 || g_selected_key == 5) ? L"Sistema: Controle de Áudio"
-                    : L"Sistema: Multimídia");
+                const wchar_t *act_hdr = L"Ação configurável";
                 DrawTextW(dc, act_hdr, -1, &pr_type, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
-                if (g_selected_key >= 6) {
+                if (g_selected_key >= 0 && g_selected_key < ID_KEY_COUNT) {
                     SelectObject(dc, g_font_label);
                     SetTextColor(dc, COLOR_TEXT_MUTED);
                     RECT l1 = { insp_x + 22, topbar_h + 62, width - 22, topbar_h + 78 };
