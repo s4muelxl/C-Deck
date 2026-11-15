@@ -126,8 +126,8 @@ int main(void) {
     assert(store.loaded && macro_store_count(&store) == 0);
     build_valid_macro(&store.macros[0]);
     assert(macro_store_save(&store));
-    assert(file_contains("macros-test-macros.cfg", "version=1"));
-    assert(file_contains("macros-test-macros.cfg", "step2=open:C:\\Apps\\应用.exe"));
+    assert(file_contains("macros.cfg", "version=1"));
+    assert(file_contains("macros.cfg", "step2=open:C:\\Apps\\应用.exe"));
 
     assert(macro_store_load(&loaded, "macros-test-apps.cfg"));
     assert(macro_store_count(&loaded) == 1);
@@ -136,20 +136,20 @@ int main(void) {
 
     strcpy(loaded.macros[0].name, "Macro atualizada");
     assert(macro_store_save(&loaded));
-    assert(file_contains("macros-test-macros.cfg.bak", "action:volume_down"));
+    assert(file_contains("macros.cfg.bak", "action:volume_down"));
 
     {
         DeckMacroStore future;
-        write_text("macros-test-macros.cfg", "[meta]\nversion=99\n");
+        write_text("macros.cfg", "[meta]\nversion=99\n");
         assert(!macro_store_load(&future, "macros-test-apps.cfg"));
         assert(future.read_only);
         assert(!macro_store_save(&future));
-        assert(file_contains("macros-test-macros.cfg", "version=99"));
+        assert(file_contains("macros.cfg", "version=99"));
     }
 
-    remove("macros-test-macros.cfg");
-    remove("macros-test-macros.cfg.bak");
-    remove("macros-test-macros.cfg.tmp");
+    remove("macros.cfg");
+    remove("macros.cfg.bak");
+    remove("macros.cfg.tmp");
     puts("macro validation, persistence and execution: OK");
     return 0;
 }
