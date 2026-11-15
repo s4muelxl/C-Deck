@@ -170,6 +170,99 @@ static void test_dpi_conversion(void) {
 
 
 
+static void assert_rect_equal(const DeckUiRect *actual,
+                               const DeckUiRect *expected) {
+    assert(actual->x == expected->x);
+    assert(actual->y == expected->y);
+    assert(actual->width == expected->width);
+    assert(actual->height == expected->height);
+}
+
+static void test_rect_scaling_preserves_shared_edges(void) {
+    const DeckUiRect first_dip = { 1, 0, 1, 10 };
+    const DeckUiRect second_dip = { 2, 0, 1, 10 };
+    DeckUiRect first_px;
+    DeckUiRect second_px;
+
+    assert(deck_ui_rect_dip_to_px(&first_dip, 120u, &first_px)
+           == DECK_UI_RECT_SCALE_OK);
+    assert(deck_ui_rect_dip_to_px(&second_dip, 120u, &second_px)
+           == DECK_UI_RECT_SCALE_OK);
+
+    /* 1 DIP at x=1 spans two pixels at 125%; the next rect starts exactly there. */
+    assert(first_px.x == 1);
+    assert(first_px.width == 2);
+    assert(second_px.x == first_px.x + first_px.width);
+}
+
+static void test_rect_scaling_standard_dpi_values(void) {
+    const DeckUiRect input = { 10, 20, 40, 50 };
+    const DeckUiRect expected_96 = { 10, 20, 40, 50 };
+    const DeckUiRect expected_120 = { 13, 25, 50, 63 };
+    const DeckUiRect expected_144 = { 15, 30, 60, 75 };
+    const DeckUiRect expected_192 = { 20, 40, 80, 100 };
+    DeckUiRect actual;
+
+    assert(deck_ui_rect_dip_to_px(&input, 96u, &actual) == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_96);
+    assert(deck_ui_rect_dip_to_px(&input, 120u, &actual) == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_120);
+    assert(deck_ui_rect_dip_to_px(&input, 144u, &actual) == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_144);
+    assert(deck_ui_rect_dip_to_px(&input, 192u, &actual) == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_192);
+
+    assert(deck_ui_rect_px_to_dip(&expected_120, 120u, &actual)
+           == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &input);
+}
+
+static void test_rect_scaling_negative_origins_and_zero_area(void) {
+    const DeckUiRect negative_origin = { -101, -51, 101, 51 };
+    const DeckUiRect expected_negative = { -126, -64, 126, 64 };
+    const DeckUiRect zero_area = { -5, 7, 0, 0 };
+    const DeckUiRect expected_zero_area = { -8, 11, 0, 0 };
+    DeckUiRect actual;
+
+    assert(deck_ui_rect_dip_to_px(&negative_origin, 120u, &actual)
+           == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_negative);
+
+    assert(deck_ui_rect_dip_to_px(&zero_area, 144u, &actual)
+           == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &expected_zero_area);
+
+    assert(deck_ui_rect_dip_to_px(&zero_area, 0u, &actual)
+           == DECK_UI_RECT_SCALE_OK);
+    assert_rect_equal(&actual, &zero_area);
+}
+
+static void test_rect_scaling_rejects_invalid_and_overflow_without_mutation(void) {
+    const DeckUiRect negative_width = { 1, 2, -1, 4 };
+    const DeckUiRect overflow_edge = { INT32_MAX, 0, 1, 1 };
+    const DeckUiRect overflow_scale = { INT32_MAX, 0, 0, 1 };
+    const DeckUiRect expected_unchanged = { 9, 8, 7, 6 };
+    DeckUiRect output = expected_unchanged;
+
+    assert(deck_ui_rect_dip_to_px(&negative_width, 120u, &output)
+           == DECK_UI_RECT_SCALE_INVALID_ARGUMENT);
+    assert_rect_equal(&output, &expected_unchanged);
+
+    assert(deck_ui_rect_dip_to_px(&overflow_edge, 96u, &output)
+           == DECK_UI_RECT_SCALE_OUT_OF_RANGE);
+    assert_rect_equal(&output, &expected_unchanged);
+
+    assert(deck_ui_rect_dip_to_px(&overflow_scale, UINT32_MAX, &output)
+           == DECK_UI_RECT_SCALE_OUT_OF_RANGE);
+    assert_rect_equal(&output, &expected_unchanged);
+
+    assert(deck_ui_rect_dip_to_px(NULL, 96u, &output)
+           == DECK_UI_RECT_SCALE_INVALID_ARGUMENT);
+    assert(deck_ui_rect_dip_to_px(&expected_unchanged, 96u, NULL)
+           == DECK_UI_RECT_SCALE_INVALID_ARGUMENT);
+    assert_rect_equal(&output, &expected_unchanged);
+}
+
 static void test_grid_hit_test_all_slots(void) {
     const DeckUiLayoutInput input = { 1600, 900, 0 };
     DeckUiLayout layout;
@@ -261,6 +354,10 @@ int main(void) {
     test_too_small_outputs_are_empty();
     test_invalid_arguments();
     test_dpi_conversion();
+    test_rect_scaling_preserves_shared_edges();
+    test_rect_scaling_standard_dpi_values();
+    test_rect_scaling_negative_origins_and_zero_area();
+    test_rect_scaling_rejects_invalid_and_overflow_without_mutation();
     test_grid_hit_test_all_slots();
     test_grid_hit_test_uses_half_open_bounds();
     test_grid_hit_test_rejects_invalid_layout();
