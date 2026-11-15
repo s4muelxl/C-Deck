@@ -39,3 +39,22 @@ jobs:
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o /tmp/ui-layout-test
       - name: Run native C11 layout contract
         run: /tmp/ui-layout-test
+
+  windows-native-ui-contracts:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Compile and run native UI contracts with MinGW
+        shell: msys2 {0}
+        run: |
+          mkdir -p build
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -o build/ui-theme-test.exe
+          ./build/ui-theme-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o build/ui-layout-test.exe
+          ./build/ui-layout-test.exe
