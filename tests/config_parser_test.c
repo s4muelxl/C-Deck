@@ -54,7 +54,7 @@ int main(void) {
 
     write_config("");
     assert(config_load("test-apps.cfg", &config) == 1);
-    for (int i = 0; i < DECK_APP_COUNT; ++i) {
+    for (int i = 0; i < 3; ++i) {
         assert(config.apps[i].configured == 0);
         assert(config.apps[i].name[0] == '\0');
         assert(config.apps[i].path[0] == '\0');
@@ -75,6 +75,9 @@ int main(void) {
     assert(loaded.apps[1].configured == 1);
     assert(strcmp(loaded.apps[1].name, "Calculadora") == 0);
     assert(loaded.apps[2].configured == 0);
+    assert(loaded.apps[3].configured == 1);
+    assert(loaded.apps[3].configured == 1);
+    assert(strcmp(loaded.apps[3].path, "action:mic_mute") == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
