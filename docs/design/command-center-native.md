@@ -213,3 +213,16 @@ Isso evita gaps ou sobreposição de um pixel entre regiões adjacentes em escal
 - Os testes cobrem 96/120/144/192 DPI, alinhamento de bordas compartilhadas, origem negativa, retângulos de área zero, argumentos inválidos e overflow.
 
 O helper é um contrato matemático C11. Ele ainda não trata `WM_DPICHANGED` nem altera o tamanho/posição da janela; o runtime Win32 deverá usar o retângulo sugerido pelo Windows na mensagem e aplicar estes helpers ao converter a geometria de layout para desenho e hit-testing.
+
+
+## Navegação por teclado do simulador web (15/11/2026)
+
+A demonstração web 3×3 usa roving tabindex para evitar nove paradas consecutivas na ordem de tabulação:
+
+- Tab entra na grade por uma única tecla; o foco atual passa a ser a única tecla com `tabindex="0"`.
+- As setas movem o foco horizontal ou verticalmente dentro das três linhas/colunas.
+- As bordas usam clamp (sem wrap); o navegador não rola a página quando uma seta é tratada pela grade.
+- Mover o foco não ativa comandos demonstrativos. Enter/Space continuam com a semântica nativa do botão e executam apenas a simulação local.
+- As instruções são fornecidas por texto visualmente oculto e associado ao grupo via `aria-describedby`.
+
+Este comportamento pertence somente ao simulador web. O contrato nativo C11 de navegação 5×3 continua independente e ainda depende de integração Win32 coordenada com a PR #16.
