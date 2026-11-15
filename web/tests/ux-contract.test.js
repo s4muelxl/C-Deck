@@ -183,3 +183,85 @@ test('the reset control has an accessible name and a compact icon-only layout', 
   assert.match(css, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.demo-reset-btn span\s*\{\s*display:\s*none;/);
   assert.match(script, /demoResetBtn\.addEventListener\('click', resetDemo\)/);
 });
+
+
+test('rapid demo launches replace the toast timer and reset dismisses stale feedback', () => {
+  const vm = require('node:vm');
+
+  class FakeElement {
+    constructor(id = '') {
+      this.id = id;
+      this.listeners = {};
+      this.attributes = {};
+      this.style = {};
+      this.textContent = '';
+      this.innerHTML = '';
+      const values = new Set();
+      this.classList = {
+        add: (...names) => names.forEach((name) => values.add(name)),
+        remove: (...names) => names.forEach((name) => values.delete(name)),
+        contains: (name) => values.has(name),
+        toggle: (name, force) => {
+          const enabled = force === undefined ? !values.has(name) : Boolean(force);
+          if (enabled) values.add(name);
+          else values.delete(name);
+          return enabled;
+        }
+      };
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    appendChild(child) { elements[child.id] = child; }
+    dispatch(name, event = {}) { if (this.listeners[name]) this.listeners[name](event); }
+  }
+
+  const ids = [
+    'demo-volume-value','demo-volume-track','demo-volume-slider','demo-status-text',
+    'key-mute','key-play','play-glyph','play-label','demo-sound-toggle','demo-reset',
+    'key-vol-down','key-vol-up','key-prev','key-next','key-app-1','key-app-2','key-app-3'
+  ];
+  const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement(id)]));
+  const appWindow = new FakeElement('app-window');
+  const timers = new Map();
+  const clearedTimers = new Set();
+  let nextTimerId = 0;
+  const document = {
+    readyState: 'complete',
+    activeElement: null,
+    getElementById: (id) => elements[id] || null,
+    createElement: () => new FakeElement(),
+    querySelectorAll: () => [],
+    querySelector: (selector) => selector === '.app-window' ? appWindow : null
+  };
+
+  vm.runInNewContext(script, {
+    document,
+    window: {},
+    setTimeout: (callback) => {
+      const id = ++nextTimerId;
+      timers.set(id, callback);
+      return id;
+    },
+    clearTimeout: (id) => {
+      clearedTimers.add(id);
+      timers.delete(id);
+    },
+    parseInt,
+    Math
+  });
+
+  elements['key-app-1'].dispatch('click');
+  const toast = elements['demo-toast'];
+  assert.ok(toast);
+  assert.equal(toast.textContent, 'Demonstração local · Bloco de Notas');
+  assert.equal(toast.classList.contains('visible'), true);
+
+  elements['key-app-2'].dispatch('click');
+  assert.equal(toast.textContent, 'Demonstração local · YouTube');
+  assert.equal(toast.classList.contains('visible'), true);
+  assert.equal(clearedTimers.size, 2, 'the previous status and toast timers are replaced');
+
+  elements['demo-reset'].dispatch('click');
+  assert.equal(toast.classList.contains('visible'), false);
+  assert.equal(clearedTimers.size, 4, 'reset clears the current status and toast timers');
+});
