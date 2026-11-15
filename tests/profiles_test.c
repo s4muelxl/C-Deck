@@ -137,6 +137,13 @@ int main(void) {
 
     remove_profile_files("test-profile");
 
+    /* A future-version default profile must remain untouched on load failure. */
+    remove_profile_files("test-future");
+    write_text("test-future-apps.cfg", "[meta]\nversion=99\n[app1]\nname=Future\npath=future.exe\n");
+    assert(profiles_load(&store, "test-future-apps.cfg", &initial, &active) == 0);
+    assert(file_contains("test-future-apps.cfg", "version=99"));
+    remove_profile_files("test-future");
+
     /* UTF-8 paths are converted to UTF-16 for profile and preferences files. */
     remove_utf8_profile_files("perfil-ação");
     assert(profiles_load(&store, "perfil-ação-apps.cfg", &initial, &active) == 1);
