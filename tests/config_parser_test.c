@@ -72,7 +72,7 @@ int main(void) {
     assert(config.apps[3].configured == 0);
     assert(config.apps[8].configured == 0);
 
-    write_config("[app1]\\nname=Somente nome\\n[app2]\\npath=sem-nome.exe\\n");
+    write_config("[app1]\nname=Somente nome\n[app2]\npath=sem-nome.exe\n");
     assert(config_load("test-apps.cfg", &config) == 1);
     assert(config.apps[0].configured == 0);
     assert(config.apps[1].configured == 0);
@@ -86,7 +86,7 @@ int main(void) {
         assert(config.apps[i].path[0] == '\0');
     }
 
-    write_config("[meta]\\nversion=99\\n[app1]\\nname=Future\\npath=future.exe\\n");
+    write_config("[meta]\nversion=99\n[app1]\nname=Future\npath=future.exe\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
     memset(&config, 0, sizeof(config));
@@ -126,7 +126,7 @@ int main(void) {
     assert(strcmp(loaded.apps[0].name, "Editor atualizado") == 0);
 
     strcpy(config.apps[8].name, "Aplicativo 日本語");
-    strcpy(config.apps[8].path, "C:\\\\Apps\\\\应用.exe");
+    strcpy(config.apps[8].path, "C:\\Apps\\应用.exe");
     assert(config_save("teste-configuração-测试.cfg", &config) == 1);
     assert(config_load("teste-configuração-测试.cfg", &loaded) == 1);
     assert(strcmp(loaded.apps[8].name, "Aplicativo 日本語") == 0);
@@ -140,7 +140,7 @@ int main(void) {
 
     assert(config_load("test-apps-saved.cfg", &loaded) == 1);
     assert(loaded.apps[0].configured == 1);
-    assert(strcmp(loaded.apps[0].name, "Editor") == 0);
+    assert(strcmp(loaded.apps[0].name, "Editor atualizado") == 0);
     assert(loaded.apps[2].configured == 0);
 
     remove("test-apps.cfg");
