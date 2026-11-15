@@ -95,6 +95,7 @@
   const playGlyph = document.getElementById('play-glyph');
   const playLabel = document.getElementById('play-label');
   const soundToggleBtn = document.getElementById('demo-sound-toggle');
+  const demoResetBtn = document.getElementById('demo-reset');
 
   function setStatus(message) {
     if (!statusEl) return;
@@ -177,6 +178,22 @@
     setStatus(direction === 'next' ? 'Simulação: próxima faixa' : 'Simulação: faixa anterior');
   }
 
+  function resetDemo() {
+    state.volume = 72;
+    state.muted = false;
+    state.playing = false;
+
+    if (playGlyph) playGlyph.innerHTML = SVG_ICONS.play;
+    if (playLabel) playLabel.textContent = 'PLAY / PAUSE';
+    if (playBtn) {
+      playBtn.classList.remove('key-active-media');
+      playBtn.setAttribute('aria-pressed', 'false');
+    }
+
+    updateVolumeUI();
+    setStatus('Demonstração reiniciada · valores iniciais restaurados');
+  }
+
   function launchApp(name, target, isWeb) {
     playKeySound('launch');
     setStatus(isWeb ? `Simulação: abrir site ${name}` : `Simulação: abrir aplicativo ${name}`);
@@ -214,6 +231,7 @@
     if (playBtn) playBtn.addEventListener('click', togglePlayPause);
     if (prevBtn) prevBtn.addEventListener('click', () => triggerMediaSkip('prev'));
     if (nextBtn) nextBtn.addEventListener('click', () => triggerMediaSkip('next'));
+    if (demoResetBtn) demoResetBtn.addEventListener('click', resetDemo);
 
     // Slots
     const slot1Btn = document.getElementById('key-app-1');

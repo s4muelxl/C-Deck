@@ -96,3 +96,90 @@ test('compact layouts keep the volume target usable and key labels legible', () 
 test('the simulator is exposed as a named accessibility region', () => {
   assert.match(html, /class="product-stage" role="region" aria-label="Simulador demonstrativo do C-Deck"/);
 });
+
+
+test('reset control restores simulator state while preserving the sound preference', () => {
+  const vm = require('node:vm');
+
+  class FakeElement {
+    constructor(id) {
+      this.id = id;
+      this.listeners = {};
+      this.attributes = {};
+      this.style = {};
+      this.textContent = '';
+      this.innerHTML = '';
+      this.value = '';
+      const values = new Set();
+      this.classList = {
+        add: (...names) => names.forEach((name) => values.add(name)),
+        remove: (...names) => names.forEach((name) => values.delete(name)),
+        contains: (name) => values.has(name),
+        toggle: (name, force) => {
+          const enabled = force === undefined ? !values.has(name) : Boolean(force);
+          if (enabled) values.add(name);
+          else values.delete(name);
+          return enabled;
+        }
+      };
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    dispatch(name, event = {}) { if (this.listeners[name]) this.listeners[name](event); }
+  }
+
+  const ids = [
+    'demo-volume-value','demo-volume-track','demo-volume-slider','demo-status-text',
+    'key-mute','key-play','play-glyph','play-label','demo-sound-toggle','demo-reset',
+    'key-vol-down','key-vol-up','key-prev','key-next','key-app-1','key-app-2','key-app-3'
+  ];
+  const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement(id)]));
+  const document = {
+    readyState: 'complete',
+    activeElement: null,
+    getElementById: (id) => elements[id] || null,
+    querySelectorAll: () => [],
+    querySelector: () => null
+  };
+  let timerId = 0;
+  vm.runInNewContext(script, {
+    document,
+    window: {},
+    setTimeout: () => ++timerId,
+    clearTimeout: () => {},
+    parseInt,
+    Math
+  });
+
+  elements['key-vol-up'].dispatch('click');
+  elements['key-mute'].dispatch('click');
+  elements['key-play'].dispatch('click');
+  elements['demo-sound-toggle'].dispatch('click');
+  assert.equal(elements['demo-volume-slider'].value, 77);
+  assert.equal(elements['key-mute'].attributes['aria-pressed'], 'true');
+  assert.equal(elements['key-play'].attributes['aria-pressed'], 'true');
+  assert.equal(elements['demo-sound-toggle'].textContent, 'SOM: OFF');
+
+  elements['demo-reset'].dispatch('click');
+
+  assert.equal(elements['demo-volume-value'].textContent, '72%');
+  assert.equal(elements['demo-volume-track'].style.width, '72%');
+  assert.equal(elements['demo-volume-slider'].value, 72);
+  assert.equal(elements['demo-volume-slider'].attributes['aria-valuetext'], '72%');
+  assert.equal(elements['key-mute'].attributes['aria-pressed'], 'false');
+  assert.equal(elements['key-mute'].classList.contains('key-active-mute'), false);
+  assert.equal(elements['key-play'].attributes['aria-pressed'], 'false');
+  assert.equal(elements['key-play'].classList.contains('key-active-media'), false);
+  assert.match(elements['play-glyph'].innerHTML, /M12 5v14/);
+  assert.equal(elements['play-label'].textContent, 'PLAY / PAUSE');
+  assert.equal(elements['demo-sound-toggle'].textContent, 'SOM: OFF');
+  assert.match(elements['demo-status-text'].textContent, /Demonstração reiniciada/);
+});
+
+test('the reset control has an accessible name and a compact icon-only layout', () => {
+  assert.match(html, /id="demo-reset"[^>]*aria-label="Reiniciar demonstração"/);
+  assert.match(html, /title="Restaurar os valores iniciais da demonstração"/);
+  assert.match(css, /\.demo-reset-btn:active/);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.demo-reset-btn span\s*\{\s*display:\s*none;/);
+  assert.match(script, /demoResetBtn\.addEventListener\('click', resetDemo\)/);
+});

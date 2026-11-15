@@ -320,6 +320,34 @@ a {
   border-color: #3a424e;
 }
 
+.demo-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px;
+  background: rgba(255,255,255,.025);
+  color: #aeb7c3;
+  font: 8px var(--mono);
+  letter-spacing: .045em;
+  cursor: pointer;
+  transition: background 180ms,border-color 180ms,color 180ms,transform 180ms;
+}
+.demo-reset-btn svg { flex: 0 0 auto; }
+.demo-reset-btn:hover {
+  border-color: rgba(255,255,255,.34);
+  background: rgba(255,255,255,.075);
+  color: #fff;
+}
+.demo-reset-btn:active {
+  background: rgba(255,255,255,.11);
+  transform: translateY(1px);
+}
+
 .window-controls {
   display: flex;
   gap: 5px;
@@ -933,6 +961,7 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   .window-titlebar { padding-inline: 12px; }
   .window-titlebar-right { gap: 7px; }
   .sound-toggle-btn { padding-inline: 7px; font-size: 8px; }
+  .demo-reset-btn { min-height: 32px; padding-inline: 7px; font-size: 8px; }
   .window-controls { display: none; }
   .window-content { padding: 11px; }
   .deck-grid { gap: 6px; }
@@ -947,6 +976,8 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   .brand-logo { width: 108px; }
   .github-button { min-width: 44px; justify-content: center; }
   .github-button span { display: none; }
+  .demo-reset-btn { width: 36px; min-width: 36px; padding: 0; }
+  .demo-reset-btn span { display: none; }
   .main-container { padding-inline: 14px; }
   .window-content { padding: 10px; }
   .deck-grid { gap: 6px; }
