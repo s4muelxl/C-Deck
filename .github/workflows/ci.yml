@@ -46,7 +46,7 @@ jobs:
           ./build/action-library-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/macros_test.c src/macros.c -o build/macros-test.exe
           ./build/macros-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/macro_editor_lifecycle_test.c src/macro_editor.c src/macros.c -o build/macro-editor-lifecycle-test.exe -luser32 -lgdi32
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_lifecycle_test.c src/macro_editor.c src/macros.c -o build/macro-editor-lifecycle-test.exe -luser32 -lgdi32
           ./build/macro-editor-lifecycle-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_test.c src/hotkeys.c -o build/hotkeys-test.exe
           ./build/hotkeys-test.exe
