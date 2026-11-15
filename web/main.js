@@ -248,8 +248,8 @@
     const buttons = GRID_KEY_IDS.map((id) => document.getElementById(id));
     if (buttons.some((button) => !button)) return;
 
-    let activeIndex = buttons.findIndex((button) => button.getAttribute('tabindex') === '0');
-    if (activeIndex < 0) activeIndex = 0;
+    // The first key is the stable entry point; avoid reading mutable DOM state.
+    let activeIndex = 0;
 
     function setRovingTabStop(index, moveFocus) {
       activeIndex = index;
