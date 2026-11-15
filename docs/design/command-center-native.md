@@ -199,3 +199,17 @@ Os testes cobrem o centro de todos os 15 slots, limites semiabertos, gaps, área
 ## Alvos de toque do simulador web (15/11/2026)
 
 Os controles Reiniciar e Som do cabeçalho do simulador ilustrativo usam alvos mínimos de 44×44 CSS px, inclusive em larguras de viewport até 360 px. A faixa do cabeçalho foi elevada para 52 px para acomodar os controles sem sobreposição. O contrato é específico da demonstração web; não representa nem substitui a validação dos controles Win32 do desktop.
+
+
+## Conversão de retângulos sem seams em DPI fracionário (15/11/2026)
+
+O contrato de layout agora inclui `deck_ui_rect_dip_to_px` e `deck_ui_rect_px_to_dip`. Ao contrário de converter posição e tamanho separadamente, os helpers convertem as quatro bordas do retângulo (esquerda, topo, direita e base) e só então recompõem largura/altura.
+
+Isso evita gaps ou sobreposição de um pixel entre regiões adjacentes em escalas fracionárias como 125% e 150%, quando arredondar a largura independentemente da posição poderia produzir resultados diferentes. Origens negativas são suportadas para coordenadas de janelas em monitores posicionados à esquerda/acima da origem virtual.
+
+- DPI zero mantém o fallback documentado de 96 DPI.
+- Dimensões negativas são argumentos inválidos; coordenadas de borda ou dimensões resultantes não representáveis retornam `DECK_UI_RECT_SCALE_OUT_OF_RANGE`.
+- O destino permanece inalterado em qualquer erro; entrada e saída podem apontar para a mesma estrutura.
+- Os testes cobrem 96/120/144/192 DPI, alinhamento de bordas compartilhadas, origem negativa, retângulos de área zero, argumentos inválidos e overflow.
+
+O helper é um contrato matemático C11. Ele ainda não trata `WM_DPICHANGED` nem altera o tamanho/posição da janela; o runtime Win32 deverá usar o retângulo sugerido pelo Windows na mensagem e aplicar estes helpers ao converter a geometria de layout para desenho e hit-testing.
