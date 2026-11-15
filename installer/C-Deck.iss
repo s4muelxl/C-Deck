@@ -35,6 +35,7 @@ Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescr
 [Files]
 Source: "..\build\C-Deck.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
 Source: "..\config\apps.cfg"; DestDir: "{app}\config"; Flags: onlyifdoesntexist
+Source: "..\config\macros.cfg.example"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
