@@ -20,6 +20,8 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
 - Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar).
+- Quatro perfis integrados — Default, Streaming / OBS, Produtividade e Jogos / Gaming — com layouts independentes; cada perfil mantém suas próprias 15 teclas.
+- Preferências persistentes para perfil ativo, minimização para bandeja, atalhos globais e opacidade da janela.
 - Minimização para a bandeja do Windows: minimizar ou fechar a janela mantém o C-Deck ativo; use o menu do ícone para reabrir ou sair.
 - Interface Win32 nativa, com tema escuro e janela redimensionável.
 
@@ -48,6 +50,8 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
 O programa grava os 15 slots em `config/apps.cfg` com cabeçalho de esquema (`[meta]`, `version=3`). A leitura mantém compatibilidade com configurações legadas v1 (três ou nove destinos) e v2 (nove destinos). Na migração, os nove destinos antigos são preservados na mesma ordem e passam para as teclas 7–15; as seis primeiras teclas recebem os controles internos padrão. Ao salvar, a versão anterior é preservada em `config/apps.cfg.bak` antes da substituição atômica. Caminhos de configuração, executáveis, URLs e ícones personalizados são tratados como UTF-8 e convertidos para UTF-16 nas chamadas Win32. No esquema v3, os 15 slots são gravados explicitamente, inclusive quando vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+
+Os perfis integrados usam arquivos independentes ao lado de `apps.cfg`: `apps-streaming.cfg`, `apps-productivity.cfg` e `apps-gaming.cfg`. Eles são criados na primeira ativação e também usam o esquema v3 e backup `.bak`. O perfil padrão continua em `apps.cfg`, preservando a compatibilidade com instalações anteriores. As preferências ficam em `apps-preferences.cfg` (esquema independente v1), com backup antes de cada substituição. Se um arquivo existente estiver inválido ou usar uma versão futura, o C-Deck mantém o arquivo original e carrega os padrões seguros em vez de sobrescrevê-lo.
 
 Também é possível editar o arquivo manualmente:
 
@@ -93,9 +97,10 @@ O executável será criado em `build/C-Deck.exe`.
 - `src/main.c`: inicialização e localização da configuração.
 - `src/interface.c`: janela principal e editor de atalhos Win32.
 - `src/actions.c`: ações de áudio e abertura de aplicativos.
-- `src/config.c`: leitura e gravação da configuração.
-- `config/apps.cfg`: atalhos.
-- `tests/`: testes de leitura e gravação da configuração.
+- `src/config.c`: leitura, migração e gravação das 15 ações.
+- `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
+- `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
+- `tests/`: testes de configuração, migração, perfis e preferências.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
 
@@ -106,7 +111,7 @@ O executável será criado em `build/C-Deck.exe`.
 - O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
-- Ainda não há macros, perfis múltiplos persistentes, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
+- Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, macros, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
 
