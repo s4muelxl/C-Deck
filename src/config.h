@@ -19,6 +19,7 @@ typedef struct DeckConfig {
     DeckApp apps[DECK_KEY_COUNT];
 } DeckConfig;
 
+void config_set_defaults(DeckConfig *config);
 int config_load(const char *path, DeckConfig *out_config);
 int config_save(const char *path, const DeckConfig *config);
 #endif
