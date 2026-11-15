@@ -61,14 +61,35 @@ static int starts_with_ascii_case(const char *value, const char *prefix) {
     return 1;
 }
 
+static int contains_ascii_space(const char *value) {
+    if (!value) return 1;
+    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+        if (*p == ' ' || *p == '\t') return 1;
+    }
+    return 0;
+}
+
 static int is_allowed_open_target(const char *target) {
     const char *extension;
-    if (!utf8_text_valid(target, DECK_MACRO_VALUE_MAX)) return 0;
-    if (strchr(target, ' ') || strchr(target, '\t')) return 0;
-    if (starts_with_ascii_case(target, "https://") ||
-        starts_with_ascii_case(target, "http://") ||
-        starts_with_ascii_case(target, "ms-settings:")) return 1;
+    size_t length;
 
+    if (!utf8_text_valid(target, DECK_MACRO_VALUE_MAX) || strchr(target, '"')) return 0;
+    length = strlen(target);
+
+    if (starts_with_ascii_case(target, "https://") ||
+        starts_with_ascii_case(target, "http://")) {
+        const char *authority = target + (starts_with_ascii_case(target, "https://") ? 8 : 7);
+        return authority[0] != '\0' && authority[0] != '/' &&
+               authority[0] != '?' && authority[0] != '#' &&
+               !contains_ascii_space(target);
+    }
+    if (starts_with_ascii_case(target, "ms-settings:")) {
+        return !contains_ascii_space(target);
+    }
+
+    /* A file path is passed as ShellExecuteW's lpFile, never as a command line.
+       Spaces in directory/file names are valid; trailing arguments are not. */
+    if (length == 0 || target[0] == ' ' || target[length - 1] == ' ') return 0;
     extension = strrchr(target, '.');
     return extension &&
            (_stricmp(extension, ".exe") == 0 || _stricmp(extension, ".lnk") == 0);
