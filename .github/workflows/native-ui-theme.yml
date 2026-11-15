@@ -1,0 +1,31 @@
+name: C-Deck Native UI Theme
+on:
+  push:
+    branches: [codex/c-deck-1.4-design]
+    paths:
+      - 'src/ui_theme.c'
+      - 'src/ui_theme.h'
+      - 'tests/ui_theme_test.c'
+      - '.github/workflows/native-ui-theme.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/ui_theme.c'
+      - 'src/ui_theme.h'
+      - 'tests/ui_theme_test.c'
+      - '.github/workflows/native-ui-theme.yml'
+permissions:
+  contents: read
+concurrency:
+  group: c-deck-native-ui-theme-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  theme-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile native C11 theme contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -o /tmp/ui-theme-test
+      - name: Run native theme contract tests
+        run: /tmp/ui-theme-test
