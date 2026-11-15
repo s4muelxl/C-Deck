@@ -9,6 +9,7 @@ static int open_calls;
 static int delay_calls;
 static int fail_action;
 static int cancel_now;
+static char last_open_target[DECK_MACRO_VALUE_MAX];
 
 static int test_action(const char *action_id, void *context) {
     (void)context;
@@ -20,6 +21,8 @@ static int test_action(const char *action_id, void *context) {
 static int test_open(const char *target, void *context) {
     (void)context;
     assert(target && target[0]);
+    assert(strlen(target) < sizeof(last_open_target));
+    strcpy(last_open_target, target);
     ++open_calls;
     return 0;
 }
@@ -64,7 +67,7 @@ static void build_valid_macro(DeckMacro *macro) {
     macro->steps[0].type = DECK_MACRO_STEP_ACTION;
     strcpy(macro->steps[0].value, "volume_down");
     macro->steps[1].type = DECK_MACRO_STEP_OPEN;
-    strcpy(macro->steps[1].value, "C:\\Apps\\应用.exe");
+    strcpy(macro->steps[1].value, "C:\\Program Files\\OBS Studio\\bin\\应用.exe");
     macro->steps[2].type = DECK_MACRO_STEP_DELAY;
     macro->steps[2].delay_ms = 500;
 }
@@ -80,6 +83,12 @@ int main(void) {
     assert(strcmp(step.value, "volume_up") == 0);
     assert(macro_step_parse("open:https://example.com/live", &step));
     assert(step.type == DECK_MACRO_STEP_OPEN);
+    assert(macro_step_parse("open:https://例え.テスト/路径", &step));
+    assert(strcmp(step.value, "https://例え.テスト/路径") == 0);
+    assert(macro_step_parse("open:C:\\Program Files\\OBS Studio\\bin\\应用.exe", &step));
+    assert(strcmp(step.value, "C:\\Program Files\\OBS Studio\\bin\\应用.exe") == 0);
+    assert(!macro_step_parse("open:C:\\Program Files\\OBS Studio\\bin\\应用.exe --profile", &step));
+    assert(!macro_step_parse("open:\"C:\\Program Files\\OBS Studio\\bin\\应用.exe\"", &step));
     assert(macro_step_parse("delay:250", &step));
     assert(step.type == DECK_MACRO_STEP_DELAY && step.delay_ms == 250);
     assert(!macro_step_parse("action:run_shell", &step));
@@ -96,6 +105,7 @@ int main(void) {
     cancel_now = 0;
     assert(macro_execute(&macro, test_action, test_open, test_delay, test_cancel, NULL) == DECK_MACRO_OK);
     assert(action_calls == 1 && open_calls == 1 && delay_calls == 1);
+    assert(strcmp(last_open_target, "C:\\Program Files\\OBS Studio\\bin\\应用.exe") == 0);
 
     fail_action = 1;
     action_calls = open_calls = delay_calls = 0;
@@ -127,7 +137,7 @@ int main(void) {
     build_valid_macro(&store.macros[0]);
     assert(macro_store_save(&store));
     assert(file_contains("macros.cfg", "version=1"));
-    assert(file_contains("macros.cfg", "step2=open:C:\\Apps\\应用.exe"));
+    assert(file_contains("macros.cfg", "step2=open:C:\\Program Files\\OBS Studio\\bin\\应用.exe"));
 
     assert(macro_store_load(&loaded, "macros-test-apps.cfg"));
     assert(macro_store_count(&loaded) == 1);
