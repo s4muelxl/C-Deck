@@ -58,7 +58,7 @@ O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v
 Formato de cada etapa:
 
 - `action:<id>`: apenas `volume_up`, `volume_down`, `audio_mute`, `mic_mute`, `media_play_pause`, `media_previous`, `media_next` ou `sound_devices`.
-- `open:<alvo>`: somente URL `http://`/`https://`, URI `ms-settings:` ou destino `.exe`/`.lnk`. O C-Deck passa o alvo diretamente a `ShellExecuteW`; não aceita linha de comando, PowerShell, scripts ou argumentos.
+- `open:<alvo>`: somente URL `http://`/`https://`, URI `ms-settings:` ou destino `.exe`/`.lnk`. URLs podem conter host e caminho Unicode (UTF-8), mas não espaços literais; use percent-encoding para espaços em URLs. Caminhos de executáveis/atalhos podem conter espaços e caracteres Unicode, desde que terminem exatamente em `.exe` ou `.lnk`. O C-Deck passa o destino como `lpFile` de `ShellExecuteW`, sem parâmetros de linha de comando; argumentos, aspas e comandos arbitrários são rejeitados.
 - `delay:<ms>`: inteiro entre 1 e 5000, respeitando o limite acumulado.
 
 Exemplo:
