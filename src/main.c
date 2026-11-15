@@ -39,8 +39,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     }
 
     if (!build_config_path(config_path, (DWORD)sizeof(config_path)) || !config_load(config_path, &config)) {
-        ZeroMemory(&config, sizeof(config));
-        MessageBoxW(NULL, L"Não foi possível ler config/apps.cfg ao lado do executável. Os atalhos ficarão desativados.", L"C-Deck", MB_ICONWARNING);
+        config_set_defaults(&config);
+        MessageBoxW(NULL, L"Não foi possível ler config/apps.cfg ao lado do executável. Os controles internos padrão continuam disponíveis; os demais atalhos ficam desativados.", L"C-Deck", MB_ICONWARNING);
     }
 
     result = interface_run(instance, show_command, &config);
