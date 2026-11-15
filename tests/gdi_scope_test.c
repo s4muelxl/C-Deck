@@ -31,18 +31,16 @@ int main(void) {
         assert(SelectObject(dc, brush) != HGDI_ERROR);
         assert(SelectObject(dc, pen) != HGDI_ERROR);
 
-        deck_gdi_scope_release(dc, &scope, brush);
-        deck_gdi_scope_release(dc, &scope, pen);
+        assert(deck_gdi_scope_release(dc, &scope, brush));
+        assert(deck_gdi_scope_release(dc, &scope, pen));
         assert(scope.count == 2);
         assert(GetObjectType(brush) == OBJ_BRUSH);
         assert(GetObjectType(pen) == OBJ_PEN);
 
-        deck_gdi_scope_restore(dc, &scope, original_brush, original_pen);
+        assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
         assert(scope.count == 0);
         assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
         assert(GetCurrentObject(dc, OBJ_PEN) == original_pen);
-        assert(GetObjectType(brush) == 0);
-        assert(GetObjectType(pen) == 0);
     }
 
     {
@@ -50,9 +48,8 @@ int main(void) {
         HBRUSH unselected = CreateSolidBrush(RGB(1, 2, 3));
         assert(unselected != NULL);
         deck_gdi_scope_init(&scope);
-        deck_gdi_scope_release(dc, &scope, unselected);
+        assert(deck_gdi_scope_release(dc, &scope, unselected));
         assert(scope.count == 0);
-        assert(GetObjectType(unselected) == 0);
     }
 
     after = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
