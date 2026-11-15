@@ -159,6 +159,27 @@ int main(void) {
     assert(action_calls == 1 && open_calls == 1 && delay_calls == 1);
     assert(strcmp(last_open_target, "C:\\Program Files\\OBS Studio\\bin\\应用.exe") == 0);
 
+    /* A Unicode URL must survive validation and reach the open executor unchanged. */
+    {
+        const char *unicode_url = "https://例え.テスト/路径?q=ação";
+        DeckMacro url_macro;
+        memset(&url_macro, 0, sizeof(url_macro));
+        strcpy(url_macro.name, "Abrir site internacional");
+        url_macro.configured = 1;
+        url_macro.step_count = 1;
+        url_macro.steps[0].type = DECK_MACRO_STEP_OPEN;
+        strcpy(url_macro.steps[0].value, unicode_url);
+
+        assert(macro_validate(&url_macro));
+        open_calls = 0;
+        last_open_target[0] = '\0';
+        cancel_now = 0;
+        assert(macro_execute(&url_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_OK);
+        assert(open_calls == 1);
+        assert(strcmp(last_open_target, unicode_url) == 0);
+    }
+
     fail_action = 1;
     action_calls = open_calls = delay_calls = 0;
     assert(macro_execute(&macro, test_action, test_open, test_delay, test_cancel, NULL) == DECK_MACRO_EXECUTION_FAILED);
