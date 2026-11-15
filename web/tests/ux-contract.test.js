@@ -14,6 +14,8 @@ test('the simulator clearly discloses that it is local and illustrative', () => 
   assert.match(html, /aria-describedby="demo-disclaimer"/);
   assert.match(html, /Demonstração local e ilustrativa/);
   assert.match(html, /grade 3×3 é reduzida/);
+  assert.match(html, /PRONTO · MODO DEMONSTRAÇÃO/);
+  assert.doesNotMatch(html, /C\+\+ WIN32 NATIVO/);
 });
 
 test('demo copy does not claim to control Windows or launch real apps', () => {
