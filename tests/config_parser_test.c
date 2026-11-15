@@ -26,6 +26,13 @@ int main(void) {
     DeckConfig config;
     DeckConfig loaded;
 
+    config_set_defaults(&config);
+    assert(config.apps[0].configured == 1);
+    assert(strcmp(config.apps[0].path, "action:volume_up") == 0);
+    assert(config.apps[5].configured == 1);
+    assert(strcmp(config.apps[5].path, "action:volume_down") == 0);
+    assert(config.apps[6].configured == 0);
+
     assert(config_load(NULL, &config) == 0);
     assert(config_load("arquivo-que-nao-existe.cfg", &config) == 0);
     assert(config_load("test-apps.cfg", NULL) == 0);
