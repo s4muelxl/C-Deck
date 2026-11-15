@@ -49,6 +49,13 @@ static int file_contains(const char *path, const char *needle) {
     return found;
 }
 
+static void write_text(const char *path, const char *content) {
+    FILE *file = fopen(path, "wb");
+    assert(file != NULL);
+    assert(fputs(content, file) >= 0);
+    assert(fclose(file) == 0);
+}
+
 static void build_valid_macro(DeckMacro *macro) {
     memset(macro, 0, sizeof(*macro));
     strcpy(macro->name, "Preparar transmissão – teste");
@@ -106,6 +113,14 @@ int main(void) {
     build_valid_macro(&macro);
     macro.steps[2].delay_ms = DECK_MACRO_TOTAL_DELAY_MAX_MS + 1u;
     assert(!macro_validate(&macro));
+    build_valid_macro(&macro);
+    macro.steps[0].type = DECK_MACRO_STEP_DELAY;
+    macro.steps[0].delay_ms = DECK_MACRO_STEP_DELAY_MAX_MS;
+    macro.steps[1].type = DECK_MACRO_STEP_DELAY;
+    macro.steps[1].delay_ms = DECK_MACRO_STEP_DELAY_MAX_MS;
+    macro.steps[2].type = DECK_MACRO_STEP_DELAY;
+    macro.steps[2].delay_ms = 1;
+    assert(!macro_validate(&macro));
 
     assert(macro_store_load(&store, "macros-test-apps.cfg"));
     assert(store.loaded && macro_store_count(&store) == 0);
@@ -122,6 +137,15 @@ int main(void) {
     strcpy(loaded.macros[0].name, "Macro atualizada");
     assert(macro_store_save(&loaded));
     assert(file_contains("macros-test-macros.cfg.bak", "action:volume_down"));
+
+    {
+        DeckMacroStore future;
+        write_text("macros-test-macros.cfg", "[meta]\nversion=99\n");
+        assert(!macro_store_load(&future, "macros-test-apps.cfg"));
+        assert(future.read_only);
+        assert(!macro_store_save(&future));
+        assert(file_contains("macros-test-macros.cfg", "version=99"));
+    }
 
     remove("macros-test-macros.cfg");
     remove("macros-test-macros.cfg.bak");
