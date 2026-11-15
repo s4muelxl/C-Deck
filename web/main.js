@@ -107,8 +107,8 @@
     state.statusTimer = setTimeout(() => {
       if (statusEl) {
         statusEl.textContent = state.muted
-          ? 'PRONTO · [ MUDO ATIVO ]'
-          : 'PRONTO · C++ WIN32 NATIVO';
+          ? 'PRONTO · MUDO ATIVO · DEMONSTRAÇÃO'
+          : 'PRONTO · MODO DEMONSTRAÇÃO';
       }
     }, 2800);
   }
@@ -120,16 +120,23 @@
       volumeValueEl.innerHTML = `<span class="mute-flag">MUTADO</span> ${state.volume}%`;
       volumeTrackEl.style.width = `${state.volume}%`;
       volumeTrackEl.classList.add('is-muted');
-      if (muteBtn) muteBtn.classList.add('key-active-mute');
+      if (muteBtn) {
+        muteBtn.classList.add('key-active-mute');
+        muteBtn.setAttribute('aria-pressed', 'true');
+      }
     } else {
       volumeValueEl.textContent = `${state.volume}%`;
       volumeTrackEl.style.width = `${state.volume}%`;
       volumeTrackEl.classList.remove('is-muted');
-      if (muteBtn) muteBtn.classList.remove('key-active-mute');
+      if (muteBtn) {
+        muteBtn.classList.remove('key-active-mute');
+        muteBtn.setAttribute('aria-pressed', 'false');
+      }
     }
 
     if (volumeSliderEl && document.activeElement !== volumeSliderEl) {
       volumeSliderEl.value = state.volume;
+      volumeSliderEl.setAttribute('aria-valuetext', `${state.volume}%${state.muted ? ', sem áudio' : ''}`);
     }
   }
 
@@ -141,14 +148,14 @@
     }
     state.volume = Math.max(0, Math.min(100, state.volume + delta));
     updateVolumeUI();
-    setStatus(`Volume ajustado para ${state.volume}%`);
+    setStatus(`Simulação: volume ajustado para ${state.volume}%`);
   }
 
   function toggleMute() {
     playKeySound('mute');
     state.muted = !state.muted;
     updateVolumeUI();
-    setStatus(state.muted ? 'Áudio silenciado (Mudo ativado)' : `Áudio restaurado em ${state.volume}%`);
+    setStatus(state.muted ? 'Simulação: áudio silenciado' : `Simulação: áudio restaurado em ${state.volume}%`);
   }
 
   function togglePlayPause() {
@@ -156,19 +163,22 @@
     state.playing = !state.playing;
     if (playGlyph) playGlyph.innerHTML = state.playing ? SVG_ICONS.pause : SVG_ICONS.play;
     if (playLabel) playLabel.textContent = state.playing ? 'PAUSAR' : 'PLAY / PAUSE';
-    if (playBtn) playBtn.classList.toggle('key-active-media', state.playing);
-    setStatus(state.playing ? 'Comando enviado: Reproduzir faixa' : 'Comando enviado: Pausar reprodução');
+    if (playBtn) {
+      playBtn.classList.toggle('key-active-media', state.playing);
+      playBtn.setAttribute('aria-pressed', state.playing ? 'true' : 'false');
+    }
+    setStatus(state.playing ? 'Simulação: reprodução iniciada' : 'Simulação: reprodução pausada');
   }
 
   function triggerMediaSkip(direction) {
     playKeySound('media');
-    setStatus(direction === 'next' ? 'Comando enviado: Próxima faixa »' : 'Comando enviado: « Faixa anterior');
+    setStatus(direction === 'next' ? 'Simulação: próxima faixa' : 'Simulação: faixa anterior');
   }
 
   function launchApp(name, target, isWeb) {
     playKeySound('launch');
-    setStatus(isWeb ? `Abrindo navegador padrão: ${name}` : `Iniciando aplicativo: ${name}`);
-    showToast(isWeb ? `Abrindo: ${target}` : `Executando: ${target}`, isWeb ? 'web' : 'app');
+    setStatus(isWeb ? `Simulação: abrir site ${name}` : `Simulação: abrir aplicativo ${name}`);
+    showToast(`Demonstração local · ${name}`, isWeb ? 'web' : 'app');
   }
 
   // Interactive Mini Toast inside Demo
@@ -217,7 +227,7 @@
         state.volume = parseInt(e.target.value, 10) || 0;
         if (state.muted) state.muted = false;
         updateVolumeUI();
-        setStatus(`Volume: ${state.volume}%`);
+        setStatus(`Simulação: volume ${state.volume}%`);
       });
       volumeSliderEl.addEventListener('change', () => {
         playKeySound('volume');
@@ -228,7 +238,8 @@
     if (soundToggleBtn) {
       soundToggleBtn.addEventListener('click', () => {
         soundEnabled = !soundEnabled;
-        soundToggleBtn.textContent = soundEnabled ? '🔊 SOM: ON' : '🔇 SOM: OFF';
+        soundToggleBtn.textContent = soundEnabled ? 'SOM: ON' : 'SOM: OFF';
+        soundToggleBtn.setAttribute('aria-label', soundEnabled ? 'Desativar efeitos sonoros' : 'Ativar efeitos sonoros');
         soundToggleBtn.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
         soundToggleBtn.classList.toggle('sound-muted', !soundEnabled);
         if (soundEnabled) playKeySound('click');
