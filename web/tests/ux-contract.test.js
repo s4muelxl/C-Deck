@@ -303,3 +303,104 @@ test('simulator titlebar controls meet the 44px touch target contract', () => {
   assert.match(touchRules, /\.demo-reset-btn\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
   assert.match(touchRules, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.demo-reset-btn\s*\{[^}]*width:\s*44px/);
 });
+
+
+test('simulator grid uses one tab stop and documents arrow-key navigation', () => {
+  assert.match(html, /id="demo-grid"[^>]*aria-describedby="demo-grid-help"/);
+  assert.match(html, /id="demo-grid-help" class="sr-only"/);
+  assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="0"/g) || []).length, 1);
+  assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="-1"/g) || []).length, 8);
+  assert.match(css, /\.sr-only\s*\{/);
+});
+
+test('simulator arrow navigation moves focus without wrapping or activating keys', () => {
+  const vm = require('node:vm');
+  const ids = [
+    'key-vol-down','key-mute','key-vol-up',
+    'key-prev','key-play','key-next',
+    'key-app-1','key-app-2','key-app-3',
+    'demo-volume-value','demo-volume-track','demo-volume-slider','demo-status-text',
+    'key-mute','key-play','play-glyph','play-label','demo-sound-toggle','demo-reset'
+  ];
+
+  let activeElement = null;
+  class FakeElement {
+    constructor(id) {
+      this.id = id;
+      this.listeners = {};
+      this.attributes = { tabindex: '-1' };
+      this.style = {};
+      this.textContent = '';
+      this.innerHTML = '';
+      this.value = '';
+      const classes = new Set();
+      this.classList = {
+        add: (...names) => names.forEach((name) => classes.add(name)),
+        remove: (...names) => names.forEach((name) => classes.delete(name)),
+        contains: (name) => classes.has(name),
+        toggle: (name, force) => {
+          const enabled = force === undefined ? !classes.has(name) : Boolean(force);
+          if (enabled) classes.add(name);
+          else classes.delete(name);
+          return enabled;
+        }
+      };
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    getAttribute(name) { return this.attributes[name] ?? null; }
+    focus() {
+      activeElement = this;
+      if (this.listeners.focus) this.listeners.focus({ target: this });
+    }
+    dispatch(name, event = {}) {
+      const dispatched = { ...event, target: event.target || this };
+      if (this.listeners[name]) this.listeners[name](dispatched);
+      return dispatched;
+    }
+  }
+
+  const elements = Object.fromEntries([...new Set(ids)].map((id) => [id, new FakeElement(id)]));
+  const document = {
+    readyState: 'complete',
+    get activeElement() { return activeElement; },
+    getElementById: (id) => elements[id] || null,
+    querySelectorAll: () => [],
+    querySelector: () => null
+  };
+
+  vm.runInNewContext(script, {
+    document,
+    window: {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    parseInt,
+    Math
+  });
+
+  const keys = ids.slice(0, 9).map((id) => elements[id]);
+  assert.equal(keys.filter((button) => button.attributes.tabindex === '0').length, 1);
+  assert.equal(keys[0].attributes.tabindex, '0');
+
+  keys[4].focus();
+  let prevented = false;
+  keys[4].dispatch('keydown', { key: 'ArrowLeft', preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(activeElement, keys[3]);
+  assert.equal(keys[3].attributes.tabindex, '0');
+  assert.equal(keys[4].attributes.tabindex, '-1');
+
+  keys[3].dispatch('keydown', { key: 'ArrowUp', preventDefault: () => {} });
+  assert.equal(activeElement, keys[0]);
+
+  keys[0].dispatch('keydown', { key: 'ArrowLeft', preventDefault: () => {} });
+  assert.equal(activeElement, keys[0], 'left edge is clamped without wrapping');
+
+  keys[0].dispatch('keydown', { key: 'ArrowDown', preventDefault: () => {} });
+  assert.equal(activeElement, keys[3]);
+
+  keys[5].focus();
+  keys[5].dispatch('keydown', { key: 'ArrowRight', preventDefault: () => {} });
+  assert.equal(activeElement, keys[5], 'right edge is clamped without wrapping');
+  assert.equal(keys.filter((button) => button.attributes.tabindex === '0').length, 1);
+});
