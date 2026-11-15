@@ -42,11 +42,20 @@ static int utf8_to_wide_path(const char *path, wchar_t *wide, size_t capacity) {
                                wide, (int)capacity) > 0;
 }
 
-/* Returns -1 for an invalid UTF-8 path, 0 when missing and 1 when present. */
+/* Returns 0 only for a missing file. Other Win32 lookup failures are errors. */
 static int path_exists(const char *path) {
     wchar_t wide[DECK_PROFILE_PATH_MAX];
+    DWORD attributes;
+    DWORD error;
+
     if (!utf8_to_wide_path(path, wide, sizeof(wide) / sizeof(wide[0]))) return -1;
-    return GetFileAttributesW(wide) == INVALID_FILE_ATTRIBUTES ? 0 : 1;
+
+    SetLastError(ERROR_SUCCESS);
+    attributes = GetFileAttributesW(wide);
+    if (attributes != INVALID_FILE_ATTRIBUTES) return 1;
+
+    error = GetLastError();
+    return error == ERROR_FILE_NOT_FOUND ? 0 : -1;
 }
 
 static int build_store_paths(DeckProfileStore *store, const char *config_path) {
