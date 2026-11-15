@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: c-deck-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -72,16 +72,3 @@ jobs:
             build/C-Deck.exe
             build/C-Deck-Portable.zip
             build/installer/C-Deck-Setup.exe
-      - name: Publish installer download
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: latest
-          name: C-Deck — versão mais recente
-          body: |
-            Instalador oficial do C-Deck para Windows 10/11.
-
-            Baixe o arquivo C-Deck-Setup.exe e execute para instalar.
-          files: build/installer/C-Deck-Setup.exe
-          overwrite_files: true
-          make_latest: true
