@@ -119,7 +119,7 @@ int main(void) {
     assert(macro_store_get(&loaded, 1) != NULL);
     assert(strcmp(macro_store_get(&loaded, 1)->name, macro.name) == 0);
 
-    loaded.macros[0].steps[0].value[0] = 'x';
+    strcpy(loaded.macros[0].name, "Macro atualizada");
     assert(macro_store_save(&loaded));
     assert(file_contains("macros-test-macros.cfg.bak", "action:volume_down"));
 
