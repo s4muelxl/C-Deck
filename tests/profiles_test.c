@@ -94,6 +94,20 @@ int main(void) {
     assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
     assert(active.apps[6].configured == 1);
     assert(strcmp(active.apps[6].name, "Atalho padrão") == 0);
+
+    /* A missing file is recoverable, but a broken parent path is a storage error. */
+    {
+        DeckProfileStore invalid_store;
+        DeckConfig invalid_active;
+        write_text("test-profile-parent-blocker", "not a directory");
+        assert(profiles_load(&invalid_store,
+                             "test-profile-parent-blocker\\apps.cfg",
+                             &initial, &invalid_active) == 0);
+        remove("test-profile-parent-blocker");
+        assert(profiles_load(&invalid_store, "test-invalid*profile-apps.cfg",
+                             &initial, &invalid_active) == 0);
+    }
+
     assert(wcscmp(profile_name(DECK_PROFILE_STREAMING), L"Streaming / OBS") == 0);
     assert(profile_id_from_name(L"Produtividade") == DECK_PROFILE_PRODUCTIVITY);
     assert(profile_id_from_name(L"perfil inexistente") == -1);
