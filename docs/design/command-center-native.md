@@ -166,3 +166,16 @@ O módulo independente `src/ui_navigation.c` / `src/ui_navigation.h` define o mo
 - O contrato é coberto por teste para todos os 15 slots e quatro direções, incluindo bordas e argumentos inválidos.
 
 **Limite de integração:** este módulo ainda não recebe mensagens `WM_KEYDOWN` nem está ligado ao executável. A integração deve ocorrer em coordenação com a PR #16, que modifica `src/interface.c`; a camada Win32 deverá mapear as setas para este contrato e manter Enter/Space separados do movimento de foco. A compilação/teste C11 não comprova a ordem de foco nem o comportamento visual de foco em uma sessão gráfica.
+
+
+## Verificação automatizada de contraste dos tokens (15/11/2026)
+
+O teste nativo de tema calcula a luminância relativa sRGB e a razão de contraste dos tokens, usando a fórmula WCAG:
+
+- Texto primário e secundário: mínimo de 4,5:1 em canvas, superfícies 1–3 e fundo de seleção.
+- Texto desabilitado: mínimo interno de 3:1 nos mesmos fundos; o estado continua identificado semanticamente como indisponível.
+- Indicadores de acento, erro, aviso e foco: mínimo de 3:1 nos mesmos fundos.
+
+A verificação roda no contrato C11 em Linux e MinGW/Windows. O vínculo com `libm` existe apenas no executável de teste para a função `pow`; não adiciona dependência ao runtime desktop.
+
+Esta é uma verificação matemática dos tokens de cor, não uma medição de pixels renderizados. Contraste final de componentes, fontes, antialiasing, alto contraste do Windows e foco em controles nativos ainda exigem inspeção visual em sessão real.
