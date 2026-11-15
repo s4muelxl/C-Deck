@@ -14,13 +14,13 @@ int main(void) {
             const DeckLibraryAction *action = action_library_get((DeckLibraryCategory)category, i);
             assert(action != NULL);
             assert(action->category == (DeckLibraryCategory)category);
-            assert(action->title != NULL && action->title[0] != L'\\0');
-            assert(action->name != NULL && action->name[0] != '\\0');
-            assert(action->path != NULL && action->path[0] != '\\0');
+            assert(action->title != NULL && action->title[0] != L'\0');
+            assert(action->name != NULL && action->name[0] != '\0');
+            assert(action->path != NULL && action->path[0] != '\0');
             assert(strlen(action->name) < DECK_TEXT_MAX);
             assert(strlen(action->path) < DECK_TEXT_MAX);
-            assert(strchr(action->name, '\\n') == NULL);
-            assert(strchr(action->path, '\\n') == NULL);
+            assert(strchr(action->name, '\n') == NULL);
+            assert(strchr(action->path, '\n') == NULL);
             assert(action->icon_path != NULL && strncmp(action->icon_path, "icon:", 5) == 0);
         }
         assert(action_library_get((DeckLibraryCategory)category, count) == NULL);
