@@ -9,6 +9,9 @@ on:
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
+      - 'src/ui_navigation.c'
+      - 'src/ui_navigation.h'
+      - 'tests/ui_navigation_test.c'
       - '.github/workflows/native-ui-theme.yml'
   pull_request:
     branches: [main]
@@ -19,6 +22,9 @@ on:
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
+      - 'src/ui_navigation.c'
+      - 'src/ui_navigation.h'
+      - 'tests/ui_navigation_test.c'
       - '.github/workflows/native-ui-theme.yml'
 permissions:
   contents: read
@@ -39,6 +45,10 @@ jobs:
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o /tmp/ui-layout-test
       - name: Run native C11 layout contract
         run: /tmp/ui-layout-test
+      - name: Compile native C11 keyboard navigation contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o /tmp/ui-navigation-test
+      - name: Run native C11 keyboard navigation contract
+        run: /tmp/ui-navigation-test
 
   windows-native-ui-contracts:
     runs-on: windows-latest
@@ -58,3 +68,5 @@ jobs:
           ./build/ui-theme-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o build/ui-layout-test.exe
           ./build/ui-layout-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o build/ui-navigation-test.exe
+          ./build/ui-navigation-test.exe

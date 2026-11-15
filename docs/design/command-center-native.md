@@ -153,3 +153,16 @@ A primeira parte executável do contrato de layout foi extraída para `src/ui_la
 - Testes cobrem wide/medium/narrow/compact, os 15 slots, limites e não sobreposição, dimensões insuficientes, argumentos inválidos e escalas 96/120/144/192 DPI.
 
 **Limite de integração:** o módulo ainda não está ligado ao executável nem substitui o layout de `src/interface.c`. Não há handler `WM_DPICHANGED` adicionado nesta rodada. O próximo passo, após estabilização da PR #16, é consumir estes retângulos no ciclo Win32, tratar `WM_DPICHANGED` e validar em sessão gráfica real; até lá, os testes comprovam apenas o contrato matemático independente da janela.
+
+
+## Contrato de navegação por teclado da grade (15/11/2026)
+
+O módulo independente `src/ui_navigation.c` / `src/ui_navigation.h` define o movimento de foco entre as 15 teclas sem depender de Win32:
+
+- Setas esquerda/direita movem uma coluna; cima/baixo movem uma linha.
+- As bordas são limitadas (clamp), sem wrap-around. Por exemplo, pressionar esquerda na primeira coluna mantém o foco nela.
+- O índice de foco é separado do estado de seleção e da execução: mover o foco nunca seleciona uma ação nem a executa.
+- Índices fora de 0–14, direções desconhecidas e ponteiro de saída nulo são rejeitados; em caso de erro, a saída permanece inalterada.
+- O contrato é coberto por teste para todos os 15 slots e quatro direções, incluindo bordas e argumentos inválidos.
+
+**Limite de integração:** este módulo ainda não recebe mensagens `WM_KEYDOWN` nem está ligado ao executável. A integração deve ocorrer em coordenação com a PR #16, que modifica `src/interface.c`; a camada Win32 deverá mapear as setas para este contrato e manter Enter/Space separados do movimento de foco. A compilação/teste C11 não comprova a ordem de foco nem o comportamento visual de foco em uma sessão gráfica.
