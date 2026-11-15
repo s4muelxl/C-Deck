@@ -45,7 +45,7 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 5. Para remover um atalho, deixe nome e executável vazios.
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
-O programa grava os nove slots em `config/apps.cfg`. Configurações antigas com apenas três slots recebem os seis atalhos internos anteriores na primeira leitura; depois que os novos slots são salvos, a configuração passa a respeitar também slots extras intencionalmente vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+O programa grava os nove slots em `config/apps.cfg` com cabeçalho de esquema (`[meta]`, `version=2`). A leitura mantém compatibilidade com arquivos legados sem versão; ao salvar sobre uma configuração existente, a versão anterior é preservada em `config/apps.cfg.bak` antes da substituição atômica. Caminhos de configuração, executáveis, URLs e ícones personalizados são tratados como UTF-8 e convertidos para UTF-16 nas chamadas Win32. Configurações antigas com apenas três slots recebem os seis atalhos internos anteriores na primeira leitura; depois que os novos slots são salvos, a configuração passa a respeitar também slots extras intencionalmente vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
 Também é possível editar o arquivo manualmente:
 
