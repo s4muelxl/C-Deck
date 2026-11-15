@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C++ e Win32 API. Versão 1.3.1.**
+**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.3.1.**
 
 O C-DECK reúne controles de áudio, comandos multimídia e atalhos para aplicativos e sites em um teclado virtual desktop estilo Stream Deck. A página em `web/` é a apresentação oficial do projeto; as ações do computador são executadas nativamente pelo aplicativo Windows.
 
@@ -13,7 +13,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Aumentar e diminuir o volume principal em passos de 5%, ou ajustar diretamente em um controle deslizante com percentual atualizado.
 - Alternar o mute do dispositivo de reprodução padrão.
 - Enviar comandos de play/pause, próxima faixa e faixa anterior aos controles de mídia do Windows.
-- Abrir até três destinos definidos pelo usuário: aplicativos Windows ou sites no navegador padrão.
+- Abrir até nove destinos definidos pelo usuário: aplicativos Windows ou sites no navegador padrão.
 - Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Exibir automaticamente o ícone original de cada executável configurado.
@@ -45,7 +45,7 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 5. Para remover um atalho, deixe nome e executável vazios.
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
-O programa grava as alterações em `config/apps.cfg`. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+O programa grava os nove slots em `config/apps.cfg`. Configurações antigas com apenas três slots recebem os seis atalhos internos anteriores na primeira leitura; depois que os novos slots são salvos, a configuração passa a respeitar também slots extras intencionalmente vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
 Também é possível editar o arquivo manualmente:
 
@@ -61,6 +61,14 @@ path=C:\Windows\System32\calc.exe
 [app3]
 name=Paint
 path=mspaint.exe
+
+[app4]
+name=Mudo Mic
+path=action:mic_mute
+
+[app5]
+name=Trocar Áudio
+path=action:sound_devices
 ```
 
 - `name`: texto mostrado no botão.
@@ -95,8 +103,8 @@ O executável será criado em `build/C-Deck.exe`.
 - O áudio é controlado no dispositivo de reprodução padrão do Windows.
 - Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível.\n- O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
-- São suportados três atalhos configuráveis.
-- Ainda não há macros, perfis múltiplos, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
+- São suportados nove slots configuráveis; os seis slots adicionais também são gravados em `config/apps.cfg`.
+- Ainda não há macros, perfis múltiplos persistentes, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
 
