@@ -91,6 +91,10 @@ int config_load(const char *path, DeckConfig *out_config) {
     int has_legacy_apps = 0;
     int has_extended_apps = 0;
     int in_meta = 0;
+    int meta_seen = 0;
+    int version_seen = 0;
+    unsigned int seen_app_sections = 0;
+    unsigned int seen_app_fields[DECK_KEY_COUNT] = {0};
     int schema_version = 1;
     wchar_t wide_path[MAX_PATH * 4];
 
@@ -117,11 +121,25 @@ int config_load(const char *path, DeckConfig *out_config) {
             long app_number = -1;
             current = -1;
             in_meta = (_stricmp(entry, "[meta]") == 0);
+            if (in_meta) {
+                if (meta_seen) {
+                    fclose(file);
+                    return 0;
+                }
+                meta_seen = 1;
+            }
             if (!in_meta && _strnicmp(entry, "[app", 4) == 0) {
                 app_number = strtol(entry + 4, &section_end, 10);
                 if (section_end != entry + 4 && section_end && section_end[0] == ']' &&
                     section_end[1] == '\0' && app_number >= 1 && app_number <= DECK_KEY_COUNT) {
+                    unsigned int app_bit;
                     current = (int)app_number - 1;
+                    app_bit = 1u << current;
+                    if (seen_app_sections & app_bit) {
+                        fclose(file);
+                        return 0;
+                    }
+                    seen_app_sections |= app_bit;
                     if (current < 3) has_legacy_apps = 1;
                     else has_extended_apps = 1;
                 }
@@ -136,7 +154,13 @@ int config_load(const char *path, DeckConfig *out_config) {
 
         if (in_meta && _stricmp(entry, "version") == 0) {
             char *end = NULL;
-            long parsed = strtol(equals, &end, 10);
+            long parsed;
+            if (version_seen) {
+                fclose(file);
+                return 0;
+            }
+            version_seen = 1;
+            parsed = strtol(equals, &end, 10);
             if (end == equals || *trim(end) != '\0' || parsed < 1 || parsed > INT_MAX) {
                 schema_version = 0;
             } else {
@@ -147,16 +171,31 @@ int config_load(const char *path, DeckConfig *out_config) {
         if (current < 0) continue;
 
         if (_stricmp(entry, "name") == 0) {
+            if (seen_app_fields[current] & 1u) {
+                fclose(file);
+                return 0;
+            }
+            seen_app_fields[current] |= 1u;
             if (!copy_utf8_value(parsed_apps[current].name, sizeof(parsed_apps[current].name), equals)) {
                 fclose(file);
                 return 0;
             }
         } else if (_stricmp(entry, "path") == 0) {
+            if (seen_app_fields[current] & 2u) {
+                fclose(file);
+                return 0;
+            }
+            seen_app_fields[current] |= 2u;
             if (!copy_utf8_value(parsed_apps[current].path, sizeof(parsed_apps[current].path), equals)) {
                 fclose(file);
                 return 0;
             }
         } else if (_stricmp(entry, "icon") == 0) {
+            if (seen_app_fields[current] & 4u) {
+                fclose(file);
+                return 0;
+            }
+            seen_app_fields[current] |= 4u;
             if (!copy_utf8_value(parsed_apps[current].icon_path, sizeof(parsed_apps[current].icon_path), equals)) {
                 fclose(file);
                 return 0;

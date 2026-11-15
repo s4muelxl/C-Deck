@@ -135,6 +135,8 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
     char line[256];
     int section = 0;
     int version = 0;
+    int version_seen = 0;
+    int sections_seen = 0;
     unsigned int seen = 0;
 
     if (!utf8_to_wide_path(path, wide_path, sizeof(wide_path) / sizeof(wide_path[0]))) return 0;
@@ -154,8 +156,15 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
         entry = trim_text(line);
         if (!entry[0] || entry[0] == '#' || entry[0] == ';') continue;
         if (entry[0] == '[') {
-            section = (_stricmp(entry, "[meta]") == 0) ? 1 :
-                      (_stricmp(entry, "[preferences]") == 0) ? 2 : 0;
+            int next_section = (_stricmp(entry, "[meta]") == 0) ? 1 :
+                               (_stricmp(entry, "[preferences]") == 0) ? 2 : 0;
+            int section_bit = next_section == 1 ? 1 : next_section == 2 ? 2 : 0;
+            if (section_bit && (sections_seen & section_bit)) {
+                fclose(file);
+                return 0;
+            }
+            sections_seen |= section_bit;
+            section = next_section;
             continue;
         }
         equals = strchr(entry, '=');
@@ -165,7 +174,15 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
         equals = trim_text(equals);
 
         if (section == 1 && _stricmp(entry, "version") == 0) {
-            if (!parse_integer(equals, &version)) version = 0;
+            if (version_seen) {
+                fclose(file);
+                return 0;
+            }
+            version_seen = 1;
+            if (!parse_integer(equals, &version)) {
+                fclose(file);
+                return 0;
+            }
         } else if (section == 2) {
             if (!parse_integer(equals, &parsed)) {
                 fclose(file);
@@ -192,7 +209,8 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
         return 0;
     }
     fclose(file);
-    return version == 1 && seen == 15u && validate_preferences(preferences);
+    return sections_seen == 3 && version_seen && version == 1 &&
+           seen == 15u && validate_preferences(preferences);
 }
 
 static int save_preferences_file(const char *path, const DeckPreferences *preferences) {

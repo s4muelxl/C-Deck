@@ -115,7 +115,26 @@ int main(void) {
         assert(config.apps[i].path[0] == '\0');
     }
 
-    write_config("[meta]\nversion=99\n[app1]\nname=Future\npath=future.exe\n");
+    write_config("[meta]\nversion=3\n[meta]\nversion=3\n[app1]\nname=One\npath=one.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "version=3"));
+
+    write_config("[meta]\nversion=3\nversion=3\n[app1]\nname=One\npath=one.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    write_config("[meta]\nversion=3\n[app1]\nname=First\npath=first.exe\n"
+                 "[app1]\nname=Second\npath=second.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "name=First"));
+
+    write_config("[meta]\nversion=3\n[app1]\nname=First\nname=Second\npath=first.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    write_config("[meta]\nversion=3\n[app1]\nname=First\npath=first.exe\npath=second.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    write_config("[meta]\nversion=3\n[app1]\nname=First\npath=first.exe\n"
+                 "icon=first.ico\nicon=second.ico\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
     /* Reject overlong physical lines instead of parsing a truncated prefix. */

@@ -47,6 +47,18 @@ static void remove_utf8_profile_files(const char *prefix) {
     }
 }
 
+static void assert_invalid_preferences_preserved(const char *contents,
+                                                   const char *marker,
+                                                   const DeckConfig *initial) {
+    DeckProfileStore store;
+    DeckConfig active;
+    write_text("test-profile-apps-preferences.cfg", contents);
+    assert(profiles_load(&store, "test-profile-apps.cfg", initial, &active) == 1);
+    assert(store.preferences_recovered == 1);
+    assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
+    assert(file_contains("test-profile-apps-preferences.cfg", marker));
+}
+
 static void remove_profile_files(const char *prefix) {
     char path[256];
     const char *suffixes[] = {
@@ -153,6 +165,28 @@ int main(void) {
         assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
         assert(file_contains("test-profile-apps-preferences.cfg", "active_profile=0"));
     }
+
+    /* Duplicate preference metadata, sections and keys are rejected without rewriting the file. */
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "enable_hotkeys=1\nwindow_opacity=100\n[meta]\nversion=1\n",
+        "version=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\nversion=1\n[preferences]\nactive_profile=0\n"
+        "minimize_to_tray=1\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "version=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "[preferences]\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "active_profile=0", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nactive_profile=1\n"
+        "minimize_to_tray=1\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "active_profile=0", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "enable_hotkeys=1\nwindow_opacity=100\nwindow_opacity=90\n",
+        "window_opacity=100", &initial);
 
     remove_profile_files("test-profile");
 
