@@ -79,3 +79,20 @@ test('neutral iconography and high-contrast keyboard states are available', () =
   assert.match(css, /prefers-contrast: more/);
   assert.match(css, /forced-colors: active/);
 });
+
+
+test('the neutral accent is the single source of truth without legacy lime remnants', () => {
+  assert.match(css, /--accent:\s*#eef1f5/);
+  assert.doesNotMatch(css, /#d7ff(?:63|85)|215,\s*255,\s*99|#e4ff91/i);
+});
+
+test('compact layouts keep the volume target usable and key labels legible', () => {
+  assert.match(css, /\.volume-interactive-wrap\s*\{[^}]*height:\s*28px/s);
+  assert.match(css, /\.volume-slider\s*\{[^}]*height:\s*28px/s);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)/);
+  assert.match(css, /\.deck-key \.key-badge\s*\{\s*display:\s*none;/);
+});
+
+test('the simulator is exposed as a named accessibility region', () => {
+  assert.match(html, /class="product-stage" role="region" aria-label="Simulador demonstrativo do C-Deck"/);
+});
