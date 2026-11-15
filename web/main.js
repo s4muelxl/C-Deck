@@ -236,6 +236,62 @@
     }, 2200);
   }
 
+
+  // --- Roving keyboard focus for the illustrative 3x3 web simulator ---
+  const GRID_KEY_IDS = [
+    'key-vol-down', 'key-mute', 'key-vol-up',
+    'key-prev', 'key-play', 'key-next',
+    'key-app-1', 'key-app-2', 'key-app-3'
+  ];
+
+  function initGridKeyboardNavigation() {
+    const buttons = GRID_KEY_IDS.map((id) => document.getElementById(id));
+    if (buttons.some((button) => !button)) return;
+
+    let activeIndex = buttons.findIndex((button) => button.getAttribute('tabindex') === '0');
+    if (activeIndex < 0) activeIndex = 0;
+
+    function setRovingTabStop(index, moveFocus) {
+      activeIndex = index;
+      buttons.forEach((button, buttonIndex) => {
+        button.setAttribute('tabindex', buttonIndex === index ? '0' : '-1');
+      });
+      if (moveFocus && typeof buttons[index].focus === 'function') {
+        buttons[index].focus();
+      }
+    }
+
+    buttons.forEach((button, index) => {
+      button.setAttribute('tabindex', index === activeIndex ? '0' : '-1');
+      button.addEventListener('focus', () => setRovingTabStop(index, false));
+      button.addEventListener('keydown', (event) => {
+        let nextIndex = index;
+        const row = Math.floor(index / 3);
+        const column = index % 3;
+
+        switch (event.key) {
+          case 'ArrowLeft':
+            if (column > 0) nextIndex = index - 1;
+            break;
+          case 'ArrowRight':
+            if (column < 2) nextIndex = index + 1;
+            break;
+          case 'ArrowUp':
+            if (row > 0) nextIndex = index - 3;
+            break;
+          case 'ArrowDown':
+            if (row < 2) nextIndex = index + 3;
+            break;
+          default:
+            return;
+        }
+
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        setRovingTabStop(nextIndex, true);
+      });
+    });
+  }
+
   // --- Setup Simulator Listeners ---
   function initSimulator() {
     const volDownBtn = document.getElementById('key-vol-down');
@@ -284,6 +340,7 @@
       });
     }
 
+    initGridKeyboardNavigation();
     updateVolumeUI();
   }
 
