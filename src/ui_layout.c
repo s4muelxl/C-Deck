@@ -179,3 +179,18 @@ int32_t deck_ui_dip_to_px(int32_t dip, uint32_t dpi) {
     if (pixels < INT32_MIN) return INT32_MIN;
     return (int32_t)pixels;
 }
+
+
+int32_t deck_ui_px_to_dip(int32_t pixels, uint32_t dpi) {
+    int64_t scaled;
+    int64_t dips;
+
+    if (dpi == 0u) dpi = 96u;
+    scaled = (int64_t)pixels * 96;
+    scaled += scaled >= 0 ? (int64_t)dpi / 2 : -((int64_t)dpi / 2);
+    dips = scaled / (int64_t)dpi;
+
+    if (dips > INT32_MAX) return INT32_MAX;
+    if (dips < INT32_MIN) return INT32_MIN;
+    return (int32_t)dips;
+}

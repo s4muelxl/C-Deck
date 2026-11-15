@@ -124,6 +124,16 @@ static void test_dpi_conversion(void) {
     assert(deck_ui_dip_to_px(10, 0u) == 10);
     assert(deck_ui_dip_to_px(INT32_MAX, UINT32_MAX) == INT32_MAX);
     assert(deck_ui_dip_to_px(INT32_MIN, UINT32_MAX) == INT32_MIN);
+
+    assert(deck_ui_px_to_dip(10, 96u) == 10);
+    assert(deck_ui_px_to_dip(13, 120u) == 10);
+    assert(deck_ui_px_to_dip(15, 144u) == 10);
+    assert(deck_ui_px_to_dip(20, 192u) == 10);
+    assert(deck_ui_px_to_dip(1, 144u) == 1);
+    assert(deck_ui_px_to_dip(-1, 144u) == -1);
+    assert(deck_ui_px_to_dip(10, 0u) == 10);
+    assert(deck_ui_px_to_dip(INT32_MAX, 1u) == INT32_MAX);
+    assert(deck_ui_px_to_dip(INT32_MIN, 1u) == INT32_MIN);
 }
 
 int main(void) {

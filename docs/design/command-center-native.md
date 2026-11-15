@@ -149,7 +149,7 @@ A primeira parte executável do contrato de layout foi extraída para `src/ui_la
 - Breakpoints por largura da área cliente: wide a partir de 1360 DIP; medium a partir de 1120 DIP; narrow a partir de 900 DIP. Em narrow a sidebar vira rail de 64 DIP; em medium o inspector fica recolhido; em wide ambos aparecem.
 - Compact é explícito e mantém top bar de 48 DIP, status bar de 30 DIP e gap de 8 DIP; o alvo mínimo de 440×320 DIP é coberto por teste.
 - O cálculo centraliza a grade 5×3 e preserva teclas quadradas com mínimo de 44 DIP. Se a área não comportar esse mínimo, retorna `DECK_UI_LAYOUT_TOO_SMALL` sem produzir slots parcialmente válidos.
-- `deck_ui_dip_to_px` converte DIP para pixels físicos com arredondamento ao inteiro mais próximo; DPI zero usa 96 como fallback e os resultados são saturados em int32.
+- `deck_ui_dip_to_px` converte DIP para pixels físicos e `deck_ui_px_to_dip` faz a conversão inversa, ambos com arredondamento ao inteiro mais próximo, fallback de 96 DPI e saturação em int32. O caminho pixels→DIP permite que a camada Win32 converta `GetClientRect` antes de chamar o cálculo de layout.
 - Testes cobrem wide/medium/narrow/compact, os 15 slots, limites e não sobreposição, dimensões insuficientes, argumentos inválidos e escalas 96/120/144/192 DPI.
 
 **Limite de integração:** o módulo ainda não está ligado ao executável nem substitui o layout de `src/interface.c`. Não há handler `WM_DPICHANGED` adicionado nesta rodada. O próximo passo, após estabilização da PR #16, é consumir estes retângulos no ciclo Win32, tratar `WM_DPICHANGED` e validar em sessão gráfica real; até lá, os testes comprovam apenas o contrato matemático independente da janela.

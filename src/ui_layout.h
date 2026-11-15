@@ -70,6 +70,9 @@ DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
 /* Converts DIP to physical pixels using nearest-integer rounding. dpi=0 uses 96. */
 int32_t deck_ui_dip_to_px(int32_t dip, uint32_t dpi);
 
+/* Converts physical pixels to DIP using nearest-integer rounding. dpi=0 uses 96. */
+int32_t deck_ui_px_to_dip(int32_t pixels, uint32_t dpi);
+
 #ifdef __cplusplus
 }
 #endif
