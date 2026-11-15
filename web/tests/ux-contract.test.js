@@ -157,7 +157,9 @@ test('reset control restores simulator state while preserving the sound preferen
   elements['demo-sound-toggle'].dispatch('click');
   assert.equal(elements['demo-volume-slider'].value, 77);
   assert.equal(elements['key-mute'].attributes['aria-pressed'], 'true');
+  assert.equal(elements['key-mute'].attributes['aria-label'], 'Ativar áudio (simulação)');
   assert.equal(elements['key-play'].attributes['aria-pressed'], 'true');
+  assert.equal(elements['key-play'].attributes['aria-label'], 'Pausar reprodução simulada');
   assert.equal(elements['demo-sound-toggle'].textContent, 'SOM: OFF');
 
   elements['demo-reset'].dispatch('click');
@@ -167,8 +169,10 @@ test('reset control restores simulator state while preserving the sound preferen
   assert.equal(elements['demo-volume-slider'].value, 72);
   assert.equal(elements['demo-volume-slider'].attributes['aria-valuetext'], '72%');
   assert.equal(elements['key-mute'].attributes['aria-pressed'], 'false');
+  assert.equal(elements['key-mute'].attributes['aria-label'], 'Silenciar áudio (simulação)');
   assert.equal(elements['key-mute'].classList.contains('key-active-mute'), false);
   assert.equal(elements['key-play'].attributes['aria-pressed'], 'false');
+  assert.equal(elements['key-play'].attributes['aria-label'], 'Iniciar reprodução simulada');
   assert.equal(elements['key-play'].classList.contains('key-active-media'), false);
   assert.match(elements['play-glyph'].innerHTML, /M8 5v14/);
   assert.equal(elements['play-label'].textContent, 'PLAY / PAUSE');
@@ -273,6 +277,7 @@ test('simulator controls expose explicit names and a semantic status region', ()
   assert.match(html, /id="key-play"[^>]*aria-label="Iniciar reprodução simulada"/);
   assert.match(html, /id="demo-status-text"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(html, /class="key-badge" aria-hidden="true"/);
+  assert.match(html, /class="key-glyph key-icon glyph-app" aria-hidden="true"/);
   assert.match(html, /class="faq-icon" aria-hidden="true"/);
 });
 
@@ -284,6 +289,7 @@ test('shortcut cards are explicitly described as local simulations', () => {
 });
 
 test('touch devices do not retain hover-only elevation after tapping', () => {
+  assert.match(css, /@media \(hover: none\)[\s\S]*?\.button-primary:hover[\s\S]*?transform: none/);
   assert.match(css, /@media \(hover: none\)[\s\S]*?\.deck-key:hover[\s\S]*?box-shadow: none/);
   assert.match(css, /\.essential-item:hover\s*\{[^}]*transform: none/s);
   assert.match(css, /\.faq-question:hover\s*\{[^}]*color: #e8ecf1/s);

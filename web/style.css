@@ -1130,6 +1130,11 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
 
 /* Touch-first refinement: do not leave hover elevation latched after a tap. */
 @media (hover: none) {
+  .button-primary:hover {
+    background: #f0f2f5;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22);
+    transform: none;
+  }
   .github-button:hover {
     background: rgba(255,255,255,.035);
     border-color: rgba(255,255,255,.12);
