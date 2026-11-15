@@ -132,7 +132,7 @@ A leitura de src/interface.c na branch codex/c-deck-1.4-engineering encontrou o 
 | Sidebar | 200 px fixa | Converter para largura adaptável e rail em janela estreita |
 | Inspector | 320 px fixos | Tornar recolhível e adaptar campos à largura disponível |
 | Status bar | 28 px | Reavaliar altura e separar estado de execução de métricas |
-| Grade | 5×3; gap 14 px normal / 8 px mini; teclas limitadas entre 54 e 108 px | A base já calcula o tamanho pelo espaço disponível; preservar esse comportamento e testar limites/DPI |
+| Grade | 5×3; gap 14 DIP normal / 8 DIP mini; teclas entre 44 e 108 DIP | Calcular pelo espaço disponível, manter alvo mínimo acessível e limitar o crescimento em monitores grandes |
 | Janela normal mínima | 980×640 | Conferir se os breakpoints propostos podem ser suportados sem reduzir os alvos ou sobrepor controles |
 | Mini-Deck mínimo | 440×320 | Preservar acesso de retorno ao modo normal e validar legibilidade |
 | DPI | WM_SIZE e WM_GETMINMAXINFO presentes; não foi encontrado handler WM_DPICHANGED na revisão deste HEAD | Implementar tratamento per-monitor DPI antes de declarar responsividade completa |
@@ -148,7 +148,7 @@ A primeira parte executável do contrato de layout foi extraída para `src/ui_la
 
 - Breakpoints por largura da área cliente: wide a partir de 1360 DIP; medium a partir de 1120 DIP; narrow a partir de 900 DIP. Em narrow a sidebar vira rail de 64 DIP; em medium o inspector fica recolhido; em wide ambos aparecem.
 - Compact é explícito e mantém top bar de 48 DIP, status bar de 30 DIP e gap de 8 DIP; o alvo mínimo de 440×320 DIP é coberto por teste.
-- O cálculo centraliza a grade 5×3 e preserva teclas quadradas com mínimo de 44 DIP. Se a área não comportar esse mínimo, retorna `DECK_UI_LAYOUT_TOO_SMALL` e zera todo o resultado (modo unsupported, regiões e slots vazios), evitando que um consumidor use retângulos parciais de uma tentativa inválida.
+- O cálculo centraliza a grade 5×3 e preserva teclas quadradas entre 44 e 108 DIP. O limite superior evita que a grade fique desproporcional em janelas/monitores grandes; o limite inferior preserva o alvo interativo. Se a área não comportar 44 DIP, retorna `DECK_UI_LAYOUT_TOO_SMALL` e zera todo o resultado (modo unsupported, regiões e slots vazios), evitando que um consumidor use retângulos parciais de uma tentativa inválida.
 - `deck_ui_dip_to_px` converte DIP para pixels físicos e `deck_ui_px_to_dip` faz a conversão inversa, ambos com arredondamento ao inteiro mais próximo, fallback de 96 DPI e saturação em int32. O caminho pixels→DIP permite que a camada Win32 converta `GetClientRect` antes de chamar o cálculo de layout.
 - Testes cobrem wide/medium/narrow/compact, os 15 slots, limites e não sobreposição, dimensões insuficientes, argumentos inválidos e escalas 96/120/144/192 DPI.
 
