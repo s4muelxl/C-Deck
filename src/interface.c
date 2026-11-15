@@ -3,6 +3,7 @@
 #include "profiles.h"
 #include "action_library.h"
 #include "macros.h"
+#include "hotkeys.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -122,6 +123,7 @@ static int g_selected_category = ID_LIB_SYSTEM;
 static wchar_t g_current_profile[64] = L"Default Profile";
 static int g_minimize_to_tray = 1;
 static int g_enable_hotkeys = 1;
+static DeckHotkeyState g_hotkey_state;
 static int g_window_opacity = 100; // 60% to 100%
 static int g_is_mini_mode = 0;     // 1 = Compact Floating Mini-Deck (Always on Top)
 
@@ -398,16 +400,102 @@ static void apply_window_opacity(HWND hwnd, int opacity_percent) {
     }
 }
 
-static void apply_hotkeys(HWND hwnd, int enable) {
-    g_enable_hotkeys = enable;
-    UnregisterHotKey(hwnd, ID_HOTKEY_UP);
-    UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
-    UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
-    if (enable) {
-        RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
-        RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
-        RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
+static const DeckHotkeySpec g_hotkey_specs[] = {
+    { ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP },
+    { ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN },
+    { ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M' }
+};
+
+static int win_register_hotkey(void *context, unsigned int id, unsigned int modifiers,
+                               unsigned int virtual_key, unsigned long *error_code) {
+    if (RegisterHotKey((HWND)context, (int)id, modifiers, virtual_key)) {
+        if (error_code) *error_code = 0;
+        return 1;
     }
+    if (error_code) *error_code = (unsigned long)GetLastError();
+    return 0;
+}
+
+static int win_unregister_hotkey(void *context, unsigned int id, unsigned long *error_code) {
+    if (UnregisterHotKey((HWND)context, (int)id)) {
+        if (error_code) *error_code = 0;
+        return 1;
+    }
+    if (error_code) *error_code = (unsigned long)GetLastError();
+    return 0;
+}
+
+static const wchar_t *hotkey_label(unsigned int index) {
+    static const wchar_t *labels[] = {
+        L"Ctrl+Alt+↑", L"Ctrl+Alt+↓", L"Ctrl+Alt+M"
+    };
+    return index < (unsigned int)(sizeof(labels) / sizeof(labels[0])) ? labels[index] : L"atalho desconhecido";
+}
+
+static void append_hotkey_issue(wchar_t *message, size_t capacity,
+                                const wchar_t *label, unsigned long error_code) {
+    wchar_t detail[48];
+    size_t used;
+    if (!message || capacity == 0) return;
+    used = wcslen(message);
+    if (used < capacity - 1) wcsncat(message, L"; ", capacity - used - 1);
+    used = wcslen(message);
+    if (used < capacity - 1) wcsncat(message, label, capacity - used - 1);
+    if (error_code == 1409ul) {
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, L" (já em uso)", capacity - used - 1);
+    } else if (error_code != 0) {
+        swprintf(detail, sizeof(detail) / sizeof(detail[0]), L" (erro %lu)", error_code);
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, detail, capacity - used - 1);
+    } else {
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, L" (não liberado)", capacity - used - 1);
+    }
+}
+
+static DeckHotkeyReport apply_hotkeys(HWND hwnd, int enable) {
+    DeckHotkeyReport report = deck_hotkeys_apply(
+        &g_hotkey_state, g_hotkey_specs,
+        (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
+        enable, win_register_hotkey, win_unregister_hotkey, hwnd);
+    g_enable_hotkeys = enable ? 1 : 0;
+
+    if (report.invalid_request) {
+        set_status(L"Não foi possível atualizar os atalhos globais.");
+        return report;
+    }
+
+    if (report.unregister_failed_mask || report.failed_mask) {
+        wchar_t message[320] = L"Atalhos globais parcialmente atualizados. ";
+        for (unsigned int i = 0; i < (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])); ++i) {
+            unsigned int bit = 1u << i;
+            if (report.unregister_failed_mask & bit) {
+                append_hotkey_issue(message, sizeof(message) / sizeof(message[0]),
+                                    hotkey_label(i), report.unregister_errors[i]);
+            }
+        }
+        for (unsigned int i = 0; i < (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])); ++i) {
+            unsigned int bit = 1u << i;
+            if (report.failed_mask & bit) {
+                append_hotkey_issue(message, sizeof(message) / sizeof(message[0]),
+                                    hotkey_label(i), report.register_errors[i]);
+            }
+        }
+        set_status(message);
+    } else if (enable) {
+        set_status(L"Atalhos globais ativos: Ctrl+Alt+↑ / Ctrl+Alt+↓ / Ctrl+Alt+M.");
+    } else {
+        set_status(L"Atalhos globais desativados.");
+    }
+    return report;
+}
+
+static void release_hotkeys(HWND hwnd) {
+    (void)deck_hotkeys_apply(
+        &g_hotkey_state, g_hotkey_specs,
+        (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
+        0, win_register_hotkey, win_unregister_hotkey, hwnd);
 }
 
 static int add_tray_icon(HWND hwnd) {
@@ -498,8 +586,11 @@ static void execute_key_action(int key_index) {
             report_result(result, L"Microfone alternado.");
         } else {
             result = action_get_mic_mute(&mic_muted);
-            if (result != ACTION_SUCCESS) report_result(result, L"Microfone alternado.");
-            else set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
+            if (result != ACTION_SUCCESS) {
+                set_status(L"Microfone alternado, mas não foi possível consultar o estado atual.");
+            } else {
+                set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
+            }
         }
     } else if (strncmp(app->path, "action:macro:", 13) == 0) {
         char *end = NULL;
@@ -751,6 +842,7 @@ static void draw_logo(HDC dc, int ox, int oy) {
     HBRUSH shadow_brush = CreateSolidBrush(RGB(185, 192, 204));
     SelectObject(dc, shadow_brush);
     Polygon(dc, shadow_pts, 6);
+    SelectObject(dc, old_b);
     DeleteObject(shadow_brush);
 
     POINT lime_pts[] = {
@@ -759,6 +851,7 @@ static void draw_logo(HDC dc, int ox, int oy) {
     HBRUSH lime_brush = CreateSolidBrush(COLOR_ACCENT_LIME);
     SelectObject(dc, lime_brush);
     Polygon(dc, lime_pts, 4);
+    SelectObject(dc, old_b);
     DeleteObject(lime_brush);
 
     SelectObject(dc, old_b);
@@ -872,8 +965,27 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
     DeleteObject(brush);
 }
 
+#define ICON_GDI_DEFERRED_MAX 64
+typedef struct IconGdiScope {
+    HGDIOBJ deferred[ICON_GDI_DEFERRED_MAX];
+    unsigned int count;
+} IconGdiScope;
+
+static void icon_gdi_release(HDC dc, IconGdiScope *scope, HGDIOBJ object) {
+    if (!object || object == HGDI_ERROR) return;
+    if (GetCurrentObject(dc, OBJ_BRUSH) == object ||
+        GetCurrentObject(dc, OBJ_PEN) == object) {
+        if (scope && scope->count < ICON_GDI_DEFERRED_MAX) {
+            scope->deferred[scope->count++] = object;
+        }
+        return;
+    }
+    DeleteObject(object);
+}
+
 // Built-in Vector Icon Library for Gallery & Keys
 static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
+    IconGdiScope scope = { { 0 }, 0 };
     HPEN pen = CreatePen(PS_SOLID, 1, color);
     HBRUSH brush = CreateSolidBrush(color);
     HGDIOBJ old_p = SelectObject(dc, pen);
@@ -884,17 +996,17 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             HBRUSH paper_br = CreateSolidBrush(RGB(240, 244, 250));
             SelectObject(dc, paper_br);
             RoundRect(dc, cx - 11, cy - 13, cx + 11, cy + 13, 4, 4);
-            DeleteObject(paper_br);
+            icon_gdi_release(dc, &scope, paper_br);
             HBRUSH blue_br = CreateSolidBrush(RGB(74, 144, 226));
             RECT hdr = { cx - 11, cy - 13, cx + 11, cy - 7 };
             FillRect(dc, &hdr, blue_br);
-            DeleteObject(blue_br);
+            icon_gdi_release(dc, &scope, blue_br);
             HPEN line_pen = CreatePen(PS_SOLID, 1, RGB(180, 192, 208));
             SelectObject(dc, line_pen);
             MoveToEx(dc, cx - 7, cy - 2, NULL); LineTo(dc, cx + 7, cy - 2);
             MoveToEx(dc, cx - 7, cy + 3, NULL); LineTo(dc, cx + 7, cy + 3);
             MoveToEx(dc, cx - 7, cy + 8, NULL); LineTo(dc, cx + 4, cy + 8);
-            DeleteObject(line_pen);
+            icon_gdi_release(dc, &scope, line_pen);
             break;
         }
         case 2: { // Calculadora
@@ -903,12 +1015,12 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             SelectObject(dc, calc_br);
             SelectObject(dc, calc_pen);
             RoundRect(dc, cx - 10, cy - 13, cx + 10, cy + 13, 6, 6);
-            DeleteObject(calc_br);
-            DeleteObject(calc_pen);
+            icon_gdi_release(dc, &scope, calc_br);
+            icon_gdi_release(dc, &scope, calc_pen);
             HBRUSH lcd_br = CreateSolidBrush(RGB(145, 168, 188));
             RECT lcd = { cx - 7, cy - 10, cx + 7, cy - 5 };
             FillRect(dc, &lcd, lcd_br);
-            DeleteObject(lcd_br);
+            icon_gdi_release(dc, &scope, lcd_br);
             HBRUSH btn_br = CreateSolidBrush(COLOR_WHITE);
             SelectObject(dc, btn_br);
             for (int r = 0; r < 2; ++r) {
@@ -917,30 +1029,30 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
                     FillRect(dc, &b, btn_br);
                 }
             }
-            DeleteObject(btn_br);
+            icon_gdi_release(dc, &scope, btn_br);
             break;
         }
         case 3: { // Paint
             HBRUSH pal_br = CreateSolidBrush(RGB(244, 246, 250));
             SelectObject(dc, pal_br);
             Ellipse(dc, cx - 13, cy - 9, cx + 13, cy + 9);
-            DeleteObject(pal_br);
+            icon_gdi_release(dc, &scope, pal_br);
             HBRUSH hole_br = CreateSolidBrush(RGB(25, 28, 35));
             SelectObject(dc, hole_br);
             Ellipse(dc, cx + 4, cy + 1, cx + 8, cy + 5);
-            DeleteObject(hole_br);
+            icon_gdi_release(dc, &scope, hole_br);
             HBRUSH r_br = CreateSolidBrush(RGB(245, 60, 60));
-            SelectObject(dc, r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); DeleteObject(r_br);
+            SelectObject(dc, r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); icon_gdi_release(dc, &scope, r_br);
             HBRUSH y_br = CreateSolidBrush(RGB(255, 205, 30));
-            SelectObject(dc, y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); DeleteObject(y_br);
+            SelectObject(dc, y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); icon_gdi_release(dc, &scope, y_br);
             HBRUSH g_br = CreateSolidBrush(COLOR_ACCENT_LIME);
-            SelectObject(dc, g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); DeleteObject(g_br);
+            SelectObject(dc, g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); icon_gdi_release(dc, &scope, g_br);
             HBRUSH b_br = CreateSolidBrush(RGB(40, 140, 255));
-            SelectObject(dc, b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); DeleteObject(b_br);
+            SelectObject(dc, b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); icon_gdi_release(dc, &scope, b_br);
             HPEN brush_pen = CreatePen(PS_SOLID, 2, RGB(195, 140, 85));
             SelectObject(dc, brush_pen);
             MoveToEx(dc, cx + 9, cy - 12, NULL); LineTo(dc, cx - 2, cy + 6);
-            DeleteObject(brush_pen);
+            icon_gdi_release(dc, &scope, brush_pen);
             break;
         }
         case 4: { // Pasta
@@ -949,7 +1061,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             POINT tab[4] = { { cx - 11, cy - 9 }, { cx - 4, cy - 9 }, { cx - 2, cy - 6 }, { cx - 11, cy - 6 } };
             Polygon(dc, tab, 4);
             RoundRect(dc, cx - 12, cy - 6, cx + 12, cy + 8, 4, 4);
-            DeleteObject(f_br);
+            icon_gdi_release(dc, &scope, f_br);
             break;
         }
         case 5: { // Terminal / Prompt
@@ -960,8 +1072,8 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             RoundRect(dc, cx - 12, cy - 9, cx + 12, cy + 9, 3, 3);
             MoveToEx(dc, cx - 8, cy - 4, NULL); LineTo(dc, cx - 4, cy); LineTo(dc, cx - 8, cy + 4);
             MoveToEx(dc, cx - 2, cy + 4, NULL); LineTo(dc, cx + 4, cy + 4);
-            DeleteObject(kb_br);
-            DeleteObject(kb_pen);
+            icon_gdi_release(dc, &scope, kb_br);
+            icon_gdi_release(dc, &scope, kb_pen);
             break;
         }
         case 6: { // Navegador Web (Globe)
@@ -971,7 +1083,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             Ellipse(dc, cx - 9, cy - 9, cx + 9, cy + 9);
             MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx + 9, cy);
             Ellipse(dc, cx - 4, cy - 9, cx + 4, cy + 9);
-            DeleteObject(globe_pen);
+            icon_gdi_release(dc, &scope, globe_pen);
             break;
         }
         case 7: { // Spotify / Música (Nota musical)
@@ -992,8 +1104,8 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             SelectObject(dc, eye_br);
             Ellipse(dc, cx - 6, cy - 2, cx - 2, cy + 2);
             Ellipse(dc, cx + 2, cy - 2, cx + 6, cy + 2);
-            DeleteObject(eye_br);
-            DeleteObject(d_br);
+            icon_gdi_release(dc, &scope, eye_br);
+            icon_gdi_release(dc, &scope, d_br);
             break;
         }
         case 9: { // OBS Studio (Stream Camera)
@@ -1002,7 +1114,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             RoundRect(dc, cx - 10, cy - 7, cx + 4, cy + 7, 4, 4);
             POINT lens[3] = { { cx + 5, cy - 5 }, { cx + 11, cy - 8 }, { cx + 11, cy + 8 } };
             Polygon(dc, lens, 3);
-            DeleteObject(cam_br);
+            icon_gdi_release(dc, &scope, cam_br);
             break;
         }
         case 10: { // Steam (Game Controller)
@@ -1013,8 +1125,8 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             SelectObject(dc, plus_p);
             MoveToEx(dc, cx - 7, cy, NULL); LineTo(dc, cx - 3, cy);
             MoveToEx(dc, cx - 5, cy - 2, NULL); LineTo(dc, cx - 5, cy + 3);
-            DeleteObject(plus_p);
-            DeleteObject(pad_br);
+            icon_gdi_release(dc, &scope, plus_p);
+            icon_gdi_release(dc, &scope, pad_br);
             break;
         }
         case 11: { // Twitch (Chat box)
@@ -1024,7 +1136,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             Polygon(dc, box, 6);
             RECT e1 = { cx - 5, cy - 4, cx - 3, cy + 1 }; FillRect(dc, &e1, brush);
             RECT e2 = { cx + 3, cy - 4, cx + 5, cy + 1 }; FillRect(dc, &e2, brush);
-            DeleteObject(tw_br);
+            icon_gdi_release(dc, &scope, tw_br);
             break;
         }
         case 12: { // YouTube (Play badge)
@@ -1035,14 +1147,16 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             HBRUSH white_b = CreateSolidBrush(COLOR_WHITE);
             SelectObject(dc, white_b);
             Polygon(dc, play_p, 3);
-            DeleteObject(white_b);
-            DeleteObject(yt_br);
+            icon_gdi_release(dc, &scope, white_b);
+            icon_gdi_release(dc, &scope, yt_br);
             break;
         }
         case 13: { // Microfone
             int mic_muted = 0;
-            action_get_mic_mute(&mic_muted);
-            COLORREF m_col = mic_muted ? COLOR_MIC_MUTED : color;
+            ActionResult mic_status = action_get_mic_mute(&mic_muted);
+            COLORREF m_col = (mic_status == ACTION_SUCCESS)
+                ? (mic_muted ? COLOR_MIC_MUTED : color)
+                : COLOR_TEXT_DIM;
             HPEN m_pen = CreatePen(PS_SOLID, 1, m_col);
             HBRUSH m_br = CreateSolidBrush(m_col);
             SelectObject(dc, m_pen);
@@ -1056,10 +1170,10 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
                 HPEN slash = CreatePen(PS_SOLID, 2, COLOR_MIC_MUTED);
                 SelectObject(dc, slash);
                 MoveToEx(dc, cx - 8, cy + 8, NULL); LineTo(dc, cx + 8, cy - 8);
-                DeleteObject(slash);
+                icon_gdi_release(dc, &scope, slash);
             }
-            DeleteObject(m_pen);
-            DeleteObject(m_br);
+            icon_gdi_release(dc, &scope, m_pen);
+            icon_gdi_release(dc, &scope, m_br);
             break;
         }
         case 14: { // Headset / Fone de Ouvido
@@ -1067,12 +1181,12 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             HPEN h_pen = CreatePen(PS_SOLID, 2, color);
             SelectObject(dc, h_pen);
             Arc(dc, cx - 9, cy - 10, cx + 9, cy + 4, cx + 9, cy - 2, cx - 9, cy - 2);
-            DeleteObject(h_pen);
+            icon_gdi_release(dc, &scope, h_pen);
             HBRUSH cup = CreateSolidBrush(color);
             SelectObject(dc, cup);
             RoundRect(dc, cx - 11, cy - 3, cx - 7, cy + 6, 3, 3);
             RoundRect(dc, cx + 7, cy - 3, cx + 11, cy + 6, 3, 3);
-            DeleteObject(cup);
+            icon_gdi_release(dc, &scope, cup);
             break;
         }
         case 15: { // Estrela / Favorito
@@ -1090,15 +1204,18 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             SelectObject(dc, plus_pen);
             MoveToEx(dc, cx - 4, cy, NULL); LineTo(dc, cx + 5, cy);
             MoveToEx(dc, cx, cy - 4, NULL); LineTo(dc, cx, cy + 5);
-            DeleteObject(plus_pen);
+            icon_gdi_release(dc, &scope, plus_pen);
             break;
         }
     }
 
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
-    DeleteObject(pen);
-    DeleteObject(brush);
+    for (unsigned int i = 0; i < scope.count; ++i) {
+        DeleteObject(scope.deferred[i]);
+    }
+    icon_gdi_release(dc, &scope, pen);
+    icon_gdi_release(dc, &scope, brush);
 }
 
 // Drawing for 15 Keys in Canvas Grid
@@ -1141,8 +1258,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             };
             Polygon(dc, cone, 6);
             HPEN slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
-            SelectObject(dc, slash_pen);
+            HGDIOBJ old_slash = SelectObject(dc, slash_pen);
             MoveToEx(dc, cx - 9, cy + 9, NULL); LineTo(dc, cx + 9, cy - 9);
+            SelectObject(dc, old_slash);
             DeleteObject(slash_pen);
             SelectObject(dc, old_b); SelectObject(dc, old_p);
             DeleteObject(pen); DeleteObject(brush);
@@ -2077,13 +2195,13 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 g_window_opacity = next_preferences.window_opacity;
                 wcscpy(g_current_profile, profile_name(next_preferences.active_profile));
 
+                set_status(L"Perfis e preferências salvos com sucesso.");
                 if (g_main_window) {
                     apply_hotkeys(g_main_window, g_enable_hotkeys);
                     apply_window_opacity(g_main_window, g_window_opacity);
                 }
                 update_inspector_ui();
                 if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
-                set_status(L"Perfis e preferências salvos com sucesso.");
                 DestroyWindow(hwnd);
                 return 0;
             }
@@ -2636,9 +2754,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 g_macro_thread = NULL;
             }
             KillTimer(hwnd, ID_VOLUME_TIMER);
-            UnregisterHotKey(hwnd, ID_HOTKEY_UP);
-            UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
-            UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
+            release_hotkeys(hwnd);
             remove_tray_icon();
 
             if (g_font_title) DeleteObject(g_font_title);
