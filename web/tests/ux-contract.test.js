@@ -294,3 +294,12 @@ test('touch devices do not retain hover-only elevation after tapping', () => {
   assert.match(css, /\.essential-item:hover\s*\{[^}]*transform: none/s);
   assert.match(css, /\.faq-question:hover\s*\{[^}]*color: #e8ecf1/s);
 });
+
+
+test('simulator titlebar controls meet the 44px touch target contract', () => {
+  const touchRules = css.slice(css.lastIndexOf('/* Touch accessibility:'));
+  assert.match(touchRules, /\.window-titlebar\s*\{[^}]*height:\s*52px/s);
+  assert.match(touchRules, /\.sound-toggle-btn\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
+  assert.match(touchRules, /\.demo-reset-btn\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
+  assert.match(touchRules, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.demo-reset-btn\s*\{[^}]*width:\s*44px/);
+});
