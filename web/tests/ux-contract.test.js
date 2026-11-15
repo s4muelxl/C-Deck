@@ -75,7 +75,7 @@ test('landing page copy matches the verified C11 build and avoids unsupported pe
 
 test('neutral iconography and high-contrast keyboard states are available', () => {
   assert.match(css, /--cyan: #b0b8c4/);
-  assert.match(css, /:where\\(a, button\\):focus-visible/);
+  assert.match(css, /:where\(a, button\):focus-visible/);
   assert.match(css, /prefers-contrast: more/);
   assert.match(css, /forced-colors: active/);
 });
