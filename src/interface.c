@@ -96,10 +96,7 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define WM_TRAYICON         (WM_APP + 1)
 #define ID_VOLUME_TIMER     1
 
-// Extended App Slots for Keys 9..14
-#define EXTRA_APP_COUNT     6
-
-// Global application state: all nine configurable slots share one persistent model.
+// Global application state: all 15 keys share one persistent model.
 static DeckConfig g_config;
 static char g_config_path[MAX_PATH * 4];
 static DeckProfileStore g_profile_store;
@@ -212,8 +209,9 @@ static void report_result(ActionResult result, const wchar_t *success_message) {
 }
 
 static int save_active_profile(void) {
-    if (g_profile_store_ready) return profiles_save_active(&g_profile_store, &g_config);
-    return config_save(g_config_path, &g_config);
+    /* Never overwrite an unreadable/future-version profile file with fallback defaults. */
+    if (!g_profile_store_ready) return 0;
+    return profiles_save_active(&g_profile_store, &g_config);
 }
 
 // Windows 11 Mica / Acrylic Effect & Dark Mode Title Bar
@@ -2499,7 +2497,9 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     ShowWindow(hwnd, show_command);
     UpdateWindow(hwnd);
     if (!g_profile_store_ready) {
-        set_status(L"Armazenamento de perfis indisponível; o perfil padrão permanece em uso.");
+        set_status(L"Armazenamento indisponível; salvamento bloqueado para preservar arquivos existentes.");
+    } else if (g_profile_store.storage_warning) {
+        set_status(L"Não foi possível inicializar o perfil selecionado; o perfil padrão foi carregado. Verifique as permissões da pasta config.");
     } else if (g_profile_store.preferences_recovered) {
         set_status(L"Preferências inválidas; padrões carregados. O arquivo original foi preservado.");
     }
