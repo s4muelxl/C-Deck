@@ -270,6 +270,7 @@ int profiles_load(DeckProfileStore *store, const char *config_path,
     ZeroMemory(store->profiles, sizeof(store->profiles));
     ZeroMemory(store->profile_persisted, sizeof(store->profile_persisted));
     store->preferences_recovered = 0;
+    store->storage_warning = 0;
     store->profiles[DECK_PROFILE_DEFAULT] = *fallback_config;
 
     exists = path_exists(store->profile_paths[DECK_PROFILE_DEFAULT]);
@@ -302,7 +303,7 @@ int profiles_load(DeckProfileStore *store, const char *config_path,
         int active_id = store->preferences.active_profile;
         if (!config_save(store->profile_paths[active_id], &store->profiles[active_id])) {
             store->preferences.active_profile = DECK_PROFILE_DEFAULT;
-            store->preferences_recovered = 1;
+            store->storage_warning = 1;
         } else {
             store->profile_persisted[active_id] = 1;
         }
