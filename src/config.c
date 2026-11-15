@@ -23,6 +23,9 @@ int config_load(const char *path, DeckConfig *out_config) {
     FILE *file;
     char line[1024];
     int current = -1;
+    int app_sections[DECK_APP_COUNT] = { 0 };
+    int has_legacy_apps = 0;
+    int has_extended_apps = 0;
 
     if (!path || !out_config) return 0;
     memset(out_config, 0, sizeof(*out_config));
@@ -37,8 +40,10 @@ int config_load(const char *path, DeckConfig *out_config) {
         if (*entry == '[') {
             current = -1;
             if (strlen(entry) == 6 && _strnicmp(entry, "[app", 4) == 0 &&
-                entry[4] >= '1' && entry[4] <= '3' && entry[5] == ']') {
+                entry[4] >= '1' && entry[4] <= '9' && entry[5] == ']') {
                 current = entry[4] - '1';
+                app_sections[current] = 1;
+                if (current < 3) has_legacy_apps = 1; else has_extended_apps = 1;
             }
             continue;
         }
@@ -58,6 +63,17 @@ int config_load(const char *path, DeckConfig *out_config) {
     }
 
     fclose(file);
+
+    /* Upgrade legacy three-slot configurations with the former built-in actions.
+       Once app4..app9 sections are saved, even empty slots remain intentionally empty. */
+    if (has_legacy_apps && !has_extended_apps) {
+        static const char *default_names[6] = { "Mudo Mic", "Trocar Áudio", "Navegador", "Tarefas", "Captura", "Configurações" };
+        static const char *default_paths[6] = { "action:mic_mute", "action:sound_devices", "https://www.google.com", "taskmgr.exe", "SnippingTool.exe", "ms-settings:" };
+        for (int i = 3; i < DECK_APP_COUNT; ++i) {
+            copy_value(out_config->apps[i].name, DECK_TEXT_MAX, default_names[i - 3]);
+            copy_value(out_config->apps[i].path, DECK_TEXT_MAX, default_paths[i - 3]);
+        }
+    }
     for (int i = 0; i < DECK_APP_COUNT; ++i) {
         DeckApp *app = &out_config->apps[i];
         app->configured = app->name[0] != '\0' && app->path[0] != '\0';
