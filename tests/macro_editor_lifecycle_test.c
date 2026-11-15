@@ -73,9 +73,18 @@ int main(void) {
     assert(IsWindowEnabled(parent));
     assert(FindWindowW(EDITOR_TEST_CLASS, NULL) == NULL);
 
-    /* The modal editor must preserve the application's quit request. */
-    assert(PeekMessageW(&quit_message, NULL, WM_QUIT, WM_QUIT, PM_REMOVE));
-    assert(quit_message.wParam == TEST_QUIT_CODE);
+    /* Peek without a message-range filter; then verify the preserved quit code. */
+    {
+        int quit_seen = 0;
+        while (PeekMessageW(&quit_message, NULL, 0, 0, PM_REMOVE)) {
+            if (quit_message.message == WM_QUIT) {
+                assert(quit_message.wParam == TEST_QUIT_CODE);
+                quit_seen = 1;
+                break;
+            }
+        }
+        assert(quit_seen);
+    }
 
     assert(DestroyWindow(parent));
     puts("macro editor modal teardown: OK");
