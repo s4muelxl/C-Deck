@@ -47,7 +47,7 @@ Os valores acima são pontos iniciais de validação, não limites já implement
 | text-primary | #F3F5F7 | Texto principal |
 | text-secondary | #A5AFBA | Descrições |
 | text-disabled | #69737F | Elementos indisponíveis |
-| accent | #C7F36B | Seleção e estado ativo |
+| accent | #9DFF00 | Verde oficial da marca; seleção e estado ativo |
 | danger | #F06B6B | Erro/ação destrutiva |
 | warning | #E6B85C | Aviso que exige atenção |
 
@@ -120,3 +120,23 @@ Manter a renderização GDI atual como baseline segura. Avaliar Direct2D/DirectW
 A PR #16 (codex/c-deck-1.4-engineering) modifica src/interface.c extensivamente e introduziu o editor nativo de macros. A PR #17 (codex/c-deck-1.4-design) permanece isolada em web/**, workflow web e este documento de especificação. **Não editar src/interface.c nesta frente enquanto a engenharia estiver em revisão ativa.** Depois de a engenharia estabilizar, rebase/coordenação deve ocorrer em um conjunto explícito de mudanças, comparando novamente os SHAs e os arquivos tocados.
 
 A landing page continua descrevendo apenas capacidades já existentes na versão publicada. Este documento é uma direção futura e não promove os recursos da PR #16 como funcionalidades já lançadas.
+
+
+## Auditoria do baseline nativo (branch de engenharia, HEAD 45285b88)
+
+A leitura de src/interface.c na branch codex/c-deck-1.4-engineering encontrou o seguinte estado. Estes pontos são observações de código, não validação visual manual:
+
+| Elemento | Implementação observada | Implicação para o redesign |
+|---|---|---|
+| Top bar | 52 px | Aumentar a hierarquia/altura para a faixa proposta somente após revisar posições dos controles |
+| Sidebar | 200 px fixa | Converter para largura adaptável e rail em janela estreita |
+| Inspector | 320 px fixos | Tornar recolhível e adaptar campos à largura disponível |
+| Status bar | 28 px | Reavaliar altura e separar estado de execução de métricas |
+| Grade | 5×3; gap 14 px normal / 8 px mini; teclas limitadas entre 54 e 108 px | A base já calcula o tamanho pelo espaço disponível; preservar esse comportamento e testar limites/DPI |
+| Janela normal mínima | 980×640 | Conferir se os breakpoints propostos podem ser suportados sem reduzir os alvos ou sobrepor controles |
+| Mini-Deck mínimo | 440×320 | Preservar acesso de retorno ao modo normal e validar legibilidade |
+| DPI | WM_SIZE e WM_GETMINMAXINFO presentes; não foi encontrado handler WM_DPICHANGED na revisão deste HEAD | Implementar tratamento per-monitor DPI antes de declarar responsividade completa |
+
+A paleta nativa atual usa fundo #15171B e acento oficial #9DFF00 (RGB 157,255,0), com fundo de seleção #18281A. A direção nova mantém o verde oficial, mas restringe seu uso a seleção/estado ativo e evita glow amplo. A proposta de canvas mais escuro é uma mudança visual futura; deve ser validada por contraste em monitores reais.
+
+O layout ainda usa valores fixos para top bar, sidebar, inspector e posições de alguns botões. O cálculo da grade já é parcialmente responsivo, mas o layout geral não pode ser considerado per-monitor DPI até existir WM_DPICHANGED e teste em múltiplos monitores. Não modificar esses pontos nesta PR enquanto a PR #16 estiver em revisão ativa.
