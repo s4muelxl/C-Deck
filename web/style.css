@@ -9,9 +9,9 @@
   --text: #f4f6f8;
   --muted: #8e98a5;
   --muted-light: #b0b8c4;
-  --accent: #d7ff63;
-  --accent-hover: #e4ff91;
-  --accent-glow: rgba(215, 255, 99, 0.2);
+  --accent: #eef1f5;
+  --accent-hover: #ffffff;
+  --accent-glow: rgba(238, 241, 245, 0.14);
   --danger: #ff5c5c;
   --danger-bg: rgba(255, 92, 92, 0.12);
   --cyan: #b0b8c4;
@@ -78,6 +78,7 @@ a {
 
 .github-button {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
@@ -194,7 +195,7 @@ a {
 
 .button-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 12px 30px rgba(215, 255, 99, 0.35);
+  box-shadow: 0 12px 30px rgba(238, 241, 245, 0.14);
 }
 
 .btn-icon {
@@ -376,7 +377,7 @@ a {
 .volume-interactive-wrap {
   position: relative;
   margin-top: 8px;
-  height: 7px;
+  height: 28px;
   display: flex;
   align-items: center;
 }
@@ -409,7 +410,7 @@ a {
   position: relative;
   z-index: 2;
   width: 100%;
-  height: 7px;
+  height: 28px;
   margin: 0;cursor: pointer;
 }
 
@@ -422,6 +423,7 @@ a {
 
 .deck-key {
   height: 72px;
+  min-width: 0;
   border: 1px solid #2d3440;
   border-radius: var(--radius-md);
   background: linear-gradient(155deg, #181d25, #11141a);
@@ -530,7 +532,7 @@ a {
 }
 
 @keyframes statusGlow {
-  0% { background: rgba(215, 255, 99, 0.18); }
+  0% { background: rgba(238, 241, 245, 0.14); }
   100% { background: #13171e; }
 }
 
@@ -843,7 +845,7 @@ body {
 .github-button:hover { background: rgba(255,255,255,.075); border-color: rgba(255,255,255,.32); color: #fff; transform: none; }
 .main-container { max-width: 960px; padding: clamp(54px,7vw,82px) 24px 88px; }
 .badge { border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.035); letter-spacing: .1em; }
-.status-dot { width: 6px; height: 6px; box-shadow: 0 0 8px rgba(215,255,99,.48); }
+.status-dot { width: 6px; height: 6px; box-shadow: 0 0 8px rgba(238, 241, 245, 0.14); }
 .hero h1 { font-size: clamp(48px,7.6vw,76px); line-height: .99; letter-spacing: -.065em; }
 .hero h1 span,.faq-heading h2 span { color: #9aa3af; }
 .description { max-width: 630px; font-size: 15.5px; line-height: 1.82; color: #b8c0ca; }
@@ -876,11 +878,11 @@ body {
 .deck-key .key-glyph,.deck-key .key-glyph.glyph-app { color: #e3e8ee; }
 .deck-key .key-glyph.glyph-web { color: #b8c3cf; }
 .deck-key .key-label { color: #d2d8e0; }
-.deck-key.key-active-media { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(215,255,99,.18); }
-.window-status { border-color: rgba(255,255,255,.09); background: rgba(255,255,255,.025); color: #d7ff85; border-radius: 8px; letter-spacing: .035em; }
+.deck-key.key-active-media { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(238, 241, 245, 0.14); }
+.window-status { border-color: rgba(255,255,255,.09); background: rgba(255,255,255,.025); color: #dbe1e8; border-radius: 8px; letter-spacing: .035em; }
 .stage-caption { margin-top: 15px; color: #9aa4b1; font-size: 12px; text-align: center; }
 .stage-caption > span { display: none; }
-.stage-caption::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(215,255,99,.35); }
+.stage-caption::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(238, 241, 245, 0.14); }
 .stage-note { max-width: 520px; margin: 8px auto 0; color: #778291; font-size: 11px; line-height: 1.65; text-align: center; }
 .essentials-grid { gap: 12px; }
 .essential-item {
@@ -927,7 +929,7 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   .faq-section { margin-top: 54px; }
 }
 @media (max-width: 420px) {
-  .github-button { min-height: 36px; padding-inline: 10px; }
+  .github-button { min-height: 44px; padding-inline: 10px; }
   .window-titlebar { padding-inline: 12px; }
   .window-titlebar-right { gap: 7px; }
   .sound-toggle-btn { padding-inline: 7px; font-size: 8px; }
@@ -935,23 +937,30 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   .window-content { padding: 11px; }
   .deck-grid { gap: 6px; }
   .deck-key { height: 66px; padding: 6px 3px; }
-  .deck-key .key-badge { font-size: 7px; }
-  .deck-key .key-label { font-size: 7.5px; }
+  .deck-key .key-badge { font-size: 8px; }
+  .deck-key .key-label { font-size: 8.5px; }
   .volume-card { padding: 11px 12px; }
   .stage-note { font-size: 10.5px; }
 }
+@media (max-width: 360px) {
+  .site-header { padding-inline: 14px; }
+  .brand-logo { width: 108px; }
+  .github-button { min-width: 44px; justify-content: center; }
+  .github-button span { display: none; }
+  .main-container { padding-inline: 14px; }
+  .window-content { padding: 10px; }
+  .deck-grid { gap: 6px; }
+  .deck-key { height: 64px; }
+  .deck-key .key-badge { display: none; }
+  .deck-key .key-label { font-size: 9px; }
+  .stage-note { font-size: 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
-
-/* C-DECK 1.4.1 — neutral interaction and accessible control pass */
-:root {
-  --accent: #eef1f5;
-  --accent-hover: #ffffff;
-  --accent-glow: rgba(238, 241, 245, 0.14);
-}
 
 .skip-link {
   position: fixed;
@@ -976,8 +985,8 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
 }
 
 .volume-interactive-wrap {
-  height: 18px;
-  margin-top: 10px;
+  height: 28px;
+  margin-top: 8px;
 }
 .volume-track {
   top: 50%;
@@ -988,7 +997,7 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   position: absolute;
   inset: 0;
   width: 100%;
-  height: 18px;
+  height: 28px;
   margin: 0;
   opacity: 1;
   appearance: none;
