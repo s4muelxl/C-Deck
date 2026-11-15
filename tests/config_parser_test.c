@@ -10,6 +10,18 @@ static void write_config(const char *contents) {
     fclose(file);
 }
 
+static int file_contains(const char *path, const char *needle) {
+    char line[512];
+    FILE *file = fopen(path, "r");
+    int found = 0;
+    if (!file) return 0;
+    while (fgets(line, sizeof(line), file)) {
+        if (strstr(line, needle)) { found = 1; break; }
+    }
+    fclose(file);
+    return found;
+}
+
 int main(void) {
     DeckConfig config;
     DeckConfig loaded;
@@ -82,6 +94,21 @@ int main(void) {
     assert(loaded.apps[3].configured == 0);
     assert(loaded.apps[8].configured == 1);
     assert(strcmp(loaded.apps[8].path, "example.exe") == 0);
+    assert(file_contains("test-apps-saved.cfg", "[meta]"));
+    assert(file_contains("test-apps-saved.cfg", "version=2"));
+
+    /* A subsequent save must leave the previous valid file in .bak. */
+    strcpy(config.apps[0].name, "Editor atualizado");
+    assert(config_save("test-apps-saved.cfg", &config) == 1);
+    assert(file_contains("test-apps-saved.cfg.bak", "name=Editor"));
+    assert(file_contains("test-apps-saved.cfg", "name=Editor atualizado"));
+    assert(config_load("test-apps-saved.cfg", &loaded) == 1);
+    assert(strcmp(loaded.apps[0].name, "Editor atualizado") == 0);
+
+    /* UTF-8 paths must survive file creation and loading on Windows. */
+    assert(config_save("teste-configuração-测试.cfg", &config) == 1);
+    assert(config_load("teste-configuração-测试.cfg", &loaded) == 1);
+    assert(strcmp(loaded.apps[0].name, "Editor atualizado") == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
@@ -96,6 +123,9 @@ int main(void) {
 
     remove("test-apps.cfg");
     remove("test-apps-saved.cfg");
+    remove("test-apps-saved.cfg.bak");
+    remove("teste-configuração-测试.cfg");
+    remove("teste-configuração-测试.cfg.bak");
     puts("config parser/save: OK");
     return 0;
 }
