@@ -159,14 +159,20 @@ static void apply_profile(const wchar_t *profile);
 static void toggle_mini_mode(HWND hwnd);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
-    if (!utf8 || !wide || max_chars <= 0) return;
-    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, max_chars);
+    if (!wide || max_chars <= 0) return;
+    wide[0] = L'\0';
+    if (!utf8 || !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide, max_chars)) {
+        wide[0] = L'\0';
+    }
     wide[max_chars - 1] = L'\0';
 }
 
 static void wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
-    if (!wide || !utf8 || max_bytes <= 0) return;
-    WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, max_bytes, NULL, NULL);
+    if (!utf8 || max_bytes <= 0) return;
+    utf8[0] = '\0';
+    if (!wide || !WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1, utf8, max_bytes, NULL, NULL)) {
+        utf8[0] = '\0';
+    }
     utf8[max_bytes - 1] = '\0';
 }
 
