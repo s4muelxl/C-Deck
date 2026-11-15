@@ -54,7 +54,7 @@ A biblioteca inclui ações internas de áudio e mídia, utilitários do Windows
 
 ## Multi Action e macros
 
-O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v1). Se o arquivo ainda não existir, o editor cria o armazenamento na primeira gravação; também é possível começar copiando `config/macros.cfg.example`. Cada macro aceita até 12 etapas, atraso individual de até 5 segundos e atraso acumulado máximo de 10 segundos. O módulo de armazenamento oferece gravação por arquivo temporário, backup `.bak` e substituição atômica. Arquivos inválidos ou com versão desconhecida são rejeitados e nunca são sobrescritos pelo aplicativo. O caminho de `macros.cfg` é derivado do caminho UTF-8 da configuração e convertido para UTF-16 nas operações de arquivo do Windows, incluindo diretórios com caracteres não ASCII.
+O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v1). Se o arquivo ainda não existir, o editor cria o armazenamento na primeira gravação; também é possível começar copiando `config/macros.cfg.example`. Cada macro aceita até 12 etapas, atraso individual de até 5 segundos e atraso acumulado máximo de 10 segundos. O módulo de armazenamento oferece gravação por arquivo temporário, backup `.bak` e substituição atômica. Arquivos inválidos ou com versão desconhecida são rejeitados e nunca são sobrescritos pelo aplicativo. A validação em memória também exige terminadores NUL dentro dos limites de cada campo fixo antes de qualquer leitura/comparação; registros truncados são rejeitados antes da execução. O caminho de `macros.cfg` é derivado do caminho UTF-8 da configuração e convertido para UTF-16 nas operações de arquivo do Windows, incluindo diretórios com caracteres não ASCII.
 
 Formato de cada etapa:
 

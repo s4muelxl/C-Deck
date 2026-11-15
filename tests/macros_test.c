@@ -126,6 +126,32 @@ int main(void) {
     build_valid_macro(&macro);
     assert(macro_validate(&macro));
 
+    /* Fixed-width records without an in-bounds NUL must fail closed. */
+    {
+        DeckMacro malformed;
+        build_valid_macro(&malformed);
+        memset(malformed.name, 'N', sizeof(malformed.name));
+        assert(!macro_validate(&malformed));
+        action_calls = open_calls = delay_calls = 0;
+        assert(macro_execute(&malformed, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_INVALID_DEFINITION);
+        assert(action_calls == 0 && open_calls == 0 && delay_calls == 0);
+
+        build_valid_macro(&malformed);
+        memset(malformed.steps[0].value, 'A', sizeof(malformed.steps[0].value));
+        assert(!macro_validate(&malformed));
+        assert(macro_execute(&malformed, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_INVALID_DEFINITION);
+        assert(action_calls == 0 && open_calls == 0 && delay_calls == 0);
+
+        build_valid_macro(&malformed);
+        memset(malformed.steps[1].value, 'B', sizeof(malformed.steps[1].value));
+        assert(!macro_validate(&malformed));
+        assert(macro_execute(&malformed, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_INVALID_DEFINITION);
+        assert(action_calls == 0 && open_calls == 0 && delay_calls == 0);
+    }
+
     action_calls = open_calls = delay_calls = 0;
     fail_action = 0;
     cancel_now = 0;

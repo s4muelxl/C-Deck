@@ -133,30 +133,8 @@ int macro_step_parse(const char *text, DeckMacroStep *step) {
     return 0;
 }
 
-int macro_validate(const DeckMacro *macro) {
-    unsigned int total_delay = 0;
-    if (!macro || !macro->configured ||
-        !utf8_text_valid(macro->name, sizeof(macro->name)) ||
-        macro->step_count == 0 || macro->step_count > DECK_MACRO_STEP_COUNT) return 0;
-
-    for (unsigned int i = 0; i < macro->step_count; ++i) {
-        const DeckMacroStep *step = &macro->steps[i];
-        if (step->type == DECK_MACRO_STEP_ACTION) {
-            if (!is_allowed_action(step->value)) return 0;
-        } else if (step->type == DECK_MACRO_STEP_OPEN) {
-            if (!is_allowed_open_target(step->value)) return 0;
-        } else if (step->type == DECK_MACRO_STEP_DELAY) {
-            if (step->delay_ms == 0 || step->delay_ms > DECK_MACRO_STEP_DELAY_MAX_MS ||
-                total_delay > DECK_MACRO_TOTAL_DELAY_MAX_MS - step->delay_ms) return 0;
-            total_delay += step->delay_ms;
-        } else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
 static int macro_step_is_valid(const DeckMacroStep *step) {
+    /* Every fixed-width value must be terminated before string validation. */
     if (!step || !memchr(step->value, '\0', sizeof(step->value))) return 0;
     if (step->type == DECK_MACRO_STEP_ACTION) return is_allowed_action(step->value);
     if (step->type == DECK_MACRO_STEP_OPEN) return is_allowed_open_target(step->value);
@@ -164,6 +142,26 @@ static int macro_step_is_valid(const DeckMacroStep *step) {
         return step->delay_ms > 0 && step->delay_ms <= DECK_MACRO_STEP_DELAY_MAX_MS;
     }
     return 0;
+}
+
+int macro_validate(const DeckMacro *macro) {
+    unsigned int total_delay = 0;
+
+    /* Do not call strlen/UTF-8 conversion on a name lacking an in-bounds NUL. */
+    if (!macro || !macro->configured ||
+        !memchr(macro->name, '\0', sizeof(macro->name)) ||
+        !utf8_text_valid(macro->name, sizeof(macro->name)) ||
+        macro->step_count == 0 || macro->step_count > DECK_MACRO_STEP_COUNT) return 0;
+
+    for (unsigned int i = 0; i < macro->step_count; ++i) {
+        const DeckMacroStep *step = &macro->steps[i];
+        if (!macro_step_is_valid(step)) return 0;
+        if (step->type == DECK_MACRO_STEP_DELAY) {
+            if (total_delay > DECK_MACRO_TOTAL_DELAY_MAX_MS - step->delay_ms) return 0;
+            total_delay += step->delay_ms;
+        }
+    }
+    return 1;
 }
 
 int macro_step_insert(DeckMacro *macro, unsigned int index, const DeckMacroStep *step) {
