@@ -5,6 +5,7 @@
 #include <initguid.h>
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
+#include <wchar.h>
 
 static IAudioEndpointVolume *get_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
@@ -156,8 +157,11 @@ ActionResult action_open_sound_devices(void) {
 
 ActionResult action_launch_app(const DeckApp *app) {
     HINSTANCE result;
+    wchar_t wide_path[DECK_TEXT_MAX];
     if (!app || !app->configured || !app->path[0]) return ACTION_NOT_CONFIGURED;
-    result = ShellExecuteA(NULL, "open", app->path, NULL, NULL, SW_SHOWNORMAL);
+    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, app->path, -1,
+                             wide_path, DECK_TEXT_MAX)) return ACTION_LAUNCH_FAILED;
+    result = ShellExecuteW(NULL, L"open", wide_path, NULL, NULL, SW_SHOWNORMAL);
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
 }
 
