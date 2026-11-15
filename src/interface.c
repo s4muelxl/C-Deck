@@ -1435,8 +1435,12 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
         if (idx == 1) icon_col = COLOR_MUTE_AMBER;
         else if (idx == 9) {
             int mic_muted = 0;
-            action_get_mic_mute(&mic_muted);
-            if (mic_muted) icon_col = COLOR_MIC_MUTED;
+            ActionResult mic_status = action_get_mic_mute(&mic_muted);
+            if (mic_status == ACTION_SUCCESS) {
+                if (mic_muted) icon_col = COLOR_MIC_MUTED;
+            } else {
+                icon_col = COLOR_TEXT_DIM;
+            }
         }
         draw_key_icon(dc, idx, cx, cy, icon_col);
     }
