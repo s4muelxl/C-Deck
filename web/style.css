@@ -946,3 +946,117 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   html { scroll-behavior: auto; }
   *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+
+/* C-DECK 1.4.1 — neutral interaction and accessible control pass */
+:root {
+  --accent: #eef1f5;
+  --accent-hover: #ffffff;
+  --accent-glow: rgba(238, 241, 245, 0.14);
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 9px;
+  background: #f2f4f7;
+  color: #090b0e;
+  font-size: 13px;
+  font-weight: 800;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+}
+.skip-link:focus { transform: translateY(0); }
+
+.status-dot {
+  background: #dfe4eb;
+  box-shadow: 0 0 8px rgba(223,228,235,.24);
+}
+
+.volume-interactive-wrap {
+  height: 18px;
+  margin-top: 10px;
+}
+.volume-track {
+  top: 50%;
+  height: 5px;
+  transform: translateY(-50%);
+}
+.volume-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  opacity: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.volume-slider::-webkit-slider-runnable-track {
+  height: 5px;
+  background: transparent;
+}
+.volume-slider::-moz-range-track {
+  height: 5px;
+  background: transparent;
+}
+.volume-slider::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -4.5px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid #11151b;
+  border-radius: 50%;
+  background: #f2f4f7;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.32), 0 2px 5px rgba(0,0,0,.35);
+}
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #11151b;
+  border-radius: 50%;
+  background: #f2f4f7;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.32), 0 2px 5px rgba(0,0,0,.35);
+}
+.volume-slider:focus-visible { outline: none; }
+.volume-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(238,241,245,.2), 0 2px 5px rgba(0,0,0,.35);
+}
+.volume-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(238,241,245,.2), 0 2px 5px rgba(0,0,0,.35);
+}
+.volume-interactive-wrap:focus-within { outline: none; }
+
+.deck-key.key-active-media {
+  border-color: rgba(238,241,245,.52);
+  box-shadow: 0 0 0 1px rgba(238,241,245,.12);
+}
+.window-status { color: #dbe1e8; }
+.window-status.flash {
+  border-color: rgba(238,241,245,.32);
+  animation: statusGlowNeutral 0.4s ease-out;
+}
+@keyframes statusGlowNeutral {
+  0% { background: rgba(238,241,245,.10); }
+  100% { background: rgba(255,255,255,.025); }
+}
+.stage-caption::before {
+  background: #d7dde5;
+  box-shadow: 0 0 8px rgba(215,221,229,.22);
+}
+
+/* Closed FAQ answers are removed from both layout and the accessibility tree. */
+.faq-answer { max-height: none; overflow: visible; transition: none; }
+.faq-answer[hidden] { display: none; }
+.faq-item.active .faq-answer { max-height: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
+}

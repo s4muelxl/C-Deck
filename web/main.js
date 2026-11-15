@@ -256,7 +256,12 @@
     const faqItems = document.querySelectorAll('.faq-item');
     faqItems.forEach((item) => {
       const trigger = item.querySelector('.faq-question');
-      if (!trigger) return;
+      const answer = item.querySelector('.faq-answer');
+      if (!trigger || !answer) return;
+
+      const initiallyOpen = item.classList.contains('active');
+      trigger.setAttribute('aria-expanded', initiallyOpen ? 'true' : 'false');
+      answer.hidden = !initiallyOpen;
 
       trigger.addEventListener('click', () => {
         const isOpen = item.classList.contains('active');
@@ -264,12 +269,15 @@
           if (other !== item) {
             other.classList.remove('active');
             const otherBtn = other.querySelector('.faq-question');
+            const otherAnswer = other.querySelector('.faq-answer');
             if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+            if (otherAnswer) otherAnswer.hidden = true;
           }
         });
 
         item.classList.toggle('active', !isOpen);
         trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+        answer.hidden = isOpen;
         playKeySound('click');
       });
     });

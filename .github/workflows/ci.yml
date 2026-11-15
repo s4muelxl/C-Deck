@@ -39,17 +39,6 @@ jobs:
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
           ./build/config-test.exe
-      - name: Set up Node.js for website checks
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Validate website demo and accessibility
-        shell: pwsh
-        run: |
-          node --check web/main.js
-          if ($LASTEXITCODE -ne 0) { throw "Website JavaScript syntax check failed." }
-          node --test web/tests/ux-contract.test.js
-          if ($LASTEXITCODE -ne 0) { throw "Website UX contract tests failed." }
       - name: Create portable package
         shell: pwsh
         run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force

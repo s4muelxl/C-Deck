@@ -41,3 +41,25 @@ test('keyboard focus, reduced motion and compact layouts are defined', () => {
 test('the page allows browser zoom for low-vision users', () => {
   assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1(?:\.0)?/);
 });
+
+
+test('the volume slider has a visible thumb and a keyboard focus treatment', () => {
+  assert.match(css, /\.volume-slider::-webkit-slider-thumb/);
+  assert.match(css, /\.volume-slider::-moz-range-thumb/);
+  assert.match(css, /\.volume-slider:focus-visible/);
+  assert.doesNotMatch(css, /\.volume-slider\s*\{[^}]*opacity:\s*0/s);
+});
+
+test('FAQ answers are linked to controls and hidden when collapsed', () => {
+  assert.match(html, /aria-controls="faq-answer-1"/);
+  assert.match(html, /id="faq-answer-1"[^>]*aria-labelledby="faq-question-1" hidden/);
+  assert.match(js, /answer\.hidden = isOpen/);
+  assert.match(js, /otherAnswer\.hidden = true/);
+});
+
+test('the page provides a skip link and a neutral interaction palette', () => {
+  assert.match(html, /class="skip-link" href="#main-content"/);
+  assert.match(html, /<main class="main-container" id="main-content">/);
+  assert.match(css, /--accent: #eef1f5/);
+  assert.match(css, /\.window-status \{ color: #dbe1e8; \}/);
+});

@@ -15,6 +15,7 @@
   <script defer src="main.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
   <!-- Header minimalista: Marca + GitHub -->
   <header class="site-header">
     <a class="brand" href="#" aria-label="C-Deck início">
@@ -27,7 +28,7 @@
   </header>
 
   <!-- Conteúdo Principal: Download, Demonstração, O Essencial e FAQ -->
-  <main class="main-container">
+  <main class="main-container" id="main-content">
     <section class="hero">
       <div class="badge">
         <span class="status-dot"></span>
@@ -86,12 +87,12 @@
                 <div class="volume-track">
                   <span id="demo-volume-track" style="width: 72%;"></span>
                 </div>
-                <input type="range" class="volume-slider" id="demo-volume-slider" min="0" max="100" value="72" aria-label="Ajustar volume da demonstração" aria-valuetext="72%">
+                <input type="range" class="volume-slider" id="demo-volume-slider" min="0" max="100" value="72" aria-label="Ajustar volume da demonstração" aria-controls="demo-volume-value demo-volume-track" aria-valuetext="72%">
               </div>
             </div>
 
             <!-- Direct 3x3 Keypad -->
-            <div class="deck-grid">
+            <div class="deck-grid" role="group" aria-label="Controles demonstrativos do C-Deck">
               <!-- Row 1: Audio -->
               <button type="button" class="deck-key" id="key-vol-down" title="Reduzir volume em 5%">
                 <b class="key-badge">ÁUDIO · −5%</b>
@@ -224,41 +225,41 @@
 
         <div class="faq-list">
           <div class="faq-item">
-            <button type="button" class="faq-question" aria-expanded="false">
+            <button type="button" class="faq-question" id="faq-question-1" aria-expanded="false" aria-controls="faq-answer-1">
               <span>Preciso de um Stream Deck físico para usar?</span>
               <span class="faq-icon">+</span>
             </button>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-answer-1" aria-labelledby="faq-question-1" hidden>
               <p>Não! O C-Deck é um painel 100% virtual e nativo para Windows. Você tem controle de volume, comandos multimídia e atalhos diretamente na tela do seu computador ou por teclas de atalho globais no seu teclado comum.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button type="button" class="faq-question" aria-expanded="false">
+            <button type="button" class="faq-question" id="faq-question-2" aria-expanded="false" aria-controls="faq-answer-2">
               <span>Quais programas e sites posso colocar nos atalhos?</span>
               <span class="faq-icon">+</span>
             </button>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-answer-2" aria-labelledby="faq-question-2" hidden>
               <p>Qualquer executável (.exe) instalado no seu computador ou links da web (iniciando com https://). Para programas, o C-Deck detecta e extrai automaticamente o ícone original do arquivo.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button type="button" class="faq-question" aria-expanded="false">
+            <button type="button" class="faq-question" id="faq-question-3" aria-expanded="false" aria-controls="faq-answer-3">
               <span>O que acontece ao fechar ou minimizar a janela?</span>
               <span class="faq-icon">+</span>
             </button>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-answer-3" aria-labelledby="faq-question-3" hidden>
               <p>O aplicativo minimiza discretamente para a bandeja do sistema (área de notificação próxima ao relógio). Os controles globais de volume e mute continuam funcionando em segundo plano sem atrapalhar sua tela cheia.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button type="button" class="faq-question" aria-expanded="false">
+            <button type="button" class="faq-question" id="faq-question-4" aria-expanded="false" aria-controls="faq-answer-4">
               <span>O C-Deck consome muita memória ou reduz FPS em jogos?</span>
               <span class="faq-icon">+</span>
             </button>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-answer-4" aria-labelledby="faq-question-4" hidden>
               <p>Não. Por ser desenvolvido em C++ puro utilizando as APIs nativas do Windows (Win32 e Core Audio), ele consome apenas cerca de 3 MB de RAM e 0% de CPU em segundo plano, sem navegadores embutidos ou bloatware.</p>
             </div>
           </div>
