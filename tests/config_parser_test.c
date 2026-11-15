@@ -45,6 +45,8 @@ int main(void) {
     assert(config.apps[1].configured == 1);
     assert(strcmp(config.apps[1].name, "Navegador") == 0);
     assert(config.apps[2].configured == 0);
+    assert(config.apps[3].configured == 1);
+    assert(strcmp(config.apps[3].path, "action:mic_mute") == 0);
 
     write_config("[app1]\nname=Somente nome\n[app2]\npath=sem-nome.exe\n");
     assert(config_load("test-apps.cfg", &config) == 1);
@@ -75,9 +77,7 @@ int main(void) {
     assert(loaded.apps[1].configured == 1);
     assert(strcmp(loaded.apps[1].name, "Calculadora") == 0);
     assert(loaded.apps[2].configured == 0);
-    assert(loaded.apps[3].configured == 1);
-    assert(loaded.apps[3].configured == 1);
-    assert(strcmp(loaded.apps[3].path, "action:mic_mute") == 0);
+    assert(loaded.apps[3].configured == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
