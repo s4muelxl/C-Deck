@@ -13,13 +13,15 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Aumentar e diminuir o volume principal em passos de 5%, ou ajustar diretamente em um controle deslizante com percentual atualizado.
 - Alternar o mute do dispositivo de reprodução padrão.
 - Enviar comandos de play/pause, próxima faixa e faixa anterior aos controles de mídia do Windows.
-- Abrir até nove destinos definidos pelo usuário: aplicativos Windows ou sites no navegador padrão.
+- Configurar e persistir as 15 teclas da grade 5×3; cada tecla pode executar uma ação interna, abrir um aplicativo Windows ou acessar um site.
 - Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
-- Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar).\n- Minimização para a bandeja do Windows: minimizar ou fechar a janela mantém o C-Deck ativo; use o menu do ícone para reabrir ou sair.\n- Interface Win32 nativa, com tema escuro e janela redimensionável.
+- Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar).
+- Minimização para a bandeja do Windows: minimizar ou fechar a janela mantém o C-Deck ativo; use o menu do ícone para reabrir ou sair.
+- Interface Win32 nativa, com tema escuro e janela redimensionável.
 
 ## Baixar e executar
 
@@ -45,34 +47,33 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 5. Para remover um atalho, deixe nome e executável vazios.
 6. Clique em **Salvar**. Os botões da janela principal são atualizados imediatamente.
 
-O programa grava os nove slots em `config/apps.cfg` com cabeçalho de esquema (`[meta]`, `version=2`). A leitura mantém compatibilidade com arquivos legados sem versão; ao salvar sobre uma configuração existente, a versão anterior é preservada em `config/apps.cfg.bak` antes da substituição atômica. Caminhos de configuração, executáveis, URLs e ícones personalizados são tratados como UTF-8 e convertidos para UTF-16 nas chamadas Win32. Configurações antigas com apenas três slots recebem os seis atalhos internos anteriores na primeira leitura; depois que os novos slots são salvos, a configuração passa a respeitar também slots extras intencionalmente vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
+O programa grava os 15 slots em `config/apps.cfg` com cabeçalho de esquema (`[meta]`, `version=3`). A leitura mantém compatibilidade com configurações legadas v1 (três ou nove destinos) e v2 (nove destinos). Na migração, os nove destinos antigos são preservados na mesma ordem e passam para as teclas 7–15; as seis primeiras teclas recebem os controles internos padrão. Ao salvar, a versão anterior é preservada em `config/apps.cfg.bak` antes da substituição atômica. Caminhos de configuração, executáveis, URLs e ícones personalizados são tratados como UTF-8 e convertidos para UTF-16 nas chamadas Win32. No esquema v3, os 15 slots são gravados explicitamente, inclusive quando vazios. Um atalho de site usa a própria URL no campo `path`, por exemplo `https://www.youtube.com`. O salvamento usa um arquivo temporário e substitui o arquivo de configuração somente depois de concluir a gravação.
 
 Também é possível editar o arquivo manualmente:
 
 ```ini
+[meta]
+version=3
+
 [app1]
-name=Bloco de Notas
-path=C:\Windows\System32\notepad.exe
+name=Volume +
+path=action:volume_up
 
 [app2]
-name=Calculadora
-path=C:\Windows\System32\calc.exe
+name=Mudo Som
+path=action:audio_mute
 
-[app3]
-name=Paint
-path=mspaint.exe
-
-[app4]
+[app10]
 name=Mudo Mic
 path=action:mic_mute
 
-[app5]
+[app11]
 name=Trocar Áudio
 path=action:sound_devices
 ```
 
 - `name`: texto mostrado no botão.
-- `path`: caminho absoluto do executável ou comando disponível no PATH.
+- `path`: caminho absoluto do executável, URL `http://`/`https://` ou identificador interno `action:`. Ações internas disponíveis: `volume_up`, `volume_down`, `audio_mute`, `media_play_pause`, `media_previous`, `media_next`, `mic_mute` e `sound_devices`.
 - `icon`: caminho opcional para um arquivo `.ico`; se omitido, o ícone é extraído do executável.
 
 ## Compilar no Windows
@@ -101,9 +102,10 @@ O executável será criado em `build/C-Deck.exe`.
 ## Limitações atuais
 
 - O áudio é controlado no dispositivo de reprodução padrão do Windows.
-- Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível.\n- O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
+- Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível.
+- O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
-- São suportados nove slots configuráveis; os seis slots adicionais também são gravados em `config/apps.cfg`.
+- As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
 - Ainda não há macros, perfis múltiplos persistentes, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
