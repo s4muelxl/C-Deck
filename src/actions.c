@@ -6,6 +6,7 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #include <wchar.h>
+#include <string.h>
 
 static IAudioEndpointVolume *get_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
@@ -155,12 +156,25 @@ ActionResult action_open_sound_devices(void) {
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
 }
 
+ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path, int max_chars) {
+    if (!app || !wide_path || max_chars <= 0) return ACTION_INVALID_ARGUMENT;
+    wide_path[0] = L'\0';
+    if (!app->configured || !app->path[0]) return ACTION_NOT_CONFIGURED;
+    /* DeckApp is fixed-size; never scan beyond an unterminated field. */
+    if (!memchr(app->path, '\0', sizeof(app->path))) return ACTION_LAUNCH_FAILED;
+    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, app->path, -1,
+                             wide_path, max_chars)) {
+        wide_path[0] = L'\0';
+        return ACTION_LAUNCH_FAILED;
+    }
+    return ACTION_SUCCESS;
+}
+
 ActionResult action_launch_app(const DeckApp *app) {
     HINSTANCE result;
     wchar_t wide_path[DECK_TEXT_MAX];
-    if (!app || !app->configured || !app->path[0]) return ACTION_NOT_CONFIGURED;
-    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, app->path, -1,
-                             wide_path, DECK_TEXT_MAX)) return ACTION_LAUNCH_FAILED;
+    ActionResult prepared = action_prepare_launch_target(app, wide_path, DECK_TEXT_MAX);
+    if (prepared != ACTION_SUCCESS) return prepared;
     result = ShellExecuteW(NULL, L"open", wide_path, NULL, NULL, SW_SHOWNORMAL);
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
 }

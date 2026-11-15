@@ -1,6 +1,7 @@
 #ifndef CDECK_ACTIONS_H
 #define CDECK_ACTIONS_H
 #include "config.h"
+#include <wchar.h>
 
 typedef enum ActionResult {
     ACTION_SUCCESS = 0,
@@ -21,6 +22,9 @@ ActionResult action_open_sound_devices(void);
 ActionResult action_media_play_pause(void);
 ActionResult action_media_next(void);
 ActionResult action_media_previous(void);
+/* Strict UTF-8 -> UTF-16 conversion used by the native ShellExecuteW launcher.
+   Exposed so Windows CI can verify the exact target without launching it. */
+ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path, int max_chars);
 ActionResult action_launch_app(const DeckApp *app);
 
 #endif

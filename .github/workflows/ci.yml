@@ -35,10 +35,12 @@ jobs:
           cp config/apps.cfg build/config/apps.cfg
           cp config/macros.cfg.example build/config/macros.cfg.example
           cp README.md build/README.md
-      - name: Run configuration, profile, library, macro, hotkey and GDI tests
+      - name: Run configuration, profile, library, macro, hotkey, GDI and Unicode launch tests
         shell: msys2 {0}
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
+          ./build/actions-unicode-test.exe
           ./build/config-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/profiles_test.c src/profiles.c src/config.c -o build/profiles-test.exe
           ./build/profiles-test.exe
