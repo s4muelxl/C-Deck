@@ -130,6 +130,20 @@ Execute na raiz do repositório:
 
 O executável será criado em `build/C-Deck.exe`. O build também trata casts incompatíveis de ponteiros de função como erro (`-Werror=cast-function-type`), evitando regressões na resolução dinâmica de APIs do Windows.
 
+## Publicar uma release oficial
+
+A CI normal **não publica releases automaticamente** quando há push em `main`. Ela compila o aplicativo, executa os testes Windows e disponibiliza artefatos de validação.
+
+Para publicar uma versão oficial:
+
+1. Conclua a revisão humana e crie uma tag versionada no commit aprovado, no formato `vX.Y.Z` (por exemplo, `v1.4.0`).
+2. No GitHub, abra **Actions → C-Deck Release → Run workflow** e selecione a própria tag como referência.
+3. Marque explicitamente `approve_release` somente depois de confirmar a revisão e a autorização da publicação.
+4. Aguarde o workflow reconstruir o aplicativo no runner Windows, executar todos os testes, gerar o pacote portátil e compilar o instalador.
+5. A release versionada só é criada se todas as etapas anteriores passarem. Se build, testes ou instalador falharem, a etapa de publicação não será executada.
+
+O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semântica `vMAJOR.MINOR.PATCH` e a confirmação manual. O instalador publicado é `C-Deck-Setup.exe`, anexado à release daquela tag. O artefato de CI de uma Pull Request nunca é tratado como release oficial.
+
 ## Estrutura
 
 - `src/main.c`: inicialização e localização da configuração.
@@ -146,7 +160,8 @@ O executável será criado em `build/C-Deck.exe`. O build também trata casts in
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
 - `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, registro de hotkeys e ciclo de vida GDI.
 - `web/`: landing page estática.
-- `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
+- `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados, sem publicação automática.
+- `.github/workflows/release.yml`: publicação manual e versionada, condicionada a tag e confirmação humana.
 
 ## Limitações atuais
 
