@@ -1,5 +1,6 @@
 #include "interface.h"
 #include "actions.h"
+#include "profiles.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -101,6 +102,8 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 // Global application state: all nine configurable slots share one persistent model.
 static DeckConfig g_config;
 static char g_config_path[MAX_PATH * 4];
+static DeckProfileStore g_profile_store;
+static int g_profile_store_ready;
 static HWND g_main_window;
 static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
@@ -154,7 +157,8 @@ static const wchar_t *get_key_display_title(int idx);
 static void show_profile_menu(HWND hwnd, int x, int y);
 static void show_settings_dialog(HWND parent);
 static void show_icon_picker(HWND parent, int key_idx);
-static void apply_profile(const wchar_t *profile);
+static int apply_profile(const wchar_t *profile);
+static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
@@ -205,6 +209,11 @@ static void report_result(ActionResult result, const wchar_t *success_message) {
         case ACTION_NOT_CONFIGURED: set_status(L"Atalho não configurado. Preencha os campos ao lado."); break;
         default: set_status(L"Não foi possível executar esta ação."); break;
     }
+}
+
+static int save_active_profile(void) {
+    if (g_profile_store_ready) return profiles_save_active(&g_profile_store, &g_config);
+    return config_save(g_config_path, &g_config);
 }
 
 // Windows 11 Mica / Acrylic Effect & Dark Mode Title Bar
@@ -433,7 +442,7 @@ static void save_inspector_changes(void) {
     strcpy(app->path, path);
     app->configured = (name[0] != '\0' && path[0] != '\0');
 
-    if (config_save(g_config_path, &g_config)) {
+    if (save_active_profile()) {
         set_status(L"Ação salva com sucesso.");
     } else {
         set_status(L"Erro ao salvar configuração. O arquivo anterior foi preservado.");
@@ -445,7 +454,7 @@ static void remove_selected_action(void) {
     if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
 
     ZeroMemory(&g_config.apps[g_selected_key], sizeof(DeckApp));
-    if (!config_save(g_config_path, &g_config)) {
+    if (!save_active_profile()) {
         set_status(L"Erro ao salvar a remoção da ação. O arquivo anterior foi preservado.");
         return;
     }
@@ -1557,7 +1566,7 @@ static LRESULT CALLBACK icon_picker_proc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
                 if (g_picker_target_key >= 0 && g_picker_target_key < ID_KEY_COUNT) {
                     strcpy(g_config.apps[g_picker_target_key].icon_path, icon_str);
-                    if (config_save(g_config_path, &g_config)) {
+                    if (save_active_profile()) {
                         if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
                         set_status(L"Ícone atualizado com sucesso.");
                     } else {
@@ -1634,58 +1643,19 @@ static void show_icon_picker(HWND parent, int key_idx) {
     SetForegroundWindow(parent);
 }
 
-// Profile Switcher Implementation
-static void apply_profile(const wchar_t *profile) {
-    if (wcscmp(profile, L"Streaming / OBS") == 0) {
-        strcpy(g_config.apps[6].name, "OBS Studio");
-        strcpy(g_config.apps[6].path, "obs64.exe");
-        strcpy(g_config.apps[6].icon_path, "icon:9");
-        g_config.apps[6].configured = 1;
+// Profile switching persists the current layout before activating another profile.
+static int apply_profile(const wchar_t *profile) {
+    int profile_id = profile_id_from_name(profile);
+    DeckConfig next_config;
 
-        strcpy(g_config.apps[7].name, "Discord");
-        strcpy(g_config.apps[7].path, "Discord.exe");
-        strcpy(g_config.apps[7].icon_path, "icon:8");
-        g_config.apps[7].configured = 1;
+    if (!g_profile_store_ready || profile_id < 0) return 0;
+    if (!profiles_activate(&g_profile_store, profile_id, &g_config, &next_config)) return 0;
 
-        strcpy(g_config.apps[8].name, "Twitch");
-        strcpy(g_config.apps[8].path, "https://dashboard.twitch.tv");
-        strcpy(g_config.apps[8].icon_path, "icon:11");
-        g_config.apps[8].configured = 1;
-    } else if (wcscmp(profile, L"Jogos / Gaming") == 0) {
-        strcpy(g_config.apps[6].name, "Steam");
-        strcpy(g_config.apps[6].path, "steam.exe");
-        strcpy(g_config.apps[6].icon_path, "icon:10");
-        g_config.apps[6].configured = 1;
-
-        strcpy(g_config.apps[7].name, "Discord");
-        strcpy(g_config.apps[7].path, "Discord.exe");
-        strcpy(g_config.apps[7].icon_path, "icon:8");
-        g_config.apps[7].configured = 1;
-
-        strcpy(g_config.apps[8].name, "Spotify");
-        strcpy(g_config.apps[8].path, "spotify.exe");
-        strcpy(g_config.apps[8].icon_path, "icon:7");
-        g_config.apps[8].configured = 1;
-    } else if (wcscmp(profile, L"Produtividade") == 0) {
-        strcpy(g_config.apps[6].name, "Bloco de Notas");
-        strcpy(g_config.apps[6].path, "notepad.exe");
-        strcpy(g_config.apps[6].icon_path, "icon:1");
-        g_config.apps[6].configured = 1;
-
-        strcpy(g_config.apps[7].name, "Calculadora");
-        strcpy(g_config.apps[7].path, "calc.exe");
-        strcpy(g_config.apps[7].icon_path, "icon:2");
-        g_config.apps[7].configured = 1;
-
-        strcpy(g_config.apps[8].name, "Paint");
-        strcpy(g_config.apps[8].path, "mspaint.exe");
-        strcpy(g_config.apps[8].icon_path, "icon:3");
-        g_config.apps[8].configured = 1;
-    } else {
-        config_load(g_config_path, &g_config);
-    }
+    g_config = next_config;
+    wcscpy(g_current_profile, profile_name(profile_id));
     update_inspector_ui();
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+    return 1;
 }
 
 static void show_profile_menu(HWND hwnd, int x, int y) {
@@ -1709,14 +1679,13 @@ static void show_profile_menu(HWND hwnd, int x, int y) {
     DestroyMenu(menu);
 
     if (cmd >= 4001 && cmd <= 4004) {
-        if (cmd == 4001) wcscpy(g_current_profile, L"Default Profile");
-        else if (cmd == 4002) wcscpy(g_current_profile, L"Streaming / OBS");
-        else if (cmd == 4003) wcscpy(g_current_profile, L"Produtividade");
-        else if (cmd == 4004) wcscpy(g_current_profile, L"Jogos / Gaming");
-
-        apply_profile(g_current_profile);
-        InvalidateRect(hwnd, NULL, FALSE);
-        set_status(L"Perfil alternado com sucesso.");
+        int profile_id = (int)cmd - 4001;
+        if (apply_profile(profile_name(profile_id))) {
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Perfil alternado e salvo.");
+        } else {
+            set_status(L"Não foi possível salvar ou ativar o perfil. Confira as permissões da pasta config.");
+        }
     } else if (cmd == 4005) {
         show_settings_dialog(hwnd);
     }
@@ -1729,11 +1698,13 @@ static HWND g_set_chk_hotkeys;
 static HWND g_set_cmb_profile;
 static HWND g_set_sld_opacity;
 static HWND g_set_lbl_opacity;
+static int g_set_original_opacity = 100;
 
 static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CREATE: {
             HINSTANCE inst = ((LPCREATESTRUCTW)lparam)->hInstance;
+            g_set_original_opacity = g_window_opacity;
 
             g_set_chk_startup = CreateWindowW(L"BUTTON", L"Iniciar o C-Deck automaticamente com o Windows",
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
@@ -1818,29 +1789,48 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             int id = LOWORD(wparam);
             if (id == ID_SET_SAVE_BTN) {
                 int chk_start = (int)SendMessageW(g_set_chk_startup, BM_GETCHECK, 0, 0) == BST_CHECKED;
-                set_run_on_startup(chk_start);
-
-                g_minimize_to_tray = (int)SendMessageW(g_set_chk_tray, BM_GETCHECK, 0, 0) == BST_CHECKED;
-
+                int chk_tray = (int)SendMessageW(g_set_chk_tray, BM_GETCHECK, 0, 0) == BST_CHECKED;
                 int chk_hot = (int)SendMessageW(g_set_chk_hotkeys, BM_GETCHECK, 0, 0) == BST_CHECKED;
-                if (g_main_window) apply_hotkeys(g_main_window, chk_hot);
-
                 int op_pos = (int)SendMessageW(g_set_sld_opacity, TBM_GETPOS, 0, 0);
-                if (g_main_window) apply_window_opacity(g_main_window, op_pos);
-
                 int prof_sel = (int)SendMessageW(g_set_cmb_profile, CB_GETCURSEL, 0, 0);
-                if (prof_sel == 1) wcscpy(g_current_profile, L"Streaming / OBS");
-                else if (prof_sel == 2) wcscpy(g_current_profile, L"Produtividade");
-                else if (prof_sel == 3) wcscpy(g_current_profile, L"Jogos / Gaming");
-                else wcscpy(g_current_profile, L"Default Profile");
+                DeckPreferences next_preferences;
+                DeckConfig next_config;
 
-                apply_profile(g_current_profile);
-                set_status(L"Configurações atualizadas e salvas.");
+                if (!g_profile_store_ready || prof_sel < 0 || prof_sel >= DECK_PROFILE_COUNT) {
+                    MessageBoxW(hwnd, L"Não foi possível carregar o armazenamento de perfis. Nenhuma preferência foi gravada.", L"C-Deck", MB_ICONERROR);
+                    return 0;
+                }
+
+                next_preferences = g_profile_store.preferences;
+                next_preferences.active_profile = prof_sel;
+                next_preferences.minimize_to_tray = chk_tray;
+                next_preferences.enable_hotkeys = chk_hot;
+                next_preferences.window_opacity = op_pos;
+
+                if (!profiles_apply_preferences(&g_profile_store, &next_preferences, &g_config, &next_config)) {
+                    MessageBoxW(hwnd, L"Falha ao salvar perfis ou preferências. O arquivo anterior foi preservado; verifique as permissões da pasta config.", L"C-Deck", MB_ICONERROR);
+                    return 0;
+                }
+
+                set_run_on_startup(chk_start);
+                g_config = next_config;
+                g_minimize_to_tray = next_preferences.minimize_to_tray;
+                g_enable_hotkeys = next_preferences.enable_hotkeys;
+                g_window_opacity = next_preferences.window_opacity;
+                wcscpy(g_current_profile, profile_name(next_preferences.active_profile));
+
+                if (g_main_window) {
+                    apply_hotkeys(g_main_window, g_enable_hotkeys);
+                    apply_window_opacity(g_main_window, g_window_opacity);
+                }
+                update_inspector_ui();
+                if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+                set_status(L"Perfis e preferências salvos com sucesso.");
                 DestroyWindow(hwnd);
                 return 0;
             }
             if (id == ID_SET_CANCEL_BTN) {
-                if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+                if (g_main_window) apply_window_opacity(g_main_window, g_set_original_opacity);
                 DestroyWindow(hwnd);
                 return 0;
             }
@@ -1887,7 +1877,7 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
 
         case WM_CLOSE:
-            if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+            if (g_main_window) apply_window_opacity(g_main_window, g_set_original_opacity);
             DestroyWindow(hwnd);
             return 0;
 
@@ -2436,8 +2426,23 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     HWND hwnd;
     MSG message;
 
+    DeckConfig active_config;
     if (!config || !build_config_path(g_config_path, (DWORD)sizeof(g_config_path))) return 1;
-    g_config = *config;
+    if (profiles_load(&g_profile_store, g_config_path, config, &active_config)) {
+        g_profile_store_ready = 1;
+        g_config = active_config;
+        g_minimize_to_tray = g_profile_store.preferences.minimize_to_tray;
+        g_enable_hotkeys = g_profile_store.preferences.enable_hotkeys;
+        g_window_opacity = g_profile_store.preferences.window_opacity;
+        wcscpy(g_current_profile, profile_name(g_profile_store.preferences.active_profile));
+    } else {
+        g_profile_store_ready = 0;
+        g_config = *config;
+        wcscpy(g_current_profile, L"Default Profile");
+        g_minimize_to_tray = 1;
+        g_enable_hotkeys = 1;
+        g_window_opacity = 100;
+    }
 
     {
         INITCOMMONCONTROLSEX controls;
@@ -2489,9 +2494,15 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     g_main_window = hwnd;
 
     enable_system_backdrop(hwnd);
+    apply_window_opacity(hwnd, g_window_opacity);
 
     ShowWindow(hwnd, show_command);
     UpdateWindow(hwnd);
+    if (!g_profile_store_ready) {
+        set_status(L"Armazenamento de perfis indisponível; o perfil padrão permanece em uso.");
+    } else if (g_profile_store.preferences_recovered) {
+        set_status(L"Preferências inválidas; padrões carregados. O arquivo original foi preservado.");
+    }
 
     while (GetMessageW(&message, NULL, 0, 0) > 0) {
         TranslateMessage(&message);
