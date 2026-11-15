@@ -7,6 +7,7 @@
 #include <commctrl.h>
 #include <shellapi.h>
 #include <commdlg.h>
+#include <wchar.h>
 
 #define IDI_APP_ICON        101
 #define CLASS_NAME          L"CDeckMainWindow"
@@ -100,7 +101,7 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 // Global application state: all nine configurable slots share one persistent model.
 static DeckConfig g_config;
 #define g_extra_apps (g_config.apps + 3)
-static char g_config_path[MAX_PATH];
+static char g_config_path[MAX_PATH * 4];
 static HWND g_main_window;
 static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
@@ -170,17 +171,20 @@ static void wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
 }
 
 static int build_config_path(char *out, DWORD capacity) {
-    DWORD length = GetModuleFileNameA(NULL, out, capacity);
-    char *separator;
-    const char suffix[] = "config\\apps.cfg";
-    if (length == 0 || length >= capacity) return 0;
-    separator = strrchr(out, '\\');
-    if (!separator) separator = strrchr(out, '/');
+    wchar_t module_path[MAX_PATH];
+    wchar_t *separator;
+    const wchar_t suffix[] = L"config\\apps.cfg";
+    DWORD length = GetModuleFileNameW(NULL, module_path, MAX_PATH);
+
+    if (length == 0 || length >= MAX_PATH) return 0;
+    separator = wcsrchr(module_path, L'\\');
+    if (!separator) separator = wcsrchr(module_path, L'/');
     if (!separator) return 0;
-    separator[1] = '\0';
-    if (strlen(out) + sizeof(suffix) > capacity) return 0;
-    strcat(out, suffix);
-    return 1;
+    separator[1] = L'\0';
+    if (wcslen(module_path) + (sizeof(suffix) / sizeof(suffix[0])) > MAX_PATH) return 0;
+    wcscat(module_path, suffix);
+    return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, module_path, -1,
+                               out, (int)capacity, NULL, NULL) > 0;
 }
 
 static void set_status(const wchar_t *message) {
@@ -1240,7 +1244,9 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
         int app_idx = idx - 6;
         const DeckApp *app = &g_config.apps[app_idx];
         if (app->icon_path[0] && strncmp(app->icon_path, "icon:", 5) != 0) {
-            app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
+            wchar_t wide_icon_path[DECK_TEXT_MAX];
+            utf8_to_wide(app->icon_path, wide_icon_path, DECK_TEXT_MAX);
+            app_icon = (HICON)LoadImageW(NULL, wide_icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
             owns_icon = (app_icon != NULL);
         }
     }
@@ -2521,7 +2527,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     HWND hwnd;
     MSG message;
 
-    if (!config || !build_config_path(g_config_path, MAX_PATH)) return 1;
+    if (!config || !build_config_path(g_config_path, (DWORD)sizeof(g_config_path))) return 1;
     g_config = *config;
 
     {
