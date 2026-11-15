@@ -194,3 +194,8 @@ O módulo nativo de layout também oferece `deck_ui_grid_hit_test`, que converte
 A camada Win32 deverá converter as coordenadas físicas recebidas em mensagens de mouse para DIP com `deck_ui_px_to_dip` antes de chamar o contrato. O resultado deverá ser encaminhado à camada de estado/command, mantendo a execução fora do hit-testing.
 
 Os testes cobrem o centro de todos os 15 slots, limites semiabertos, gaps, área externa, layout corrompido e preservação do valor de saída. O contrato continua independente do runtime Win32 e não constitui validação visual interativa.
+
+
+## Alvos de toque do simulador web (15/11/2026)
+
+Os controles Reiniciar e Som do cabeçalho do simulador ilustrativo usam alvos mínimos de 44×44 CSS px, inclusive em larguras de viewport até 360 px. A faixa do cabeçalho foi elevada para 52 px para acomodar os controles sem sobreposição. O contrato é específico da demonstração web; não representa nem substitui a validação dos controles Win32 do desktop.
