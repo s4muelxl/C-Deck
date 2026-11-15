@@ -61,6 +61,14 @@ static void write_text(const char *path, const char *content) {
     assert(fclose(file) == 0);
 }
 
+static void assert_invalid_store_is_read_only(const char *contents, const char *marker) {
+    DeckMacroStore invalid;
+    write_text("macros.cfg", contents);
+    assert(!macro_store_load(&invalid, "macros-test-apps.cfg"));
+    assert(invalid.read_only);
+    assert(file_contains("macros.cfg", marker));
+}
+
 static void build_valid_macro(DeckMacro *macro) {
     memset(macro, 0, sizeof(*macro));
     strcpy(macro->name, "Preparar transmissão – teste");
@@ -229,6 +237,30 @@ int main(void) {
         assert(!macro_store_save(&future));
         assert(file_contains("macros.cfg", "version=99"));
     }
+
+    /* Duplicate schema metadata and macro fields are ambiguous and must fail closed. */
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[meta]\nversion=1\nmarker=duplicate-meta\n",
+        "marker=duplicate-meta");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\nversion=1\nmarker=duplicate-version\n",
+        "marker=duplicate-version");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro1]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\n[macro1]\nmarker=duplicate-section\n",
+        "marker=duplicate-section");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro1]\nname=Primeira\nname=Segunda\n"
+        "step_count=1\nstep1=action:volume_up\nmarker=duplicate-name\n",
+        "marker=duplicate-name");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro1]\nname=Macro\nstep_count=1\n"
+        "step_count=1\nstep1=action:volume_up\nmarker=duplicate-count\n",
+        "marker=duplicate-count");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro1]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\nstep1=action:volume_down\nmarker=duplicate-step\n",
+        "marker=duplicate-step");
 
     /* Exercise macro storage under a real non-ASCII directory path. */
     {
