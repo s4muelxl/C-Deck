@@ -199,6 +199,99 @@ int32_t deck_ui_px_to_dip(int32_t pixels, uint32_t dpi) {
 }
 
 
+static int scale_coordinate_checked(int64_t coordinate,
+                                     uint32_t numerator,
+                                     uint32_t denominator,
+                                     int32_t *result) {
+    int64_t scaled;
+    int64_t rounding;
+
+    if (!result || denominator == 0u) return 0;
+
+    /*
+     * The input edge is constrained to int32, so multiplying by a uint32
+     * scale factor fits in int64. Round halves away from zero, matching the
+     * scalar DIP/pixel conversion helpers above.
+     */
+    scaled = coordinate * (int64_t)numerator;
+    rounding = (int64_t)denominator / 2;
+    scaled += scaled >= 0 ? rounding : -rounding;
+    scaled /= (int64_t)denominator;
+
+    if (scaled > INT32_MAX || scaled < INT32_MIN) return 0;
+    *result = (int32_t)scaled;
+    return 1;
+}
+
+static DeckUiRectScaleStatus scale_rect_edges(const DeckUiRect *source,
+                                               uint32_t numerator,
+                                               uint32_t denominator,
+                                               DeckUiRect *destination) {
+    DeckUiRect converted;
+    int64_t right;
+    int64_t bottom;
+    int64_t width;
+    int64_t height;
+
+    if (!source || !destination || source->width < 0 || source->height < 0) {
+        return DECK_UI_RECT_SCALE_INVALID_ARGUMENT;
+    }
+
+    right = (int64_t)source->x + source->width;
+    bottom = (int64_t)source->y + source->height;
+    if (right > INT32_MAX || right < INT32_MIN
+        || bottom > INT32_MAX || bottom < INT32_MIN) {
+        return DECK_UI_RECT_SCALE_OUT_OF_RANGE;
+    }
+
+    if (!scale_coordinate_checked(source->x, numerator, denominator,
+                                  &converted.x)
+        || !scale_coordinate_checked(source->y, numerator, denominator,
+                                     &converted.y)) {
+        return DECK_UI_RECT_SCALE_OUT_OF_RANGE;
+    }
+
+    {
+        int32_t right_scaled;
+        int32_t bottom_scaled;
+
+        if (!scale_coordinate_checked(right, numerator, denominator,
+                                      &right_scaled)
+            || !scale_coordinate_checked(bottom, numerator, denominator,
+                                         &bottom_scaled)) {
+            return DECK_UI_RECT_SCALE_OUT_OF_RANGE;
+        }
+
+        width = (int64_t)right_scaled - converted.x;
+        height = (int64_t)bottom_scaled - converted.y;
+    }
+
+    if (width < 0 || width > INT32_MAX
+        || height < 0 || height > INT32_MAX) {
+        return DECK_UI_RECT_SCALE_OUT_OF_RANGE;
+    }
+
+    converted.width = (int32_t)width;
+    converted.height = (int32_t)height;
+    *destination = converted;
+    return DECK_UI_RECT_SCALE_OK;
+}
+
+DeckUiRectScaleStatus deck_ui_rect_dip_to_px(const DeckUiRect *dip_rect,
+                                             uint32_t dpi,
+                                             DeckUiRect *pixel_rect) {
+    if (dpi == 0u) dpi = 96u;
+    return scale_rect_edges(dip_rect, dpi, 96u, pixel_rect);
+}
+
+DeckUiRectScaleStatus deck_ui_rect_px_to_dip(const DeckUiRect *pixel_rect,
+                                             uint32_t dpi,
+                                             DeckUiRect *dip_rect) {
+    if (dpi == 0u) dpi = 96u;
+    return scale_rect_edges(pixel_rect, 96u, dpi, dip_rect);
+}
+
+
 static int layout_grid_is_valid(const DeckUiLayout *layout) {
     int64_t workspace_right;
     int64_t workspace_bottom;
