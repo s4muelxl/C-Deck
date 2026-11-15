@@ -44,6 +44,12 @@ static void set_builtin_actions(DeckConfig *config) {
     }
 }
 
+void config_set_defaults(DeckConfig *config) {
+    if (!config) return;
+    memset(config, 0, sizeof(*config));
+    set_builtin_actions(config);
+}
+
 static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
     int converted;
     if (!path || !wide || capacity == 0 || capacity > INT_MAX) return 0;
