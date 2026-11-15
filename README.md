@@ -16,6 +16,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Configurar e persistir as 15 teclas da grade 5×3; cada tecla pode executar uma ação interna, abrir um aplicativo Windows ou acessar um site.
 - Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
+- Biblioteca nativa de ações por categoria — Favoritos, Sistema, Áudio, Mídia, Aplicativos e Navegação — com modelos prontos que podem ser adicionados à tecla selecionada e salvos no perfil ativo.
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
@@ -39,6 +40,15 @@ O pacote portátil contém:
 - `README.md`
 
 Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
+
+## Biblioteca de ações
+
+1. Selecione uma tecla na grade 5×3 para definir o destino.
+2. Abra uma categoria na barra lateral.
+3. Escolha uma opção no menu **Adicionar**. O modelo preenche nome, identificador/caminho e ícone do slot selecionado.
+4. A ação é salva imediatamente no perfil ativo. Se a gravação falhar, o conteúdo anterior do slot é restaurado.
+
+A biblioteca inclui ações internas de áudio e mídia, utilitários do Windows, aplicativos comuns e links web. Os modelos são apenas atalhos configuráveis: selecionar um item na biblioteca não o executa. Para executar, use a tecla depois de adicioná-la à grade. A categoria **Multi Action** permanece reservada e informa que o motor de macros ainda não está disponível; nenhum comportamento de macro é simulado.
 
 ## Configurar os atalhos pelo aplicativo
 
@@ -99,6 +109,7 @@ O executável será criado em `build/C-Deck.exe`.
 - `src/actions.c`: ações de áudio e abertura de aplicativos.
 - `src/config.c`: leitura, migração e gravação das 15 ações.
 - `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
+- `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
 - `tests/`: testes de configuração, migração, perfis e preferências.
 - `web/`: landing page estática.
