@@ -80,8 +80,6 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
     if (driver->scenario == EDITOR_SCENARIO_CREATE_AND_SAVE) {
         if (!click_control(editor, ID_EDITOR_NEW_MACRO)) {
             InterlockedExchange(&driver->failure_stage, 3);
-            InterlockedExchange(&driver->failure_stage, 5);
-            InterlockedExchange(&driver->failure_stage, 6);
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
             InterlockedExchange(&driver->completed, 1);
@@ -100,12 +98,14 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
         }
 
         if (!click_control(editor, ID_EDITOR_SAVE)) {
+            InterlockedExchange(&driver->failure_stage, 5);
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
         }
     } else {
         SetWindowTextW(name_edit, L"Alteração que deve ser descartada");
         if (!click_control(editor, ID_EDITOR_CANCEL)) {
+            InterlockedExchange(&driver->failure_stage, 6);
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
         }
