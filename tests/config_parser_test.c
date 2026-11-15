@@ -68,6 +68,8 @@ int main(void) {
     strcpy(config.apps[0].icon_path, "C:\\Icons\\editor.ico");
     strcpy(config.apps[1].name, "Calculadora");
     strcpy(config.apps[1].path, "calc.exe");
+    strcpy(config.apps[8].name, "Atalho nove");
+    strcpy(config.apps[8].path, "example.exe");
     assert(config_save("test-apps-saved.cfg", &config) == 1);
     assert(config_load("test-apps-saved.cfg", &loaded) == 1);
     assert(loaded.apps[0].configured == 1);
@@ -78,6 +80,8 @@ int main(void) {
     assert(strcmp(loaded.apps[1].name, "Calculadora") == 0);
     assert(loaded.apps[2].configured == 0);
     assert(loaded.apps[3].configured == 0);
+    assert(loaded.apps[8].configured == 1);
+    assert(strcmp(loaded.apps[8].path, "example.exe") == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
