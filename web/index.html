@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#090a0c">
-  <meta name="description" content="C-Deck: Stream Deck virtual para Windows desenvolvido em C++. Controle de áudio, comandos multimídia e atalhos para programas e sites.">
+  <meta name="description" content="C-Deck: painel virtual de atalhos para Windows, desenvolvido em C11 e Win32 API. Controles de áudio, mídia e atalhos em uma interface nativa, sem navegador embutido.">
   <title>C-Deck — Stream Deck para Windows</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,7 +38,7 @@
       <h1>Seu Windows.<br><span>Mais prático.</span></h1>
       
       <p class="description">
-        Painel de atalhos e controles estilo Stream Deck desenvolvido nativamente em C++ para Windows. Ajuste o volume, controle suas músicas e abra seus programas e sites favoritos com consumo quase zero de memória.
+        Painel virtual de atalhos e controles estilo Stream Deck, desenvolvido em C11 com Win32 API. Ajuste o volume, controle mídias e configure até três atalhos para aplicativos e sites, sem navegador embutido.
       </p>
 
       <!-- Botão de Download Principal -->
@@ -53,7 +53,7 @@
       <div class="specs">
         <span>✓ 100% Gratuito</span>
         <span>✓ Código Aberto (MIT)</span>
-        <span>✓ Leve (~3 MB RAM)</span>
+        <span>✓ Sem navegador embutido</span>
         <span>✓ Windows 10/11 x64</span>
       </div>
 
@@ -191,7 +191,7 @@
           </div>
           <div class="essential-text">
             <b>Comandos de Mídia</b>
-            <p>Play, pause, avançar e retroceder faixas no Spotify, YouTube Music e navegadores.</p>
+            <p>Envie comandos globais de play, pause, próxima e faixa anterior; o resultado depende do aplicativo de mídia ativo.</p>
           </div>
         </div>
 
@@ -211,7 +211,7 @@
           </div>
           <div class="essential-text">
             <b>Atalhos Globais de Teclado</b>
-            <p>Ajuste o som com <code>Ctrl + Alt + ↑ / ↓ / M</code> mesmo enquanto joga em tela cheia.</p>
+            <p>Ajuste o som com <code>Ctrl + Alt + ↑ / ↓ / M</code> enquanto usa outros aplicativos.</p>
           </div>
         </div>
       </div>
@@ -250,17 +250,17 @@
               <span class="faq-icon">+</span>
             </button>
             <div class="faq-answer" id="faq-answer-3" aria-labelledby="faq-question-3" hidden>
-              <p>O aplicativo minimiza discretamente para a bandeja do sistema (área de notificação próxima ao relógio). Os controles globais de volume e mute continuam funcionando em segundo plano sem atrapalhar sua tela cheia.</p>
+              <p>O aplicativo minimiza discretamente para a bandeja do sistema (área de notificação próxima ao relógio). Os atalhos globais de volume e mute continuam disponíveis enquanto o aplicativo estiver em execução e a opção estiver habilitada.</p>
             </div>
           </div>
 
           <div class="faq-item">
             <button type="button" class="faq-question" id="faq-question-4" aria-expanded="false" aria-controls="faq-answer-4">
-              <span>O C-Deck consome muita memória ou reduz FPS em jogos?</span>
+              <span>Como o C-Deck lida com o consumo de recursos?</span>
               <span class="faq-icon">+</span>
             </button>
             <div class="faq-answer" id="faq-answer-4" aria-labelledby="faq-question-4" hidden>
-              <p>Não. Por ser desenvolvido em C++ puro utilizando as APIs nativas do Windows (Win32 e Core Audio), ele consome apenas cerca de 3 MB de RAM e 0% de CPU em segundo plano, sem navegadores embutidos ou bloatware.</p>
+              <p>O C-Deck é desenvolvido em C11 com Win32 e Core Audio, sem navegador embutido. O consumo de memória e CPU varia conforme o sistema e o uso; por isso, não prometemos números fixos nem impacto nulo em FPS.</p>
             </div>
           </div>
         </div>
@@ -271,7 +271,7 @@
   <!-- Rodapé limpo -->
   <footer class="site-footer">
     <div class="footer-wrap">
-      <span>C-Deck · Desenvolvido em C++ &amp; Win32 API para Windows</span>
+      <span>C-Deck · Desenvolvido em C11 &amp; Win32 API para Windows</span>
       <a class="footer-link" href="https://github.com/s4muelxl/C-Deck" target="_blank" rel="noreferrer">
         Repositório no GitHub →
       </a>
