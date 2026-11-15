@@ -1164,3 +1164,25 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
 .faq-question:active {
   transform: translateY(1px);
 }
+
+
+/* Touch accessibility: simulator titlebar controls use 44px targets. */
+.window-titlebar {
+  height: 52px;
+}
+.sound-toggle-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 10px;
+}
+.demo-reset-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 10px;
+}
+@media (max-width: 360px) {
+  .demo-reset-btn {
+    width: 44px;
+    min-width: 44px;
+  }
+}
