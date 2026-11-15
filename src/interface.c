@@ -453,7 +453,8 @@ static void save_inspector_changes(void) {
         strcpy(g_extra_apps[extra_idx].name, name);
         strcpy(g_extra_apps[extra_idx].path, path);
         g_extra_apps[extra_idx].configured = (name[0] != '\0' && path[0] != '\0');
-        set_status(L"Atalho salvo com sucesso.");
+        if (config_save(g_config_path, &g_config)) set_status(L"Atalho salvo com sucesso.");
+        else set_status(L"Erro ao salvar configuração.");
     }
 
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
@@ -465,7 +466,10 @@ static void remove_selected_action(void) {
     if (g_selected_key >= 6 && g_selected_key <= 8) {
         int app_idx = g_selected_key - 6;
         ZeroMemory(&g_config.apps[app_idx], sizeof(DeckApp));
-        config_save(g_config_path, &g_config);
+        if (!config_save(g_config_path, &g_config)) {
+            set_status(L"Erro ao salvar a remoção do atalho.");
+            return;
+        }
     } else {
         int extra_idx = g_selected_key - 9;
         ZeroMemory(&g_extra_apps[extra_idx], sizeof(DeckApp));
