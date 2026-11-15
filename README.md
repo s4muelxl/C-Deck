@@ -139,9 +139,10 @@ O executável será criado em `build/C-Deck.exe`.
 - `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
 - `src/macros.c` / `src/macros.h`: validação, persistência versionada e execução limitada de macros.
 - `src/hotkeys.c` / `src/hotkeys.h`: reconciliação do registro de atalhos globais, rastreamento de combinações ativas e diagnóstico de conflitos.
+- `src/gdi_scope.c` / `src/gdi_scope.h`: restauração de objetos GDI selecionados antes da liberação de brushes/pens temporários.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros e registro de hotkeys.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, registro de hotkeys e ciclo de vida GDI.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
 
@@ -151,6 +152,7 @@ O executável será criado em `build/C-Deck.exe`.
 - Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível. O registro de cada combinação é conferido separadamente. Conflitos (por exemplo, `ERROR_HOTKEY_ALREADY_REGISTERED`) aparecem na barra de status, sem impedir o registro das outras combinações. A preferência indica que o C-Deck deve tentar ativá-los; ela não garante que todos estejam disponíveis no Windows.
 - O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
+- Se a consulta do estado do microfone falhar, os ícones usam uma cor neutra em vez de indicar incorretamente microfone aberto ou silenciado.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
 - Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, editor gráfico de macros, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
