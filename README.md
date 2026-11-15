@@ -17,6 +17,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Biblioteca nativa de ações por categoria — Favoritos, Sistema, Áudio, Mídia, Aplicativos e Navegação — com modelos prontos que podem ser adicionados à tecla selecionada e salvos no perfil ativo.
+- Multi Action com até oito macros persistidas em `config/macros.cfg`, seleção pelo menu da categoria e execução em thread separada com limites de passos, atraso e alvos permitidos.
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
@@ -48,7 +49,33 @@ Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A c
 3. Escolha uma opção no menu **Adicionar**. O modelo preenche nome, identificador/caminho e ícone do slot selecionado.
 4. A ação é salva imediatamente no perfil ativo. Se a gravação falhar, o conteúdo anterior do slot é restaurado.
 
-A biblioteca inclui ações internas de áudio e mídia, utilitários do Windows, aplicativos comuns e links web. Os modelos são apenas atalhos configuráveis: selecionar um item na biblioteca não o executa. Para executar, use a tecla depois de adicioná-la à grade. A categoria **Multi Action** permanece reservada e informa que o motor de macros ainda não está disponível; nenhum comportamento de macro é simulado.
+A biblioteca inclui ações internas de áudio e mídia, utilitários do Windows, aplicativos comuns e links web. Os modelos são apenas atalhos configuráveis: selecionar um item na biblioteca não o executa. Para executar, use a tecla depois de adicioná-la à grade. A categoria **Multi Action** lista as macros válidas encontradas em `config/macros.cfg`; escolher uma atribui a macro à tecla selecionada. Se o arquivo não existir, a categoria informa como começar usando `config/macros.cfg.example`.
+
+## Multi Action e macros
+
+O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v1). Se o arquivo ainda não existir, copie `config/macros.cfg.example` para `config/macros.cfg` e ajuste os nomes e etapas. Cada macro aceita até 12 etapas, atraso individual de até 5 segundos e atraso acumulado máximo de 10 segundos. O arquivo é salvo com temporário, backup `.bak` e substituição atômica pelo módulo de macros; arquivos inválidos ou com versão desconhecida não são sobrescritos.
+
+Formato de cada etapa:
+
+- `action:<id>`: apenas `volume_up`, `volume_down`, `audio_mute`, `mic_mute`, `media_play_pause`, `media_previous`, `media_next` ou `sound_devices`.
+- `open:<alvo>`: somente URL `http://`/`https://`, URI `ms-settings:` ou destino `.exe`/`.lnk`. O C-Deck passa o alvo diretamente a `ShellExecuteW`; não aceita linha de comando, PowerShell, scripts ou argumentos.
+- `delay:<ms>`: inteiro entre 1 e 5000, respeitando o limite acumulado.
+
+Exemplo:
+
+```ini
+[meta]
+version=1
+
+[macro1]
+name=Preparar transmissão
+step_count=3
+step1=action:volume_down
+step2=open:obs64.exe
+step3=delay:500
+```
+
+A categoria Multi Action mostra apenas macros carregadas e validadas. A execução ocorre em thread separada, interrompe no primeiro passo com falha e pode ser cancelada quando o aplicativo encerra. Ainda não existe editor gráfico de macros; a configuração é feita no arquivo. Não são executados comandos arbitrários.
 
 ## Configurar os atalhos pelo aplicativo
 
@@ -87,7 +114,7 @@ path=action:sound_devices
 ```
 
 - `name`: texto mostrado no botão.
-- `path`: caminho absoluto do executável, URL `http://`/`https://` ou identificador interno `action:`. Ações internas disponíveis: `volume_up`, `volume_down`, `audio_mute`, `media_play_pause`, `media_previous`, `media_next`, `mic_mute` e `sound_devices`.
+- `path`: caminho do executável, URL `http://`/`https://`, identificador interno `action:` ou referência `action:macro:<id>` para uma macro carregada. Ações internas disponíveis: `volume_up`, `volume_down`, `audio_mute`, `media_play_pause`, `media_previous`, `media_next`, `mic_mute` e `sound_devices`.
 - `icon`: caminho opcional para um arquivo `.ico`; se omitido, o ícone é extraído do executável.
 
 ## Compilar no Windows
@@ -110,8 +137,10 @@ O executável será criado em `build/C-Deck.exe`.
 - `src/config.c`: leitura, migração e gravação das 15 ações.
 - `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
 - `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
+- `src/macros.c` / `src/macros.h`: validação, persistência versionada e execução limitada de macros.
+- `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis e preferências.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca e macros.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
 
@@ -122,7 +151,7 @@ O executável será criado em `build/C-Deck.exe`.
 - O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
-- Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, macros, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
+- Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, editor gráfico de macros, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
 
