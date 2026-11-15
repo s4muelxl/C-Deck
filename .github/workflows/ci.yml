@@ -48,6 +48,8 @@ jobs:
           ./build/macros-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_lifecycle_test.c src/macro_editor.c src/macros.c -o build/macro-editor-lifecycle-test.exe -luser32 -lgdi32
           ./build/macro-editor-lifecycle-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_workflow_test.c src/macro_editor.c src/macros.c -o build/macro-editor-workflow-test.exe -luser32 -lgdi32
+          ./build/macro-editor-workflow-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_test.c src/hotkeys.c -o build/hotkeys-test.exe
           ./build/hotkeys-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/gdi_scope_test.c src/gdi_scope.c -lgdi32 -luser32 -o build/gdi-scope-test.exe
