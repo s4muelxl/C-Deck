@@ -53,8 +53,8 @@ test('the volume slider has a visible thumb and a keyboard focus treatment', () 
 test('FAQ answers are linked to controls and hidden when collapsed', () => {
   assert.match(html, /aria-controls="faq-answer-1"/);
   assert.match(html, /id="faq-answer-1"[^>]*aria-labelledby="faq-question-1" hidden/);
-  assert.match(js, /answer\.hidden = isOpen/);
-  assert.match(js, /otherAnswer\.hidden = true/);
+  assert.match(script, /answer\.hidden = isOpen/);
+  assert.match(script, /otherAnswer\.hidden = true/);
 });
 
 test('the page provides a skip link and a neutral interaction palette', () => {
