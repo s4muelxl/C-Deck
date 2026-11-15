@@ -625,6 +625,13 @@ int macro_editor_show(HWND parent, DeckMacroStore *store) {
         }
     }
 
+    /* WM_QUIT and GetMessageW failures can end the modal loop without WM_CLOSE.
+       Destroy the window while its stack-backed context and GDI resources are
+       still alive; otherwise the editor becomes an orphan with dangling state. */
+    if (IsWindow(window)) {
+        DestroyWindow(window);
+    }
+
     if (parent && IsWindow(parent)) {
         EnableWindow(parent, TRUE);
         SetForegroundWindow(parent);
