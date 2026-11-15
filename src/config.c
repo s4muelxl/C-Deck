@@ -57,6 +57,32 @@ static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
     return converted > 0;
 }
 
+/* Configuration values are stored as UTF-8. Reject malformed or truncated
+   fields instead of silently cutting a multibyte sequence at the buffer edge. */
+static int utf8_value_valid(const char *value, size_t capacity, int allow_empty) {
+    wchar_t wide[DECK_TEXT_MAX];
+    size_t length = 0;
+
+    if (!value || capacity == 0 || capacity > INT_MAX) return 0;
+    while (length < capacity && value[length] != '\0') ++length;
+    if (length == capacity || (!allow_empty && length == 0)) return 0;
+    if (memchr(value, '\r', length) || memchr(value, '\n', length)) return 0;
+    if (length == 0) return 1;
+
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value,
+                               (int)(length + 1), wide, DECK_TEXT_MAX) > 0;
+}
+
+static int copy_utf8_value(char *destination, size_t capacity, const char *source) {
+    size_t length;
+
+    if (!destination || !source || capacity == 0 || capacity > DECK_TEXT_MAX) return 0;
+    length = strlen(source);
+    if (length >= capacity || !utf8_value_valid(source, length + 1, 1)) return 0;
+    memcpy(destination, source, length + 1);
+    return 1;
+}
+
 int config_load(const char *path, DeckConfig *out_config) {
     FILE *file;
     char line[1024];
@@ -75,8 +101,15 @@ int config_load(const char *path, DeckConfig *out_config) {
     if (!file) return 0;
 
     while (fgets(line, sizeof(line), file)) {
-        char *entry = trim(line);
+        char *entry;
         char *equals;
+
+        if (!strchr(line, '\n') &&
+            (strlen(line) == sizeof(line) - 1 || !feof(file))) {
+            fclose(file);
+            return 0;
+        }
+        entry = trim(line);
 
         if (*entry == '\0' || *entry == '#' || *entry == ';') continue;
         if (*entry == '[') {
@@ -114,14 +147,27 @@ int config_load(const char *path, DeckConfig *out_config) {
         if (current < 0) continue;
 
         if (_stricmp(entry, "name") == 0) {
-            copy_value(parsed_apps[current].name, DECK_TEXT_MAX, equals);
+            if (!copy_utf8_value(parsed_apps[current].name, sizeof(parsed_apps[current].name), equals)) {
+                fclose(file);
+                return 0;
+            }
         } else if (_stricmp(entry, "path") == 0) {
-            copy_value(parsed_apps[current].path, DECK_TEXT_MAX, equals);
+            if (!copy_utf8_value(parsed_apps[current].path, sizeof(parsed_apps[current].path), equals)) {
+                fclose(file);
+                return 0;
+            }
         } else if (_stricmp(entry, "icon") == 0) {
-            copy_value(parsed_apps[current].icon_path, DECK_TEXT_MAX, equals);
+            if (!copy_utf8_value(parsed_apps[current].icon_path, sizeof(parsed_apps[current].icon_path), equals)) {
+                fclose(file);
+                return 0;
+            }
         }
     }
 
+    if (ferror(file)) {
+        fclose(file);
+        return 0;
+    }
     fclose(file);
     if (schema_version == 0 || schema_version > DECK_CONFIG_VERSION) return 0;
 
@@ -180,10 +226,14 @@ int config_save(const char *path, const DeckConfig *config) {
     wcscat(backup, L".bak");
     for (int i = 0; i < DECK_KEY_COUNT; ++i) {
         const DeckApp *app = &config->apps[i];
-        int has_name = app->name[0] != '\0';
-        int has_path = app->path[0] != '\0';
+        int has_name;
+        int has_path;
+        if (!utf8_value_valid(app->name, sizeof(app->name), 1) ||
+            !utf8_value_valid(app->path, sizeof(app->path), 1) ||
+            !utf8_value_valid(app->icon_path, sizeof(app->icon_path), 1)) return 0;
+        has_name = app->name[0] != '\0';
+        has_path = app->path[0] != '\0';
         if (has_name != has_path) return 0;
-        if (strpbrk(app->name, "\r\n") || strpbrk(app->path, "\r\n") || strpbrk(app->icon_path, "\r\n")) return 0;
     }
 
     file = _wfopen(temporary, L"w");
