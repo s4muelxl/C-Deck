@@ -10,6 +10,7 @@ static void assert_grid_is_valid(const DeckUiLayout *layout) {
 
     assert(layout->slot_count == DECK_UI_GRID_SLOT_COUNT);
     assert(layout->slot_size_dip >= 44);
+    assert(layout->slot_size_dip <= 108);
     assert(layout->slot_gap_dip >= 0);
 
     for (index = 0u; index < layout->slot_count; ++index) {
@@ -100,6 +101,40 @@ static void test_medium_and_narrow_layouts(void) {
     assert(narrow.sidebar.width == 64);
     assert(narrow.inspector_visible == 0);
     assert_grid_is_valid(&narrow);
+}
+
+static void test_large_workspaces_cap_and_center_the_grid(void) {
+    const DeckUiLayoutInput wide_input = { 3840, 2160, 0 };
+    const DeckUiLayoutInput compact_input = { 2560, 1440, 1 };
+    DeckUiLayout wide;
+    DeckUiLayout compact;
+    const DeckUiRect *first;
+    const DeckUiRect *last;
+    int64_t grid_center_x2;
+    int64_t grid_center_y2;
+    int64_t workspace_center_x2;
+    int64_t workspace_center_y2;
+
+    assert(deck_ui_layout_compute(&wide_input, &wide) == DECK_UI_LAYOUT_OK);
+    assert(wide.mode == DECK_UI_LAYOUT_MODE_WIDE);
+    assert(wide.slot_size_dip == 108);
+    assert_grid_is_valid(&wide);
+
+    first = &wide.slots[0];
+    last = &wide.slots[DECK_UI_GRID_SLOT_COUNT - 1u];
+    grid_center_x2 = (int64_t)first->x + last->x + last->width;
+    grid_center_y2 = (int64_t)first->y + last->y + last->height;
+    workspace_center_x2 = (int64_t)wide.workspace.x * 2 + wide.workspace.width;
+    workspace_center_y2 = (int64_t)wide.workspace.y * 2 + wide.workspace.height;
+    assert(grid_center_x2 - workspace_center_x2 >= -1);
+    assert(grid_center_x2 - workspace_center_x2 <= 1);
+    assert(grid_center_y2 - workspace_center_y2 >= -1);
+    assert(grid_center_y2 - workspace_center_y2 <= 1);
+
+    assert(deck_ui_layout_compute(&compact_input, &compact) == DECK_UI_LAYOUT_OK);
+    assert(compact.mode == DECK_UI_LAYOUT_MODE_COMPACT);
+    assert(compact.slot_size_dip == 108);
+    assert_grid_is_valid(&compact);
 }
 
 static void test_compact_minimum_layout(void) {
@@ -350,6 +385,7 @@ static void test_grid_hit_test_invalid_arguments(void) {
 int main(void) {
     test_wide_layout();
     test_medium_and_narrow_layouts();
+    test_large_workspaces_cap_and_center_the_grid();
     test_compact_minimum_layout();
     test_too_small_outputs_are_empty();
     test_invalid_arguments();
