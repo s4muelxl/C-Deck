@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <windows.h>
+#include <wchar.h>
 
 static int action_calls;
 static int open_calls;
@@ -179,6 +181,52 @@ int main(void) {
         assert(future.read_only);
         assert(!macro_store_save(&future));
         assert(file_contains("macros.cfg", "version=99"));
+    }
+
+    /* Exercise macro storage under a real non-ASCII directory path. */
+    {
+        const char *unicode_directory = "macro-配置-测试-Δ";
+        const char *unicode_config_path = "macro-配置-测试-Δ/apps.cfg";
+        wchar_t wide_directory[DECK_MACRO_PATH_MAX];
+        wchar_t wide_macro_path[DECK_MACRO_PATH_MAX];
+        wchar_t wide_backup_path[DECK_MACRO_PATH_MAX];
+        wchar_t wide_temporary_path[DECK_MACRO_PATH_MAX];
+        DeckMacroStore unicode_store;
+        DeckMacroStore unicode_loaded;
+
+        assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                   unicode_directory, -1,
+                                   wide_directory, DECK_MACRO_PATH_MAX) > 0);
+        assert(CreateDirectoryW(wide_directory, NULL) ||
+               GetLastError() == ERROR_ALREADY_EXISTS);
+
+        assert(macro_store_load(&unicode_store, unicode_config_path));
+        assert(strcmp(unicode_store.path,
+                      "macro-配置-测试-Δ/macros.cfg") == 0);
+        build_valid_macro(&unicode_store.macros[0]);
+        assert(macro_store_save(&unicode_store));
+
+        strcpy(unicode_store.macros[0].name, "Macro Unicode atualizada");
+        assert(macro_store_save(&unicode_store));
+
+        wcscpy(wide_macro_path, wide_directory);
+        wcscat(wide_macro_path, L"\\macros.cfg");
+        wcscpy(wide_backup_path, wide_macro_path);
+        wcscat(wide_backup_path, L".bak");
+        wcscpy(wide_temporary_path, wide_macro_path);
+        wcscat(wide_temporary_path, L".tmp");
+        assert(GetFileAttributesW(wide_macro_path) != INVALID_FILE_ATTRIBUTES);
+        assert(GetFileAttributesW(wide_backup_path) != INVALID_FILE_ATTRIBUTES);
+
+        assert(macro_store_load(&unicode_loaded, unicode_config_path));
+        assert(macro_store_count(&unicode_loaded) == 1);
+        assert(strcmp(macro_store_get(&unicode_loaded, 1)->name,
+                      "Macro Unicode atualizada") == 0);
+
+        DeleteFileW(wide_temporary_path);
+        DeleteFileW(wide_backup_path);
+        DeleteFileW(wide_macro_path);
+        assert(RemoveDirectoryW(wide_directory));
     }
 
     remove("macros.cfg");
