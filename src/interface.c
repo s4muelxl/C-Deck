@@ -32,6 +32,20 @@
 #endif
 typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 
+/* Win32 uses one representation for exported function pointers. Copying the
+   FARPROC representation avoids an incompatible function-pointer cast. */
+_Static_assert(sizeof(FARPROC) == sizeof(pfnDwmSetWindowAttribute),
+               "FARPROC and DWM callback pointers must have equal size");
+
+static pfnDwmSetWindowAttribute resolve_dwm_set_window_attribute(HMODULE module) {
+    FARPROC symbol;
+    pfnDwmSetWindowAttribute function = NULL;
+    if (!module) return NULL;
+    symbol = GetProcAddress(module, "DwmSetWindowAttribute");
+    if (symbol) memcpy(&function, &symbol, sizeof(function));
+    return function;
+}
+
 // Modern C-Deck Color Palette
 #define COLOR_BG            RGB(21, 23, 27)     // #15171B (Deep canvas background)
 #define COLOR_TOPBAR        RGB(18, 20, 24)     // #121418 (Header top bar)
@@ -341,9 +355,9 @@ static int save_active_profile(void) {
 
 // Windows 11 Mica / Acrylic Effect & Dark Mode Title Bar
 static void enable_system_backdrop(HWND hwnd) {
-    HMODULE dwm = LoadLibraryA("dwmapi.dll");
+    HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
     if (dwm) {
-        pfnDwmSetWindowAttribute set_attr = (pfnDwmSetWindowAttribute)GetProcAddress(dwm, "DwmSetWindowAttribute");
+        pfnDwmSetWindowAttribute set_attr = resolve_dwm_set_window_attribute(dwm);
         if (set_attr) {
             BOOL enable_dark = TRUE;
             if (FAILED(set_attr(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &enable_dark, sizeof(enable_dark)))) {

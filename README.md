@@ -38,6 +38,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 O pacote portátil contém:
 - `C-Deck.exe`
 - `config/apps.cfg`
+- `config/macros.cfg.example`
 - `README.md`
 
 Na instalação guiada, o programa fica em `%LOCALAPPDATA%\Programs\C-Deck`. A configuração fica em uma subpasta `config`, preservada durante atualizações do aplicativo. O executável portátil também precisa permanecer ao lado da pasta `config`; não mova apenas o EXE para outro local.
@@ -127,7 +128,7 @@ Execute na raiz do repositório:
 .\scripts\build.ps1
 ```
 
-O executável será criado em `build/C-Deck.exe`.
+O executável será criado em `build/C-Deck.exe`. O build também trata casts incompatíveis de ponteiros de função como erro (`-Werror=cast-function-type`), evitando regressões na resolução dinâmica de APIs do Windows.
 
 ## Estrutura
 
