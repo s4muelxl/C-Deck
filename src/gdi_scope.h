@@ -11,8 +11,10 @@ typedef struct DeckGdiScope {
 } DeckGdiScope;
 
 void deck_gdi_scope_init(DeckGdiScope *scope);
-void deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object);
-void deck_gdi_scope_restore(HDC dc, DeckGdiScope *scope,
-                            HGDIOBJ previous_brush, HGDIOBJ previous_pen);
+/* Returns nonzero when the object was deleted or safely queued for restoration. */
+int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object);
+/* Returns the number of deferred DeleteObject calls that failed. */
+unsigned int deck_gdi_scope_restore(HDC dc, DeckGdiScope *scope,
+                                    HGDIOBJ previous_brush, HGDIOBJ previous_pen);
 
 #endif
