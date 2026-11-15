@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <windows.h>
 
 static void write_text(const char *path, const char *contents) {
     FILE *file = fopen(path, "w");
@@ -26,12 +27,33 @@ static int file_contains(const char *path, const char *needle) {
     return found;
 }
 
+static void remove_utf8_profile_files(const char *prefix) {
+    wchar_t wide_path[DECK_PROFILE_PATH_MAX];
+    char path[256];
+    const char *suffixes[] = {
+        "-apps.cfg", "-apps.cfg.bak",
+        "-apps-streaming.cfg", "-apps-streaming.cfg.bak",
+        "-apps-productivity.cfg", "-apps-productivity.cfg.bak",
+        "-apps-gaming.cfg", "-apps-gaming.cfg.bak",
+        "-apps-preferences.cfg", "-apps-preferences.cfg.bak"
+    };
+    for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i) {
+        snprintf(path, sizeof(path), "%s%s", prefix, suffixes[i]);
+        if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1,
+                                wide_path, DECK_PROFILE_PATH_MAX) > 0) DeleteFileW(wide_path);
+        snprintf(path, sizeof(path), "%s%s.tmp", prefix, suffixes[i]);
+        if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1,
+                                wide_path, DECK_PROFILE_PATH_MAX) > 0) DeleteFileW(wide_path);
+    }
+}
+
 static void remove_profile_files(const char *prefix) {
     char path[256];
     const char *suffixes[] = {
         "-apps.cfg", "-apps.cfg.bak",
         "-apps-streaming.cfg", "-apps-streaming.cfg.bak",
-        "-apps-productivity.cfg", "-apps-gaming.cfg",
+        "-apps-productivity.cfg", "-apps-productivity.cfg.bak",
+        "-apps-gaming.cfg", "-apps-gaming.cfg.bak",
         "-apps-preferences.cfg", "-apps-preferences.cfg.bak"
     };
     for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i) {
@@ -114,6 +136,18 @@ int main(void) {
     assert(file_contains("test-profile-apps-preferences.cfg", "version=99"));
 
     remove_profile_files("test-profile");
+
+    /* UTF-8 paths are converted to UTF-16 for profile and preferences files. */
+    remove_utf8_profile_files("perfil-ação");
+    assert(profiles_load(&store, "perfil-ação-apps.cfg", &initial, &active) == 1);
+    next = store.preferences;
+    next.active_profile = DECK_PROFILE_GAMING;
+    assert(profiles_apply_preferences(&store, &next, &active, &active) == 1);
+    assert(profiles_load(&reloaded, "perfil-ação-apps.cfg", &initial, &reloaded_active) == 1);
+    assert(reloaded.preferences.active_profile == DECK_PROFILE_GAMING);
+    assert(strcmp(reloaded_active.apps[8].name, "Spotify") == 0);
+    remove_utf8_profile_files("perfil-ação");
+
     puts("profiles/preferences persistence: OK");
     return 0;
 }
