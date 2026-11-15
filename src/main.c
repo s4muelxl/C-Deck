@@ -38,7 +38,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
         return 1;
     }
 
-    if (!build_config_path(config_path, MAX_PATH) || !config_load(config_path, &config)) {
+    if (!build_config_path(config_path, (DWORD)sizeof(config_path)) || !config_load(config_path, &config)) {
         ZeroMemory(&config, sizeof(config));
         MessageBoxW(NULL, L"Não foi possível ler config/apps.cfg ao lado do executável. Os atalhos ficarão desativados.", L"C-Deck", MB_ICONWARNING);
     }
