@@ -96,17 +96,10 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 
 // Extended App Slots for Keys 9..14
 #define EXTRA_APP_COUNT     6
-static DeckApp g_extra_apps[EXTRA_APP_COUNT] = {
-    { "Mudo Mic", "action:mic_mute", "", 1 },
-    { "Trocar Áudio", "action:sound_devices", "", 1 },
-    { "Navegador", "https://www.google.com", "", 1 },
-    { "Tarefas", "taskmgr.exe", "", 1 },
-    { "Captura", "SnippingTool.exe", "", 1 },
-    { "Configurações", "ms-settings:", "", 1 }
-};
 
-// Global application state
+// Global application state: all nine configurable slots share one persistent model.
 static DeckConfig g_config;
+#define g_extra_apps (g_config.apps + 3)
 static char g_config_path[MAX_PATH];
 static HWND g_main_window;
 static HWND g_status;
@@ -476,6 +469,10 @@ static void remove_selected_action(void) {
     } else {
         int extra_idx = g_selected_key - 9;
         ZeroMemory(&g_extra_apps[extra_idx], sizeof(DeckApp));
+        if (!config_save(g_config_path, &g_config)) {
+            set_status(L"Erro ao salvar a remoção do atalho.");
+            return;
+        }
     }
 
     update_inspector_ui();
