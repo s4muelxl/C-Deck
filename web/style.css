@@ -1126,3 +1126,36 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
     border: 1px solid ButtonText;
   }
 }
+
+
+/* Touch-first refinement: do not leave hover elevation latched after a tap. */
+@media (hover: none) {
+  .github-button:hover {
+    background: rgba(255,255,255,.035);
+    border-color: rgba(255,255,255,.12);
+    color: #dbe1e8;
+  }
+  .app-window:hover {
+    border-color: rgba(255,255,255,.14);
+  }
+  .deck-key:hover {
+    border-color: rgba(255,255,255,.105);
+    background: linear-gradient(155deg,#1a202a,#11151c);
+    box-shadow: none;
+  }
+  .essential-item:hover {
+    transform: none;
+    border-color: rgba(255,255,255,.085);
+    background: rgba(255,255,255,.025);
+  }
+  .faq-question:hover {
+    color: #e8ecf1;
+  }
+}
+
+.button:active,
+.github-button:active,
+.sound-toggle-btn:active,
+.faq-question:active {
+  transform: translateY(1px);
+}

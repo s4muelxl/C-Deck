@@ -124,6 +124,7 @@
       if (muteBtn) {
         muteBtn.classList.add('key-active-mute');
         muteBtn.setAttribute('aria-pressed', 'true');
+        muteBtn.setAttribute('aria-label', 'Ativar áudio (simulação)');
       }
     } else {
       volumeValueEl.textContent = `${state.volume}%`;
@@ -132,6 +133,7 @@
       if (muteBtn) {
         muteBtn.classList.remove('key-active-mute');
         muteBtn.setAttribute('aria-pressed', 'false');
+        muteBtn.setAttribute('aria-label', 'Silenciar áudio (simulação)');
       }
     }
 
@@ -169,6 +171,7 @@
     if (playBtn) {
       playBtn.classList.toggle('key-active-media', state.playing);
       playBtn.setAttribute('aria-pressed', state.playing ? 'true' : 'false');
+      playBtn.setAttribute('aria-label', state.playing ? 'Pausar reprodução simulada' : 'Iniciar reprodução simulada');
     }
     setStatus(state.playing ? 'Simulação: reprodução iniciada' : 'Simulação: reprodução pausada');
   }
@@ -189,6 +192,7 @@
     if (playBtn) {
       playBtn.classList.remove('key-active-media');
       playBtn.setAttribute('aria-pressed', 'false');
+      playBtn.setAttribute('aria-label', 'Iniciar reprodução simulada');
     }
 
     updateVolumeUI();

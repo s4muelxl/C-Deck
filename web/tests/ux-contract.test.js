@@ -265,3 +265,26 @@ test('rapid demo launches replace the toast timer and reset dismisses stale feed
   assert.equal(toast.classList.contains('visible'), false);
   assert.equal(clearedTimers.size, 4, 'reset clears the current status and toast timers');
 });
+
+
+test('simulator controls expose explicit names and a semantic status region', () => {
+  assert.match(html, /id="key-vol-down"[^>]*aria-label="Reduzir volume em 5% \(simulação\)"/);
+  assert.match(html, /id="key-mute"[^>]*aria-label="Silenciar áudio \(simulação\)"/);
+  assert.match(html, /id="key-play"[^>]*aria-label="Iniciar reprodução simulada"/);
+  assert.match(html, /id="demo-status-text"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(html, /class="key-badge" aria-hidden="true"/);
+  assert.match(html, /class="faq-icon" aria-hidden="true"/);
+});
+
+test('shortcut cards are explicitly described as local simulations', () => {
+  assert.match(html, /title="Simular abertura do Bloco de Notas"/);
+  assert.match(html, /title="Simular abertura do YouTube"/);
+  assert.match(html, /title="Simular abertura da Calculadora"/);
+  assert.match(script, /Demonstração local/);
+});
+
+test('touch devices do not retain hover-only elevation after tapping', () => {
+  assert.match(css, /@media \(hover: none\)[\s\S]*?\.deck-key:hover[\s\S]*?box-shadow: none/);
+  assert.match(css, /\.essential-item:hover\s*\{[^}]*transform: none/s);
+  assert.match(css, /\.faq-question:hover\s*\{[^}]*color: #e8ecf1/s);
+});
