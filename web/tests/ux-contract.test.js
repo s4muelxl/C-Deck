@@ -170,7 +170,7 @@ test('reset control restores simulator state while preserving the sound preferen
   assert.equal(elements['key-mute'].classList.contains('key-active-mute'), false);
   assert.equal(elements['key-play'].attributes['aria-pressed'], 'false');
   assert.equal(elements['key-play'].classList.contains('key-active-media'), false);
-  assert.match(elements['play-glyph'].innerHTML, /M12 5v14/);
+  assert.match(elements['play-glyph'].innerHTML, /M8 5v14/);
   assert.equal(elements['play-label'].textContent, 'PLAY / PAUSE');
   assert.equal(elements['demo-sound-toggle'].textContent, 'SOM: OFF');
   assert.match(elements['demo-status-text'].textContent, /Demonstração reiniciada/);
