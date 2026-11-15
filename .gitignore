@@ -11,3 +11,8 @@ config/apps-streaming.cfg*
 config/apps-productivity.cfg*
 config/apps-gaming.cfg*
 config/apps-preferences.cfg*
+
+# User-defined Multi Action macros (the example remains versioned)
+config/macros.cfg
+config/macros.cfg.bak
+config/macros.cfg.tmp
