@@ -41,6 +41,12 @@ typedef enum DeckUiHitTestStatus {
     DECK_UI_HIT_TEST_INVALID_LAYOUT
 } DeckUiHitTestStatus;
 
+typedef enum DeckUiRectScaleStatus {
+    DECK_UI_RECT_SCALE_OK = 0,
+    DECK_UI_RECT_SCALE_INVALID_ARGUMENT,
+    DECK_UI_RECT_SCALE_OUT_OF_RANGE
+} DeckUiRectScaleStatus;
+
 typedef struct DeckUiLayoutInput {
     /* Client-area dimensions in device-independent pixels (DIP). */
     int32_t width_dip;
@@ -91,6 +97,20 @@ int32_t deck_ui_dip_to_px(int32_t dip, uint32_t dpi);
 
 /* Converts physical pixels to DIP using nearest-integer rounding. dpi=0 uses 96. */
 int32_t deck_ui_px_to_dip(int32_t pixels, uint32_t dpi);
+
+/*
+ * Converts a rectangle by scaling its left/top/right/bottom edges, rather than
+ * scaling x/y/width/height independently. This keeps adjacent regions aligned
+ * at fractional scales such as 125% and 150%. Negative origins are supported.
+ * Negative dimensions and unrepresentable results are rejected. The output is
+ * unchanged on failure; source and destination may alias. dpi=0 means 96.
+ */
+DeckUiRectScaleStatus deck_ui_rect_dip_to_px(const DeckUiRect *dip_rect,
+                                             uint32_t dpi,
+                                             DeckUiRect *pixel_rect);
+DeckUiRectScaleStatus deck_ui_rect_px_to_dip(const DeckUiRect *pixel_rect,
+                                             uint32_t dpi,
+                                             DeckUiRect *dip_rect);
 
 #ifdef __cplusplus
 }
