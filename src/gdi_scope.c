@@ -35,8 +35,11 @@ unsigned int deck_gdi_scope_restore(HDC dc, DeckGdiScope *scope,
     }
 
     for (unsigned int i = 0; i < scope->count; ++i) {
-        if (scope->deferred[i] && scope->deferred[i] != HGDI_ERROR &&
-            !DeleteObject(scope->deferred[i])) {
+        HGDIOBJ object = scope->deferred[i];
+        if (!object || object == HGDI_ERROR) continue;
+        if (GetCurrentObject(dc, OBJ_BRUSH) == object ||
+            GetCurrentObject(dc, OBJ_PEN) == object ||
+            !DeleteObject(object)) {
             ++failures;
         }
     }
