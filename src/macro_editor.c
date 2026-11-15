@@ -159,6 +159,10 @@ static int editor_capture_current(MacroEditorContext *context) {
 
     target = &context->working.macros[context->slot];
     if (!name[0] && context->step_count == 0) {
+        if (target->configured) {
+            editor_set_status(context, L"Macros existentes não podem ser excluídas pelo editor; mantenha um nome e ao menos uma etapa.");
+            return 0;
+        }
         ZeroMemory(target, sizeof(*target));
         return 1;
     }

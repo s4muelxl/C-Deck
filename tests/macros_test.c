@@ -113,6 +113,13 @@ int main(void) {
     assert(!macro_step_remove(&editing, 3));
     assert(!macro_step_move(&editing, 0, 3));
     assert(!macro_step_insert(&editing, DECK_MACRO_STEP_COUNT + 1, &step));
+    {
+        DeckMacroStep invalid_step;
+        ZeroMemory(&invalid_step, sizeof(invalid_step));
+        invalid_step.type = DECK_MACRO_STEP_ACTION;
+        strcpy(invalid_step.value, "run_shell");
+        assert(!macro_step_insert(&editing, 0, &invalid_step));
+    }
 
     build_valid_macro(&macro);
     assert(macro_validate(&macro));

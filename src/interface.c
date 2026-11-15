@@ -189,6 +189,7 @@ static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
 static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category);
 static void start_macro_execution(HWND hwnd, unsigned int macro_id);
+static const DeckMacro *macro_for_app(const DeckApp *app);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
     if (!wide || max_chars <= 0) return;
