@@ -28,6 +28,7 @@ typedef struct DeckProfileStore {
     char preferences_path[DECK_PROFILE_PATH_MAX];
     int profile_persisted[DECK_PROFILE_COUNT];
     int preferences_recovered;
+    int storage_warning;
 } DeckProfileStore;
 
 const wchar_t *profile_name(int profile_id);
