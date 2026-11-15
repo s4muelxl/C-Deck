@@ -135,6 +135,25 @@ int main(void) {
     assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
     assert(file_contains("test-profile-apps-preferences.cfg", "version=99"));
 
+    /* Reject a long physical line whose valid prefix would otherwise parse. */
+    {
+        char long_preferences[512];
+        const char *prefix =
+            "[meta]\\nversion=1\\n[preferences]\\nactive_profile=0";
+        const char *suffix =
+            "\\nminimize_to_tray=1\\nenable_hotkeys=1\\nwindow_opacity=100\\n";
+        size_t offset = strlen(prefix);
+        memcpy(long_preferences, prefix, offset);
+        memset(long_preferences + offset, ' ', 300);
+        strcpy(long_preferences + offset + 300, suffix);
+        write_text("test-profile-apps-preferences.cfg", long_preferences);
+
+        assert(profiles_load(&store, "test-profile-apps.cfg", &initial, &active) == 1);
+        assert(store.preferences_recovered == 1);
+        assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
+        assert(file_contains("test-profile-apps-preferences.cfg", "active_profile=0"));
+    }
+
     remove_profile_files("test-profile");
 
     /* A future-version default profile must remain untouched on load failure. */
