@@ -118,6 +118,31 @@ int main(void) {
     write_config("[meta]\nversion=99\n[app1]\nname=Future\npath=future.exe\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
+    /* Reject overlong physical lines instead of parsing a truncated prefix. */
+    {
+        char long_line[1200];
+        memset(long_line, 'x', sizeof(long_line));
+        long_line[sizeof(long_line) - 1] = '\0';
+        write_config(long_line);
+        assert(config_load("test-apps.cfg", &config) == 0);
+    }
+
+    /* Reject values that would previously be silently truncated to DECK_TEXT_MAX. */
+    {
+        char oversized[512];
+        const char *prefix = "[meta]\nversion=3\n[app1]\nname=";
+        size_t offset = strlen(prefix);
+        memcpy(oversized, prefix, offset);
+        memset(oversized + offset, 'A', DECK_TEXT_MAX);
+        strcpy(oversized + offset + DECK_TEXT_MAX, "\npath=oversized.exe\n");
+        write_config(oversized);
+        assert(config_load("test-apps.cfg", &config) == 0);
+    }
+
+    /* Invalid UTF-8 must not enter the in-memory configuration. */
+    write_config("[meta]\nversion=3\n[app1]\nname=Invalid \xC3\x28\npath=bad.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
     memset(&config, 0, sizeof(config));
     strcpy(config.apps[0].name, "Volume +");
     strcpy(config.apps[0].path, "action:volume_up");
@@ -167,6 +192,17 @@ int main(void) {
     strcpy(config.apps[8].name, "Linha\nInvalida");
     strcpy(config.apps[8].path, "mspaint.exe");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
+
+    /* Save rejects malformed UTF-8 and unterminated fixed-size fields. */
+    config.apps[8].name[0] = (char)0xC3;
+    config.apps[8].name[1] = '(';
+    config.apps[8].name[2] = '\0';
+    assert(config_save("test-apps-saved.cfg", &config) == 0);
+    assert(file_contains("test-apps-saved.cfg", "name=Editor atualizado"));
+
+    memset(config.apps[8].name, 'X', sizeof(config.apps[8].name));
+    assert(config_save("test-apps-saved.cfg", &config) == 0);
+    assert(file_contains("test-apps-saved.cfg", "name=Editor atualizado"));
 
     assert(config_load("test-apps-saved.cfg", &loaded) == 1);
     assert(loaded.apps[6].configured == 1);
