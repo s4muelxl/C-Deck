@@ -253,8 +253,13 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     DeckMacro parsed[DECK_MACRO_COUNT];
     unsigned int seen_steps[DECK_MACRO_COUNT];
     unsigned int declared_steps[DECK_MACRO_COUNT];
+    unsigned int seen_names[DECK_MACRO_COUNT];
+    unsigned int seen_step_counts[DECK_MACRO_COUNT];
+    unsigned int seen_macro_sections = 0;
     int section = -1;
     int version = 0;
+    int meta_seen = 0;
+    int version_seen = 0;
 
     if (!store || !build_macro_path(store->path, sizeof(store->path), config_path) ||
         !utf8_path_to_wide(store->path, wide_path, DECK_MACRO_PATH_MAX)) return 0;
@@ -262,6 +267,8 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     ZeroMemory(parsed, sizeof(parsed));
     ZeroMemory(seen_steps, sizeof(seen_steps));
     ZeroMemory(declared_steps, sizeof(declared_steps));
+    ZeroMemory(seen_names, sizeof(seen_names));
+    ZeroMemory(seen_step_counts, sizeof(seen_step_counts));
     store->loaded = 0;
     store->read_only = 0;
     ZeroMemory(store->macros, sizeof(store->macros));
@@ -294,14 +301,23 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
         if (!entry[0] || entry[0] == '#' || entry[0] == ';') continue;
 
         if (entry[0] == '[') {
-            if (_stricmp(entry, "[meta]") == 0) section = -2;
-            else {
-                section = parse_macro_section(entry);
-                if (section == -2) {
+            if (_stricmp(entry, "[meta]") == 0) {
+                if (meta_seen) {
                     fclose(file);
                     store->read_only = 1;
                     return 0;
                 }
+                meta_seen = 1;
+                section = -2;
+            } else {
+                section = parse_macro_section(entry);
+                if (section == -2 ||
+                    (section >= 0 && (seen_macro_sections & (1u << section)) != 0)) {
+                    fclose(file);
+                    store->read_only = 1;
+                    return 0;
+                }
+                if (section >= 0) seen_macro_sections |= 1u << section;
             }
             continue;
         }
@@ -314,27 +330,33 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
 
         if (section == -2 && _stricmp(entry, "version") == 0) {
             unsigned int parsed_version;
-            if (!parse_unsigned(equals, &parsed_version) || parsed_version > INT_MAX) {
+            if (version_seen ||
+                !parse_unsigned(equals, &parsed_version) || parsed_version > INT_MAX) {
                 fclose(file);
                 store->read_only = 1;
                 return 0;
             }
+            version_seen = 1;
             version = (int)parsed_version;
         } else if (section >= 0) {
             DeckMacro *macro = &parsed[section];
             if (_stricmp(entry, "name") == 0) {
-                if (!copy_text(macro->name, sizeof(macro->name), equals)) {
+                if (seen_names[section] ||
+                    !copy_text(macro->name, sizeof(macro->name), equals)) {
                     fclose(file);
                     store->read_only = 1;
                     return 0;
                 }
+                seen_names[section] = 1;
             } else if (_stricmp(entry, "step_count") == 0) {
-                if (!parse_unsigned(equals, &declared_steps[section]) ||
+                if (seen_step_counts[section] ||
+                    !parse_unsigned(equals, &declared_steps[section]) ||
                     declared_steps[section] > DECK_MACRO_STEP_COUNT) {
                     fclose(file);
                     store->read_only = 1;
                     return 0;
                 }
+                seen_step_counts[section] = 1;
             } else if (starts_with_ascii_case(entry, "step")) {
                 unsigned int step_id;
                 DeckMacroStep step;
@@ -359,15 +381,16 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     }
     fclose(file);
 
-    if (version != 1) {
+    if (!meta_seen || !version_seen || version != 1) {
         store->read_only = 1;
         return 0;
     }
 
     for (int i = 0; i < DECK_MACRO_COUNT; ++i) {
         unsigned int expected;
-        if (!parsed[i].name[0] && declared_steps[i] == 0 && seen_steps[i] == 0) continue;
-        if (!parsed[i].name[0] || declared_steps[i] == 0) {
+        if ((seen_macro_sections & (1u << i)) == 0) continue;
+        if (!seen_names[i] || !seen_step_counts[i] ||
+            !parsed[i].name[0] || declared_steps[i] == 0) {
             store->read_only = 1;
             return 0;
         }
