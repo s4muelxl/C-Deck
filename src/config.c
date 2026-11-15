@@ -22,6 +22,28 @@ static void copy_value(char *destination, size_t capacity, const char *source) {
     destination[capacity - 1] = '\0';
 }
 
+static void set_default_action(DeckApp *app, const char *name, const char *path) {
+    copy_value(app->name, sizeof(app->name), name);
+    copy_value(app->path, sizeof(app->path), path);
+    app->configured = 1;
+}
+
+static void set_builtin_actions(DeckConfig *config) {
+    static const char *names[6] = {
+        "Volume +", "Mudo Som", "Play / Pause",
+        "Anterior", "Próximo", "Volume -"
+    };
+    static const char *paths[6] = {
+        "action:volume_up", "action:audio_mute", "action:media_play_pause",
+        "action:media_previous", "action:media_next", "action:volume_down"
+    };
+    for (int i = 0; i < 6; ++i) {
+        if (!config->apps[i].name[0] && !config->apps[i].path[0]) {
+            set_default_action(&config->apps[i], names[i], paths[i]);
+        }
+    }
+}
+
 static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
     int converted;
     if (!path || !wide || capacity == 0 || capacity > INT_MAX) return 0;
@@ -32,6 +54,7 @@ static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
 int config_load(const char *path, DeckConfig *out_config) {
     FILE *file;
     char line[1024];
+    DeckApp parsed_apps[DECK_KEY_COUNT];
     int current = -1;
     int has_legacy_apps = 0;
     int has_extended_apps = 0;
@@ -41,6 +64,7 @@ int config_load(const char *path, DeckConfig *out_config) {
 
     if (!path || !out_config || !utf8_path_to_wide(path, wide_path, sizeof(wide_path) / sizeof(wide_path[0]))) return 0;
     memset(out_config, 0, sizeof(*out_config));
+    memset(parsed_apps, 0, sizeof(parsed_apps));
     file = _wfopen(wide_path, L"r");
     if (!file) return 0;
 
@@ -50,12 +74,18 @@ int config_load(const char *path, DeckConfig *out_config) {
 
         if (*entry == '\0' || *entry == '#' || *entry == ';') continue;
         if (*entry == '[') {
+            char *section_end = NULL;
+            long app_number = -1;
             current = -1;
             in_meta = (_stricmp(entry, "[meta]") == 0);
-            if (!in_meta && strlen(entry) == 6 && _strnicmp(entry, "[app", 4) == 0 &&
-                entry[4] >= '1' && entry[4] <= '9' && entry[5] == ']') {
-                current = entry[4] - '1';
-                if (current < 3) has_legacy_apps = 1; else has_extended_apps = 1;
+            if (!in_meta && _strnicmp(entry, "[app", 4) == 0) {
+                app_number = strtol(entry + 4, &section_end, 10);
+                if (section_end != entry + 4 && section_end && section_end[0] == ']' &&
+                    section_end[1] == '\0' && app_number >= 1 && app_number <= DECK_KEY_COUNT) {
+                    current = (int)app_number - 1;
+                    if (current < 3) has_legacy_apps = 1;
+                    else has_extended_apps = 1;
+                }
             }
             continue;
         }
@@ -78,28 +108,46 @@ int config_load(const char *path, DeckConfig *out_config) {
         if (current < 0) continue;
 
         if (_stricmp(entry, "name") == 0) {
-            copy_value(out_config->apps[current].name, DECK_TEXT_MAX, equals);
+            copy_value(parsed_apps[current].name, DECK_TEXT_MAX, equals);
         } else if (_stricmp(entry, "path") == 0) {
-            copy_value(out_config->apps[current].path, DECK_TEXT_MAX, equals);
+            copy_value(parsed_apps[current].path, DECK_TEXT_MAX, equals);
         } else if (_stricmp(entry, "icon") == 0) {
-            copy_value(out_config->apps[current].icon_path, DECK_TEXT_MAX, equals);
+            copy_value(parsed_apps[current].icon_path, DECK_TEXT_MAX, equals);
         }
     }
 
     fclose(file);
     if (schema_version == 0 || schema_version > DECK_CONFIG_VERSION) return 0;
 
-    /* Version 1 had no metadata. Upgrade legacy three-slot configurations with the
-       former built-in actions. Extended slots already present remain authoritative. */
-    if (schema_version < DECK_CONFIG_VERSION && has_legacy_apps && !has_extended_apps) {
-        static const char *default_names[6] = { "Mudo Mic", "Trocar Áudio", "Navegador", "Tarefas", "Captura", "Configurações" };
-        static const char *default_paths[6] = { "action:mic_mute", "action:sound_devices", "https://www.google.com", "taskmgr.exe", "SnippingTool.exe", "ms-settings:" };
-        for (int i = 3; i < DECK_APP_COUNT; ++i) {
-            copy_value(out_config->apps[i].name, DECK_TEXT_MAX, default_names[i - 3]);
-            copy_value(out_config->apps[i].path, DECK_TEXT_MAX, default_paths[i - 3]);
+    if (schema_version >= 3) {
+        memcpy(out_config->apps, parsed_apps, sizeof(parsed_apps));
+    } else {
+        /*
+         * v1/v2 stored the nine configurable destinations separately from six
+         * hard-coded system/media keys. In v3 every visual key owns one slot:
+         * old app1..app9 become new app7..app15 without changing their order.
+         */
+        int legacy_count = schema_version == 2 ? 9 : (has_extended_apps ? 9 : 3);
+        for (int i = 0; i < legacy_count; ++i) {
+            out_config->apps[i + 6] = parsed_apps[i];
         }
+        if (schema_version == 1 && has_legacy_apps && !has_extended_apps) {
+            static const char *legacy_names[6] = {
+                "Mudo Mic", "Trocar Áudio", "Navegador",
+                "Tarefas", "Captura", "Configurações"
+            };
+            static const char *legacy_paths[6] = {
+                "action:mic_mute", "action:sound_devices", "https://www.google.com",
+                "taskmgr.exe", "SnippingTool.exe", "ms-settings:"
+            };
+            for (int i = 0; i < 6; ++i) {
+                set_default_action(&out_config->apps[i + 9], legacy_names[i], legacy_paths[i]);
+            }
+        }
+        set_builtin_actions(out_config);
     }
-    for (int i = 0; i < DECK_APP_COUNT; ++i) {
+
+    for (int i = 0; i < DECK_KEY_COUNT; ++i) {
         DeckApp *app = &out_config->apps[i];
         app->configured = app->name[0] != '\0' && app->path[0] != '\0';
     }
@@ -122,7 +170,7 @@ int config_save(const char *path, const DeckConfig *config) {
     wcscat(temporary, L".tmp");
     wcscpy(backup, wide_path);
     wcscat(backup, L".bak");
-    for (int i = 0; i < DECK_APP_COUNT; ++i) {
+    for (int i = 0; i < DECK_KEY_COUNT; ++i) {
         const DeckApp *app = &config->apps[i];
         int has_name = app->name[0] != '\0';
         int has_path = app->path[0] != '\0';
@@ -133,8 +181,8 @@ int config_save(const char *path, const DeckConfig *config) {
     file = _wfopen(temporary, L"w");
     if (!file) return 0;
 
-    if (fprintf(file, "; Arquivo de atalhos do C-DECK. Pode ser editado manualmente.\n[meta]\nversion=%d\n", DECK_CONFIG_VERSION) < 0) written = 0;
-    for (int i = 0; written && i < DECK_APP_COUNT; ++i) {
+    if (fprintf(file, "; Arquivo de ações do C-DECK. Pode ser editado manualmente.\n[meta]\nversion=%d\n", DECK_CONFIG_VERSION) < 0) written = 0;
+    for (int i = 0; written && i < DECK_KEY_COUNT; ++i) {
         const DeckApp *app = &config->apps[i];
         if (fprintf(file, "\n[app%d]\nname=%s\npath=%s\nicon=%s\n",
                     i + 1, app->name, app->path, app->icon_path) < 0) written = 0;
@@ -145,8 +193,6 @@ int config_save(const char *path, const DeckConfig *config) {
         return 0;
     }
 
-    /* Preserve the last known-good file before replacing it. A failed backup
-       aborts the save instead of silently discarding the previous configuration. */
     if (GetFileAttributesW(wide_path) != INVALID_FILE_ATTRIBUTES &&
         !CopyFileW(wide_path, backup, FALSE)) {
         DeleteFileW(temporary);
