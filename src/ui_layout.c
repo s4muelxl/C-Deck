@@ -16,6 +16,7 @@ enum {
     GRID_GAP_DIP = 14,
     COMPACT_GRID_GAP_DIP = 8,
     MIN_SLOT_DIP = 44,
+    MAX_SLOT_DIP = 108,
     NARROW_BREAKPOINT_DIP = 900,
     MEDIUM_BREAKPOINT_DIP = 1120,
     WIDE_BREAKPOINT_DIP = 1360
@@ -145,6 +146,8 @@ DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
     if (slot_size < MIN_SLOT_DIP) {
         return too_small(layout);
     }
+    /* Preserve the native key-size ceiling on large and high-DPI workspaces. */
+    if (slot_size > MAX_SLOT_DIP) slot_size = MAX_SLOT_DIP;
 
     grid_width = DECK_UI_GRID_COLUMNS * slot_size
                  + (DECK_UI_GRID_COLUMNS - 1) * gap;
@@ -301,6 +304,7 @@ static int layout_grid_is_valid(const DeckUiLayout *layout) {
         || layout->mode > DECK_UI_LAYOUT_MODE_COMPACT
         || layout->slot_count != DECK_UI_GRID_SLOT_COUNT
         || layout->slot_size_dip < MIN_SLOT_DIP
+        || layout->slot_size_dip > MAX_SLOT_DIP
         || layout->slot_gap_dip < 0
         || layout->workspace.width <= 0
         || layout->workspace.height <= 0) {
