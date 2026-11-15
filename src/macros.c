@@ -205,9 +205,10 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     }
 
     while (fgets(line, sizeof(line), file)) {
+        int has_newline = strchr(line, '\n') != NULL;
         char *entry = trim_text(line);
         char *equals;
-        if (!strchr(line, '\n') && !feof(file)) {
+        if (!has_newline && !feof(file)) {
             fclose(file);
             store->read_only = 1;
             return 0;
