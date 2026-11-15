@@ -421,7 +421,14 @@ static int win_unregister_hotkey(void *context, unsigned int id, unsigned long *
         if (error_code) *error_code = 0;
         return 1;
     }
-    if (error_code) *error_code = (unsigned long)GetLastError();
+    {
+        DWORD last_error = GetLastError();
+        if (last_error == 1419ul) { /* ERROR_HOTKEY_NOT_REGISTERED: state already released. */
+            if (error_code) *error_code = 0;
+            return 1;
+        }
+        if (error_code) *error_code = (unsigned long)last_error;
+    }
     return 0;
 }
 
@@ -1675,6 +1682,7 @@ static void draw_browse_button(const DRAWITEMSTRUCT *draw) {
 
 // Property Inspector Preview Box (Bottom Right)
 static void draw_inspector_preview(HDC dc, RECT rect) {
+    IconGdiScope scope = { { 0 }, 0 };
     HBRUSH bg_erase = CreateSolidBrush(COLOR_INSPECTOR);
     FillRect(dc, &rect, bg_erase);
     DeleteObject(bg_erase);
@@ -1691,8 +1699,8 @@ static void draw_inspector_preview(HDC dc, RECT rect) {
     HBRUSH glow2 = CreateSolidBrush(RGB(28, 54, 22));
     SelectObject(dc, glow2);
     Ellipse(dc, cx - 32, cy - 32, cx + 32, cy + 32);
-    DeleteObject(glow1);
-    DeleteObject(glow2);
+    icon_gdi_release(dc, &scope, glow1);
+    icon_gdi_release(dc, &scope, glow2);
 
     RECT card_rc = { rect.left + 2, rect.top + 2, rect.right - 2, rect.bottom - 2 };
     int radius = 18;
@@ -1700,20 +1708,27 @@ static void draw_inspector_preview(HDC dc, RECT rect) {
     HBRUSH key_br = CreateSolidBrush(COLOR_KEY_BASE);
     SelectObject(dc, key_br);
     RoundRect(dc, card_rc.left, card_rc.top, card_rc.right, card_rc.bottom, radius, radius);
-    DeleteObject(key_br);
+    icon_gdi_release(dc, &scope, key_br);
 
     draw_lime_glow_border(dc, card_rc, radius);
 
     SelectObject(dc, old_b);
     SelectObject(dc, old_p);
-    DeleteObject(null_pen);
+    for (unsigned int i = 0; i < scope.count; ++i) {
+        DeleteObject(scope.deferred[i]);
+    }
+    icon_gdi_release(dc, &scope, null_pen);
 
     COLORREF icon_col = COLOR_WHITE;
     if (g_selected_key == 1) icon_col = COLOR_MUTE_AMBER;
     else if (g_selected_key == 9) {
         int mic_muted = 0;
-        action_get_mic_mute(&mic_muted);
-        if (mic_muted) icon_col = COLOR_MIC_MUTED;
+        ActionResult mic_status = action_get_mic_mute(&mic_muted);
+        if (mic_status == ACTION_SUCCESS) {
+            if (mic_muted) icon_col = COLOR_MIC_MUTED;
+        } else {
+            icon_col = COLOR_TEXT_DIM;
+        }
     }
     draw_key_icon(dc, g_selected_key, cx, card_rc.top + 24, icon_col);
 
