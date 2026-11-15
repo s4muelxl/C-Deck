@@ -307,7 +307,7 @@ test('simulator titlebar controls meet the 44px touch target contract', () => {
 
 test('simulator grid uses one tab stop and documents arrow-key navigation', () => {
   assert.match(html, /id="demo-grid"[^>]*aria-describedby="demo-grid-help"/);
-  assert.match(html, /id="demo-grid-help" class="sr-only"/);
+  assert.match(html, /class="sr-only" id="demo-grid-help"/);
   assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="0"/g) || []).length, 1);
   assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="-1"/g) || []).length, 8);
   assert.match(css, /\.sr-only\s*\{/);
