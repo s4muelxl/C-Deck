@@ -60,7 +60,19 @@ int main(void) {
     assert(config.apps[3].configured == 1);
     assert(strcmp(config.apps[3].path, "action:mic_mute") == 0);
 
-    write_config("[app1]\nname=Somente nome\n[app2]\npath=sem-nome.exe\n");
+    /* Existing nine-slot files from the previous build must keep empty extras empty. */
+    write_config(
+        "[app1]\nname=Primeiro\npath=first.exe\n"
+        "[app2]\nname=Segundo\npath=second.exe\n"
+        "[app3]\nname=Terceiro\npath=third.exe\n"
+        "[app4]\n[app5]\n[app6]\n[app7]\n[app8]\n[app9]\n"
+    );
+    assert(config_load("test-apps.cfg", &config) == 1);
+    assert(strcmp(config.apps[0].name, "Primeiro") == 0);
+    assert(config.apps[3].configured == 0);
+    assert(config.apps[8].configured == 0);
+
+    write_config("[app1]\\nname=Somente nome\\n[app2]\\npath=sem-nome.exe\\n");
     assert(config_load("test-apps.cfg", &config) == 1);
     assert(config.apps[0].configured == 0);
     assert(config.apps[1].configured == 0);
@@ -73,6 +85,9 @@ int main(void) {
         assert(config.apps[i].name[0] == '\0');
         assert(config.apps[i].path[0] == '\0');
     }
+
+    write_config("[meta]\\nversion=99\\n[app1]\\nname=Future\\npath=future.exe\\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
 
     memset(&config, 0, sizeof(config));
     strcpy(config.apps[0].name, "Editor");
@@ -109,6 +124,13 @@ int main(void) {
     assert(config_save("teste-configuração-测试.cfg", &config) == 1);
     assert(config_load("teste-configuração-测试.cfg", &loaded) == 1);
     assert(strcmp(loaded.apps[0].name, "Editor atualizado") == 0);
+
+    strcpy(config.apps[8].name, "Aplicativo 日本語");
+    strcpy(config.apps[8].path, "C:\\\\Apps\\\\应用.exe");
+    assert(config_save("teste-configuração-测试.cfg", &config) == 1);
+    assert(config_load("teste-configuração-测试.cfg", &loaded) == 1);
+    assert(strcmp(loaded.apps[8].name, "Aplicativo 日本語") == 0);
+    assert(strcmp(loaded.apps[8].path, "C:\\\\Apps\\\\应用.exe") == 0);
 
     strcpy(config.apps[2].name, "Atalho incompleto");
     assert(config_save("test-apps-saved.cfg", &config) == 0);
