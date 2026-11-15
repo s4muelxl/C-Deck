@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Compile native C11 theme contract
-        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -o /tmp/ui-theme-test
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -lm -o /tmp/ui-theme-test
       - name: Run native C11 theme contract
         run: /tmp/ui-theme-test
       - name: Compile native C11 layout contract
@@ -64,7 +64,7 @@ jobs:
         shell: msys2 {0}
         run: |
           mkdir -p build
-          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -o build/ui-theme-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -lm -o build/ui-theme-test.exe
           ./build/ui-theme-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o build/ui-layout-test.exe
           ./build/ui-layout-test.exe
