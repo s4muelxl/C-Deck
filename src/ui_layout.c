@@ -37,9 +37,12 @@ static void set_rect(DeckUiRect *rect,
 }
 
 static DeckUiLayoutStatus too_small(DeckUiLayout *layout) {
-    layout->slot_size_dip = 0;
-    layout->slot_count = 0u;
-    memset(layout->slots, 0, sizeof(layout->slots));
+    /*
+     * Fail closed: callers must never consume partially computed regions
+     * after a TOO_SMALL result. Keep the output deterministic and empty.
+     */
+    memset(layout, 0, sizeof(*layout));
+    layout->mode = DECK_UI_LAYOUT_MODE_UNSUPPORTED;
     return DECK_UI_LAYOUT_TOO_SMALL;
 }
 
@@ -76,7 +79,7 @@ DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
         gap = COMPACT_GRID_GAP_DIP;
     } else {
         if (input->width_dip < NARROW_BREAKPOINT_DIP) {
-            return DECK_UI_LAYOUT_TOO_SMALL;
+            return too_small(layout);
         }
         top_height = NORMAL_TOP_BAR_DIP;
         status_height = NORMAL_STATUS_BAR_DIP;

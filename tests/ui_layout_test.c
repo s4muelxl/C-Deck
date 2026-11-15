@@ -36,6 +36,33 @@ static void assert_grid_is_valid(const DeckUiLayout *layout) {
     }
 }
 
+static void assert_rect_is_zero(const DeckUiRect *rect) {
+    assert(rect->x == 0);
+    assert(rect->y == 0);
+    assert(rect->width == 0);
+    assert(rect->height == 0);
+}
+
+static void assert_layout_is_empty(const DeckUiLayout *layout) {
+    uint32_t index;
+
+    assert(layout->mode == DECK_UI_LAYOUT_MODE_UNSUPPORTED);
+    assert_rect_is_zero(&layout->top_bar);
+    assert_rect_is_zero(&layout->sidebar);
+    assert_rect_is_zero(&layout->workspace);
+    assert_rect_is_zero(&layout->inspector);
+    assert_rect_is_zero(&layout->status_bar);
+    assert(layout->slot_size_dip == 0);
+    assert(layout->slot_gap_dip == 0);
+    assert(layout->slot_count == 0u);
+    assert(layout->sidebar_visible == 0);
+    assert(layout->inspector_visible == 0);
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        assert_rect_is_zero(&layout->slots[index]);
+    }
+}
+
 static void test_wide_layout(void) {
     const DeckUiLayoutInput input = { 1600, 900, 0 };
     DeckUiLayout layout;
@@ -89,17 +116,22 @@ static void test_compact_minimum_layout(void) {
     assert_grid_is_valid(&layout);
 }
 
-static void test_unsupported_and_too_short_layouts(void) {
-    const DeckUiLayoutInput too_narrow = { 899, 640, 0 };
-    const DeckUiLayoutInput too_short = { 1000, 120, 0 };
-    DeckUiLayout layout;
+static void test_too_small_outputs_are_empty(void) {
+    static const DeckUiLayoutInput inputs[] = {
+        { 899, 640, 0 },  /* below the normal breakpoint */
+        { 1000, 120, 0 }, /* chrome leaves no usable workspace height */
+        { 900, 250, 0 },  /* grid cannot preserve the 44 DIP key target */
+        { 280, 320, 1 },  /* compact width is insufficient */
+        { 440, 78, 1 }    /* compact chrome consumes the full height */
+    };
+    size_t index;
 
-    assert(deck_ui_layout_compute(&too_narrow, &layout) == DECK_UI_LAYOUT_TOO_SMALL);
-    assert(layout.mode == DECK_UI_LAYOUT_MODE_UNSUPPORTED);
-    assert(layout.slot_count == 0u);
-
-    assert(deck_ui_layout_compute(&too_short, &layout) == DECK_UI_LAYOUT_TOO_SMALL);
-    assert(layout.slot_count == 0u);
+    for (index = 0u; index < sizeof(inputs) / sizeof(inputs[0]); ++index) {
+        DeckUiLayout layout;
+        memset(&layout, 0xA5, sizeof(layout));
+        assert(deck_ui_layout_compute(&inputs[index], &layout) == DECK_UI_LAYOUT_TOO_SMALL);
+        assert_layout_is_empty(&layout);
+    }
 }
 
 static void test_invalid_arguments(void) {
@@ -140,7 +172,7 @@ int main(void) {
     test_wide_layout();
     test_medium_and_narrow_layouts();
     test_compact_minimum_layout();
-    test_unsupported_and_too_short_layouts();
+    test_too_small_outputs_are_empty();
     test_invalid_arguments();
     test_dpi_conversion();
     puts("ui_layout_test: all checks passed");
