@@ -189,15 +189,31 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
                 return 0;
             }
             if (_stricmp(entry, "active_profile") == 0) {
+                if (seen & 1u) {
+                    fclose(file);
+                    return 0;
+                }
                 preferences->active_profile = parsed;
                 seen |= 1u;
             } else if (_stricmp(entry, "minimize_to_tray") == 0) {
+                if (seen & 2u) {
+                    fclose(file);
+                    return 0;
+                }
                 preferences->minimize_to_tray = parsed;
                 seen |= 2u;
             } else if (_stricmp(entry, "enable_hotkeys") == 0) {
+                if (seen & 4u) {
+                    fclose(file);
+                    return 0;
+                }
                 preferences->enable_hotkeys = parsed;
                 seen |= 4u;
             } else if (_stricmp(entry, "window_opacity") == 0) {
+                if (seen & 8u) {
+                    fclose(file);
+                    return 0;
+                }
                 preferences->window_opacity = parsed;
                 seen |= 8u;
             }
