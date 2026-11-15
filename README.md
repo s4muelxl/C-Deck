@@ -21,7 +21,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
-- Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar).
+- Atalhos globais padrão: `Ctrl + Alt + ↑` (aumentar volume), `Ctrl + Alt + ↓` (reduzir volume) e `Ctrl + Alt + M` (mutar). O registro é verificado individualmente; se outra aplicação já reservou uma combinação, o C-Deck informa qual falhou e mantém ativos os demais atalhos disponíveis.
 - Quatro perfis integrados — Default, Streaming / OBS, Produtividade e Jogos / Gaming — com layouts independentes; cada perfil mantém suas próprias 15 teclas.
 - Preferências persistentes para perfil ativo, minimização para bandeja, atalhos globais e opacidade da janela.
 - Minimização para a bandeja do Windows: minimizar ou fechar a janela mantém o C-Deck ativo; use o menu do ícone para reabrir ou sair.
@@ -138,16 +138,17 @@ O executável será criado em `build/C-Deck.exe`.
 - `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
 - `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
 - `src/macros.c` / `src/macros.h`: validação, persistência versionada e execução limitada de macros.
+- `src/hotkeys.c` / `src/hotkeys.h`: reconciliação do registro de atalhos globais, rastreamento de combinações ativas e diagnóstico de conflitos.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca e macros.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros e registro de hotkeys.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados.
 
 ## Limitações atuais
 
 - O áudio é controlado no dispositivo de reprodução padrão do Windows.
-- Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível.
+- Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível. O registro de cada combinação é conferido separadamente. Conflitos (por exemplo, `ERROR_HOTKEY_ALREADY_REGISTERED`) aparecem na barra de status, sem impedir o registro das outras combinações. A preferência indica que o C-Deck deve tentar ativá-los; ela não garante que todos estejam disponíveis no Windows.
 - O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
