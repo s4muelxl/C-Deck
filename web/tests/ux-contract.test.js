@@ -63,3 +63,19 @@ test('the page provides a skip link and a neutral interaction palette', () => {
   assert.match(css, /--accent: #eef1f5/);
   assert.match(css, /\.window-status \{ color: #dbe1e8; \}/);
 });
+
+
+test('landing page copy matches the verified C11 build and avoids unsupported performance promises', () => {
+  assert.match(html, /desenvolvido em C11/);
+  assert.match(html, /Win32 API/);
+  assert.match(html, /até três atalhos/);
+  assert.doesNotMatch(html, /C\\+\\+|3 MB RAM|0% de CPU|consumo quase zero de memória|mesmo enquanto joga em tela cheia/);
+  assert.match(html, /O consumo de memória e CPU varia conforme o sistema e o uso/);
+});
+
+test('neutral iconography and high-contrast keyboard states are available', () => {
+  assert.match(css, /--cyan: #b0b8c4/);
+  assert.match(css, /:where\\(a, button\\):focus-visible/);
+  assert.match(css, /prefers-contrast: more/);
+  assert.match(css, /forced-colors: active/);
+});
