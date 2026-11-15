@@ -185,6 +185,14 @@ int main(void) {
         "active_profile=0", &initial);
     assert_invalid_preferences_preserved(
         "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "minimize_to_tray=0\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "minimize_to_tray=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "enable_hotkeys=1\nenable_hotkeys=0\nwindow_opacity=100\n",
+        "enable_hotkeys=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
         "enable_hotkeys=1\nwindow_opacity=100\nwindow_opacity=90\n",
         "window_opacity=100", &initial);
 
