@@ -77,6 +77,7 @@ int main(void) {
     DeckMacro macro;
     DeckMacroStore store;
     DeckMacroStore loaded;
+    DeckMacro editing;
 
     assert(macro_step_parse("action:volume_up", &step));
     assert(step.type == DECK_MACRO_STEP_ACTION);
@@ -96,6 +97,22 @@ int main(void) {
     assert(!macro_step_parse("open:javascript:alert(1)", &step));
     assert(!macro_step_parse("delay:0", &step));
     assert(!macro_step_parse("delay:5001", &step));
+
+    build_valid_macro(&editing);
+    assert(macro_step_parse("action:media_next", &step));
+    assert(macro_step_insert(&editing, 1, &step));
+    assert(editing.step_count == 4);
+    assert(strcmp(editing.steps[1].value, "media_next") == 0);
+    assert(macro_step_move(&editing, 1, 3));
+    assert(strcmp(editing.steps[3].value, "media_next") == 0);
+    assert(macro_step_parse("action:media_previous", &step));
+    assert(macro_step_replace(&editing, 3, &step));
+    assert(strcmp(editing.steps[3].value, "media_previous") == 0);
+    assert(macro_step_remove(&editing, 3));
+    assert(editing.step_count == 3);
+    assert(!macro_step_remove(&editing, 3));
+    assert(!macro_step_move(&editing, 0, 3));
+    assert(!macro_step_insert(&editing, DECK_MACRO_STEP_COUNT + 1, &step));
 
     build_valid_macro(&macro);
     assert(macro_validate(&macro));

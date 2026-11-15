@@ -3,6 +3,7 @@
 #include "profiles.h"
 #include "action_library.h"
 #include "macros.h"
+#include "macro_editor.h"
 #include "hotkeys.h"
 #include "gdi_scope.h"
 #include <windows.h>
@@ -98,6 +99,7 @@ static pfnDwmSetWindowAttribute resolve_dwm_set_window_attribute(HMODULE module)
 #define ID_LIB_MULTIACTION  1307
 #define ID_LIBRARY_ACTION_BASE 5200
 #define ID_LIBRARY_MACRO_BASE 5300
+#define ID_LIBRARY_MACRO_MANAGE 5399
 
 // Settings Dialog IDs
 #define ID_SET_STARTUP_CHK   2101
@@ -736,7 +738,10 @@ static void update_inspector_ui(void) {
     ShowWindow(g_insp_vol_track, SW_HIDE);
     ShowWindow(g_insp_mute_btn, SW_HIDE);
 
-    utf8_to_wide(app->name, wname, DECK_TEXT_MAX);
+    {
+        const DeckMacro *macro = macro_for_app(app);
+        utf8_to_wide(macro ? macro->name : app->name, wname, DECK_TEXT_MAX);
+    }
     utf8_to_wide(app->path, wpath, DECK_TEXT_MAX);
     SetWindowTextW(g_insp_title_edit, wname);
     SetWindowTextW(g_insp_path_edit, wpath);
@@ -1357,14 +1362,26 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
     }
 }
 
+static const DeckMacro *macro_for_app(const DeckApp *app) {
+    char *end = NULL;
+    unsigned long macro_id;
+    if (!app || strncmp(app->path, "action:macro:", 13) != 0) return NULL;
+    macro_id = strtoul(app->path + 13, &end, 10);
+    if (!end || *end != '\0' || macro_id == 0 || macro_id > DECK_MACRO_COUNT) return NULL;
+    return macro_store_get(&g_macro_store, (unsigned int)macro_id);
+}
+
 static const wchar_t *get_key_display_title(int idx) {
     static wchar_t custom_name[DECK_TEXT_MAX];
+    const DeckApp *app;
+    const DeckMacro *macro;
     if (idx < 0 || idx >= ID_KEY_COUNT) return L"";
-    if (g_config.apps[idx].configured && g_config.apps[idx].name[0]) {
-        utf8_to_wide(g_config.apps[idx].name, custom_name, DECK_TEXT_MAX);
-        return custom_name;
-    }
-    return L"";
+    app = &g_config.apps[idx];
+    if (!app->configured) return L"";
+    macro = macro_for_app(app);
+    if (macro) utf8_to_wide(macro->name, custom_name, DECK_TEXT_MAX);
+    else utf8_to_wide(app->name, custom_name, DECK_TEXT_MAX);
+    return custom_name;
 }
 
 // Draw Individual 15 Keys as Visibly Rounded Floating Cards
@@ -1960,6 +1977,9 @@ static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
 
     if (category == DECK_LIBRARY_MULTIACTION) {
         size_t macro_count = g_macro_store_ready ? macro_store_count(&g_macro_store) : 0;
+        AppendMenuW(menu, MF_STRING | (g_macro_store_ready ? MF_ENABLED : MF_GRAYED),
+                    ID_LIBRARY_MACRO_MANAGE, L"Gerenciar macros...");
+        AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
         if (!g_macro_store_ready) {
             AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Arquivo de macros inválido ou inacessível");
         } else if (macro_count == 0) {
@@ -1993,6 +2013,23 @@ static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
                              point.x, point.y, 0, hwnd, NULL);
     PostMessageW(hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
+
+    if (category == DECK_LIBRARY_MULTIACTION && command == ID_LIBRARY_MACRO_MANAGE) {
+        int editor_result;
+        if (!g_macro_store_ready) {
+            set_status(L"O arquivo de macros está inválido ou inacessível; o conteúdo original foi preservado.");
+            return;
+        }
+        editor_result = macro_editor_show(hwnd, &g_macro_store);
+        if (editor_result > 0) {
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Macros salvas. Os nomes vinculados foram atualizados.");
+        } else if (editor_result < 0) {
+            set_status(L"Não foi possível abrir o editor de macros.");
+        }
+        return;
+    }
 
     if (category == DECK_LIBRARY_MULTIACTION) {
         unsigned int macro_id;

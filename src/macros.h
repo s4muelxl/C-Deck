@@ -55,6 +55,10 @@ typedef int (*DeckMacroCancelCheck)(void *context);
 
 int macro_step_parse(const char *text, DeckMacroStep *step);
 int macro_validate(const DeckMacro *macro);
+int macro_step_insert(DeckMacro *macro, unsigned int index, const DeckMacroStep *step);
+int macro_step_replace(DeckMacro *macro, unsigned int index, const DeckMacroStep *step);
+int macro_step_remove(DeckMacro *macro, unsigned int index);
+int macro_step_move(DeckMacro *macro, unsigned int from_index, unsigned int to_index);
 int macro_store_load(DeckMacroStore *store, const char *config_path);
 int macro_store_save(DeckMacroStore *store);
 size_t macro_store_count(const DeckMacroStore *store);

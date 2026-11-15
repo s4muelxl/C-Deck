@@ -17,7 +17,7 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 - Reconhecer URLs `https://` e `http://` nos atalhos; sites recebem um ícone de globo e abrem no navegador padrão.
 - Configurar nomes e caminhos dos atalhos pela própria interface.
 - Biblioteca nativa de ações por categoria — Favoritos, Sistema, Áudio, Mídia, Aplicativos e Navegação — com modelos prontos que podem ser adicionados à tecla selecionada e salvos no perfil ativo.
-- Multi Action com até oito macros persistidas em `config/macros.cfg`, seleção pelo menu da categoria e execução em thread separada com limites de passos, atraso e alvos permitidos.
+- Multi Action com até oito macros persistidas em `config/macros.cfg`, editor gráfico nativo em C/Win32 para criar e editar etapas, seleção pelo menu da categoria e execução em thread separada com limites e alvos permitidos.
 - Exibir automaticamente o ícone original de cada executável configurado.
 - Escolher opcionalmente um arquivo `.ico` personalizado para cada aplicativo, com seletor de arquivos integrado.
 - Salvar as alterações em `config/apps.cfg`, sem editar o arquivo manualmente.
@@ -54,7 +54,7 @@ A biblioteca inclui ações internas de áudio e mídia, utilitários do Windows
 
 ## Multi Action e macros
 
-O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v1). Se o arquivo ainda não existir, copie `config/macros.cfg.example` para `config/macros.cfg` e ajuste os nomes e etapas. Cada macro aceita até 12 etapas, atraso individual de até 5 segundos e atraso acumulado máximo de 10 segundos. O módulo de armazenamento oferece gravação por arquivo temporário, backup `.bak` e substituição atômica. Até existir um editor gráfico, a configuração é editada manualmente: faça uma cópia antes de alterar `macros.cfg` e reinicie o C-Deck para recarregar as macros. Arquivos inválidos ou com versão desconhecida são rejeitados e nunca são sobrescritos pelo aplicativo.
+O C-Deck carrega até oito macros de `config/macros.cfg` (esquema independente v1). Se o arquivo ainda não existir, o editor cria o armazenamento na primeira gravação; também é possível começar copiando `config/macros.cfg.example`. Cada macro aceita até 12 etapas, atraso individual de até 5 segundos e atraso acumulado máximo de 10 segundos. O módulo de armazenamento oferece gravação por arquivo temporário, backup `.bak` e substituição atômica. Arquivos inválidos ou com versão desconhecida são rejeitados e nunca são sobrescritos pelo aplicativo.
 
 Formato de cada etapa:
 
@@ -76,7 +76,7 @@ step2=open:obs64.exe
 step3=delay:500
 ```
 
-A categoria Multi Action mostra apenas macros carregadas e validadas. A execução ocorre em thread separada, interrompe no primeiro passo com falha e pode ser cancelada quando o aplicativo encerra. Ainda não existe editor gráfico de macros; a configuração é feita no arquivo. Não são executados comandos arbitrários.
+A categoria Multi Action oferece **Gerenciar macros...** para abrir o editor gráfico nativo. Ele permite escolher um dos oito slots, criar macros, adicionar/atualizar/remover etapas e reordená-las. A edição é feita em uma cópia de trabalho; somente **Salvar alterações** grava o arquivo, mantendo backup e substituição atômica. O editor não remove macros existentes para evitar invalidar referências já atribuídas às teclas; slots vazios podem ser reutilizados. A categoria mostra apenas macros carregadas e validadas. A execução ocorre em thread separada, interrompe no primeiro passo com falha e pode ser cancelada quando o aplicativo encerra. Não são executados comandos arbitrários.
 
 ## Configurar os atalhos pelo aplicativo
 
@@ -138,7 +138,8 @@ O executável será criado em `build/C-Deck.exe`. O build também trata casts in
 - `src/config.c`: leitura, migração e gravação das 15 ações.
 - `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
 - `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
-- `src/macros.c` / `src/macros.h`: validação, persistência versionada e execução limitada de macros.
+- `src/macros.c` / `src/macros.h`: validação, persistência versionada, edição segura de etapas e execução limitada de macros.
+- `src/macro_editor.c` / `src/macro_editor.h`: editor gráfico Win32 de Multi Action, com edição transacional e reordenação de etapas.
 - `src/hotkeys.c` / `src/hotkeys.h`: reconciliação do registro de atalhos globais, rastreamento de combinações ativas e diagnóstico de conflitos.
 - `src/gdi_scope.c` / `src/gdi_scope.h`: restauração de objetos GDI selecionados antes da liberação de brushes/pens temporários.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
@@ -155,7 +156,7 @@ O executável será criado em `build/C-Deck.exe`. O build também trata casts in
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
 - Se a consulta do estado do microfone falhar, os ícones usam uma cor neutra em vez de indicar incorretamente microfone aberto ou silenciado.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
-- Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, editor gráfico de macros, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
+- Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
 ## Licença
 

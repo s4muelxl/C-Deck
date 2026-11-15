@@ -156,6 +156,65 @@ int macro_validate(const DeckMacro *macro) {
     return 1;
 }
 
+static int macro_step_is_valid(const DeckMacroStep *step) {
+    if (!step || !memchr(step->value, '\0', sizeof(step->value))) return 0;
+    if (step->type == DECK_MACRO_STEP_ACTION) return is_allowed_action(step->value);
+    if (step->type == DECK_MACRO_STEP_OPEN) return is_allowed_open_target(step->value);
+    if (step->type == DECK_MACRO_STEP_DELAY) {
+        return step->delay_ms > 0 && step->delay_ms <= DECK_MACRO_STEP_DELAY_MAX_MS;
+    }
+    return 0;
+}
+
+int macro_step_insert(DeckMacro *macro, unsigned int index, const DeckMacroStep *step) {
+    if (!macro || !step || macro->step_count > DECK_MACRO_STEP_COUNT ||
+        macro->step_count >= DECK_MACRO_STEP_COUNT || index > macro->step_count ||
+        !macro_step_is_valid(step)) return 0;
+    memmove(&macro->steps[index + 1], &macro->steps[index],
+            (macro->step_count - index) * sizeof(macro->steps[0]));
+    macro->steps[index] = *step;
+    ++macro->step_count;
+    return 1;
+}
+
+int macro_step_replace(DeckMacro *macro, unsigned int index, const DeckMacroStep *step) {
+    if (!macro || !step || macro->step_count == 0 ||
+        macro->step_count > DECK_MACRO_STEP_COUNT || index >= macro->step_count ||
+        !macro_step_is_valid(step)) return 0;
+    macro->steps[index] = *step;
+    return 1;
+}
+
+int macro_step_remove(DeckMacro *macro, unsigned int index) {
+    if (!macro || macro->step_count == 0 ||
+        macro->step_count > DECK_MACRO_STEP_COUNT || index >= macro->step_count) return 0;
+    if (index + 1 < macro->step_count) {
+        memmove(&macro->steps[index], &macro->steps[index + 1],
+                (macro->step_count - index - 1) * sizeof(macro->steps[0]));
+    }
+    --macro->step_count;
+    ZeroMemory(&macro->steps[macro->step_count], sizeof(macro->steps[0]));
+    return 1;
+}
+
+int macro_step_move(DeckMacro *macro, unsigned int from_index, unsigned int to_index) {
+    DeckMacroStep moving;
+    if (!macro || macro->step_count == 0 ||
+        macro->step_count > DECK_MACRO_STEP_COUNT ||
+        from_index >= macro->step_count || to_index >= macro->step_count) return 0;
+    if (from_index == to_index) return 1;
+    moving = macro->steps[from_index];
+    if (from_index < to_index) {
+        memmove(&macro->steps[from_index], &macro->steps[from_index + 1],
+                (to_index - from_index) * sizeof(macro->steps[0]));
+    } else {
+        memmove(&macro->steps[to_index + 1], &macro->steps[to_index],
+                (from_index - to_index) * sizeof(macro->steps[0]));
+    }
+    macro->steps[to_index] = moving;
+    return 1;
+}
+
 static int build_macro_path(char *out, size_t capacity, const char *config_path) {
     const char *slash_a;
     const char *slash_b;
