@@ -34,6 +34,13 @@ typedef enum DeckUiLayoutStatus {
     DECK_UI_LAYOUT_INVALID_ARGUMENT
 } DeckUiLayoutStatus;
 
+typedef enum DeckUiHitTestStatus {
+    DECK_UI_HIT_TEST_HIT = 0,
+    DECK_UI_HIT_TEST_OUTSIDE,
+    DECK_UI_HIT_TEST_INVALID_ARGUMENT,
+    DECK_UI_HIT_TEST_INVALID_LAYOUT
+} DeckUiHitTestStatus;
+
 typedef struct DeckUiLayoutInput {
     /* Client-area dimensions in device-independent pixels (DIP). */
     int32_t width_dip;
@@ -66,6 +73,18 @@ typedef struct DeckUiLayout {
  */
 DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
                                           DeckUiLayout *layout);
+
+/*
+ * Resolves a pointer position expressed in DIP to one of the 15 grid slots.
+ * Slot rectangles use half-open bounds: left/top are included, right/bottom
+ * are excluded. Gaps and points outside the grid never activate a slot.
+ * On OUTSIDE or error, slot_index is left unchanged. The layout is checked
+ * for complete, in-bounds, non-overlapping square slots before hit testing.
+ */
+DeckUiHitTestStatus deck_ui_grid_hit_test(const DeckUiLayout *layout,
+                                          int32_t x_dip,
+                                          int32_t y_dip,
+                                          uint32_t *slot_index);
 
 /* Converts DIP to physical pixels using nearest-integer rounding. dpi=0 uses 96. */
 int32_t deck_ui_dip_to_px(int32_t dip, uint32_t dpi);

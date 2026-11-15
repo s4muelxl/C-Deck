@@ -168,6 +168,92 @@ static void test_dpi_conversion(void) {
     assert(deck_ui_px_to_dip(INT32_MIN, 1u) == INT32_MIN);
 }
 
+
+
+static void test_grid_hit_test_all_slots(void) {
+    const DeckUiLayoutInput input = { 1600, 900, 0 };
+    DeckUiLayout layout;
+    uint32_t index;
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const DeckUiRect *slot = &layout.slots[index];
+        const int32_t center_x = slot->x + slot->width / 2;
+        const int32_t center_y = slot->y + slot->height / 2;
+        uint32_t hit = DECK_UI_GRID_SLOT_COUNT;
+
+        assert(deck_ui_grid_hit_test(&layout, center_x, center_y, &hit)
+               == DECK_UI_HIT_TEST_HIT);
+        assert(hit == index);
+    }
+}
+
+static void test_grid_hit_test_uses_half_open_bounds(void) {
+    const DeckUiLayoutInput input = { 1600, 900, 0 };
+    DeckUiLayout layout;
+    const DeckUiRect *first;
+    uint32_t hit = 77u;
+    int32_t center_y;
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    first = &layout.slots[0];
+    center_y = first->y + first->height / 2;
+
+    assert(deck_ui_grid_hit_test(&layout, first->x, first->y, &hit)
+           == DECK_UI_HIT_TEST_HIT);
+    assert(hit == 0u);
+
+    hit = 77u;
+    assert(deck_ui_grid_hit_test(&layout,
+                                 first->x + first->width - 1,
+                                 center_y,
+                                 &hit) == DECK_UI_HIT_TEST_HIT);
+    assert(hit == 0u);
+
+    hit = 77u;
+    assert(deck_ui_grid_hit_test(&layout,
+                                 first->x + first->width,
+                                 center_y,
+                                 &hit) == DECK_UI_HIT_TEST_OUTSIDE);
+    assert(hit == 77u);
+
+    assert(deck_ui_grid_hit_test(&layout, 0, 0, &hit)
+           == DECK_UI_HIT_TEST_OUTSIDE);
+    assert(hit == 77u);
+}
+
+static void test_grid_hit_test_rejects_invalid_layout(void) {
+    const DeckUiLayoutInput input = { 1600, 900, 0 };
+    DeckUiLayout layout;
+    uint32_t hit = 77u;
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.slots[1].x = layout.slots[0].x;
+    assert(deck_ui_grid_hit_test(&layout, layout.slots[0].x,
+                                 layout.slots[0].y, &hit)
+           == DECK_UI_HIT_TEST_INVALID_LAYOUT);
+    assert(hit == 77u);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.slots[0].width = 0;
+    assert(deck_ui_grid_hit_test(&layout, 10, 10, &hit)
+           == DECK_UI_HIT_TEST_INVALID_LAYOUT);
+    assert(hit == 77u);
+}
+
+static void test_grid_hit_test_invalid_arguments(void) {
+    const DeckUiLayoutInput input = { 1600, 900, 0 };
+    DeckUiLayout layout;
+    uint32_t hit = 77u;
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    assert(deck_ui_grid_hit_test(NULL, 0, 0, &hit)
+           == DECK_UI_HIT_TEST_INVALID_ARGUMENT);
+    assert(deck_ui_grid_hit_test(&layout, 0, 0, NULL)
+           == DECK_UI_HIT_TEST_INVALID_ARGUMENT);
+    assert(hit == 77u);
+}
+
 int main(void) {
     test_wide_layout();
     test_medium_and_narrow_layouts();
@@ -175,6 +261,10 @@ int main(void) {
     test_too_small_outputs_are_empty();
     test_invalid_arguments();
     test_dpi_conversion();
+    test_grid_hit_test_all_slots();
+    test_grid_hit_test_uses_half_open_bounds();
+    test_grid_hit_test_rejects_invalid_layout();
+    test_grid_hit_test_invalid_arguments();
     puts("ui_layout_test: all checks passed");
     return 0;
 }

@@ -197,3 +197,86 @@ int32_t deck_ui_px_to_dip(int32_t pixels, uint32_t dpi) {
     if (dips < INT32_MIN) return INT32_MIN;
     return (int32_t)dips;
 }
+
+
+static int layout_grid_is_valid(const DeckUiLayout *layout) {
+    int64_t workspace_right;
+    int64_t workspace_bottom;
+    uint32_t index;
+
+    if (!layout || layout->mode < DECK_UI_LAYOUT_MODE_WIDE
+        || layout->mode > DECK_UI_LAYOUT_MODE_COMPACT
+        || layout->slot_count != DECK_UI_GRID_SLOT_COUNT
+        || layout->slot_size_dip < MIN_SLOT_DIP
+        || layout->slot_gap_dip < 0
+        || layout->workspace.width <= 0
+        || layout->workspace.height <= 0) {
+        return 0;
+    }
+
+    workspace_right = (int64_t)layout->workspace.x + layout->workspace.width;
+    workspace_bottom = (int64_t)layout->workspace.y + layout->workspace.height;
+    if (workspace_right > INT32_MAX || workspace_right < INT32_MIN
+        || workspace_bottom > INT32_MAX || workspace_bottom < INT32_MIN) {
+        return 0;
+    }
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const DeckUiRect *slot = &layout->slots[index];
+        const int64_t right = (int64_t)slot->x + slot->width;
+        const int64_t bottom = (int64_t)slot->y + slot->height;
+
+        if (slot->width != layout->slot_size_dip
+            || slot->height != layout->slot_size_dip
+            || slot->width <= 0 || slot->height <= 0
+            || slot->x < layout->workspace.x
+            || slot->y < layout->workspace.y
+            || right > workspace_right || bottom > workspace_bottom
+            || right > INT32_MAX || right < INT32_MIN
+            || bottom > INT32_MAX || bottom < INT32_MIN) {
+            return 0;
+        }
+
+        {
+            uint32_t other;
+            for (other = index + 1u; other < DECK_UI_GRID_SLOT_COUNT; ++other) {
+                const DeckUiRect *candidate = &layout->slots[other];
+                const int64_t candidate_right =
+                    (int64_t)candidate->x + candidate->width;
+                const int64_t candidate_bottom =
+                    (int64_t)candidate->y + candidate->height;
+                const int overlaps = (int64_t)slot->x < candidate_right
+                                     && (int64_t)candidate->x < right
+                                     && (int64_t)slot->y < candidate_bottom
+                                     && (int64_t)candidate->y < bottom;
+                if (overlaps) return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+DeckUiHitTestStatus deck_ui_grid_hit_test(const DeckUiLayout *layout,
+                                          int32_t x_dip,
+                                          int32_t y_dip,
+                                          uint32_t *slot_index) {
+    uint32_t index;
+
+    if (!layout || !slot_index) return DECK_UI_HIT_TEST_INVALID_ARGUMENT;
+    if (!layout_grid_is_valid(layout)) return DECK_UI_HIT_TEST_INVALID_LAYOUT;
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const DeckUiRect *slot = &layout->slots[index];
+        const int64_t right = (int64_t)slot->x + slot->width;
+        const int64_t bottom = (int64_t)slot->y + slot->height;
+
+        if (x_dip >= slot->x && (int64_t)x_dip < right
+            && y_dip >= slot->y && (int64_t)y_dip < bottom) {
+            *slot_index = index;
+            return DECK_UI_HIT_TEST_HIT;
+        }
+    }
+
+    return DECK_UI_HIT_TEST_OUTSIDE;
+}

@@ -179,3 +179,18 @@ O teste nativo de tema calcula a luminância relativa sRGB e a razão de contras
 A verificação roda no contrato C11 em Linux e MinGW/Windows. O vínculo com `libm` existe apenas no executável de teste para a função `pow`; não adiciona dependência ao runtime desktop.
 
 Esta é uma verificação matemática dos tokens de cor, não uma medição de pixels renderizados. Contraste final de componentes, fontes, antialiasing, alto contraste do Windows e foco em controles nativos ainda exigem inspeção visual em sessão real.
+
+
+## Contrato de hit-testing da grade (15/11/2026)
+
+O módulo nativo de layout também oferece `deck_ui_grid_hit_test`, que converte uma posição de ponteiro em DIP no índice de uma tecla da grade:
+
+- Usa limites semiabertos: esquerda/topo inclusivos e direita/base exclusivos. Isso evita que um clique na borda compartilhada seja atribuído a duas teclas.
+- Os espaços entre teclas e áreas fora da grade retornam `DECK_UI_HIT_TEST_OUTSIDE`; não há seleção implícita de uma tecla vizinha.
+- Antes de resolver o índice, valida as 15 regiões: dimensões quadradas consistentes, limites dentro do workspace, coordenadas representáveis e ausência de sobreposição.
+- Em argumentos/layout inválidos ou posição fora da grade, o índice de saída permanece inalterado.
+- A função só identifica o slot. Não altera foco/seleção e não executa ações.
+
+A camada Win32 deverá converter as coordenadas físicas recebidas em mensagens de mouse para DIP com `deck_ui_px_to_dip` antes de chamar o contrato. O resultado deverá ser encaminhado à camada de estado/command, mantendo a execução fora do hit-testing.
+
+Os testes cobrem o centro de todos os 15 slots, limites semiabertos, gaps, área externa, layout corrompido e preservação do valor de saída. O contrato continua independente do runtime Win32 e não constitui validação visual interativa.
