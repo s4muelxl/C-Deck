@@ -2,6 +2,7 @@
 #include "actions.h"
 #include "profiles.h"
 #include "action_library.h"
+#include "macros.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,8 @@
 #include <shellapi.h>
 #include <commdlg.h>
 #include <wchar.h>
+#include <stdlib.h>
+#include <objbase.h>
 
 #define IDI_APP_ICON        101
 #define CLASS_NAME          L"CDeckMainWindow"
@@ -78,6 +81,7 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_LIB_NAVIGATION   1306
 #define ID_LIB_MULTIACTION  1307
 #define ID_LIBRARY_ACTION_BASE 5200
+#define ID_LIBRARY_MACRO_BASE 5300
 
 // Settings Dialog IDs
 #define ID_SET_STARTUP_CHK   2101
@@ -96,6 +100,7 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_HOTKEY_DOWN      2
 #define ID_HOTKEY_MUTE      3
 #define WM_TRAYICON         (WM_APP + 1)
+#define WM_MACRO_COMPLETE   (WM_APP + 2)
 #define ID_VOLUME_TIMER     1
 
 // Global application state: all 15 keys share one persistent model.
@@ -103,6 +108,10 @@ static DeckConfig g_config;
 static char g_config_path[MAX_PATH * 4];
 static DeckProfileStore g_profile_store;
 static int g_profile_store_ready;
+static DeckMacroStore g_macro_store;
+static int g_macro_store_ready;
+static HANDLE g_macro_thread;
+static volatile LONG g_macro_cancelled;
 static HWND g_main_window;
 static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
@@ -160,6 +169,7 @@ static int apply_profile(const wchar_t *profile);
 static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
 static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category);
+static void start_macro_execution(HWND hwnd, unsigned int macro_id);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
     if (!wide || max_chars <= 0) return;
@@ -210,6 +220,115 @@ static void report_result(ActionResult result, const wchar_t *success_message) {
         default: set_status(L"Não foi possível executar esta ação."); break;
     }
 }
+typedef struct MacroThreadArgs {
+    HWND hwnd;
+    DeckMacro macro;
+    volatile LONG *cancelled;
+} MacroThreadArgs;
+
+static int macro_cancel_check(void *context) {
+    volatile LONG *cancelled = (volatile LONG *)context;
+    return cancelled && InterlockedCompareExchange(cancelled, 0, 0) != 0;
+}
+
+static int macro_action_executor(const char *action_id, void *context) {
+    (void)context;
+    if (strcmp(action_id, "volume_up") == 0) return action_volume_step(0.05f) == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "volume_down") == 0) return action_volume_step(-0.05f) == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "audio_mute") == 0) return action_toggle_mute() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "mic_mute") == 0) return action_toggle_mic_mute() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_play_pause") == 0) return action_media_play_pause() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_previous") == 0) return action_media_previous() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_next") == 0) return action_media_next() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "sound_devices") == 0) return action_open_sound_devices() == ACTION_SUCCESS ? 0 : 1;
+    return 1;
+}
+
+static int macro_open_executor(const char *target, void *context) {
+    DeckApp app;
+    (void)context;
+    ZeroMemory(&app, sizeof(app));
+    if (!target || strlen(target) >= sizeof(app.path)) return 1;
+    strcpy(app.name, "Macro target");
+    strcpy(app.path, target);
+    app.configured = 1;
+    return action_launch_app(&app) == ACTION_SUCCESS ? 0 : 1;
+}
+
+static int macro_delay_executor(unsigned int milliseconds, void *context) {
+    unsigned int remaining = milliseconds;
+    while (remaining > 0) {
+        DWORD chunk;
+        if (macro_cancel_check(context)) return 1;
+        chunk = remaining > 50u ? 50u : (DWORD)remaining;
+        Sleep(chunk);
+        remaining -= chunk;
+    }
+    return 0;
+}
+
+static DWORD WINAPI macro_worker_thread(LPVOID parameter) {
+    MacroThreadArgs *args = (MacroThreadArgs *)parameter;
+    HRESULT com_result;
+    DeckMacroResult result;
+
+    if (!args) return 1;
+    com_result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE) {
+        result = DECK_MACRO_EXECUTION_FAILED;
+    } else {
+        result = macro_execute(&args->macro, macro_action_executor, macro_open_executor,
+                               macro_delay_executor, macro_cancel_check, (void *)args->cancelled);
+    }
+    PostMessageW(args->hwnd, WM_MACRO_COMPLETE, (WPARAM)result, 0);
+    if (SUCCEEDED(com_result)) CoUninitialize();
+    HeapFree(GetProcessHeap(), 0, args);
+    return 0;
+}
+
+static void start_macro_execution(HWND hwnd, unsigned int macro_id) {
+    const DeckMacro *macro;
+    MacroThreadArgs *args;
+    DWORD wait_result;
+
+    if (!g_macro_store_ready) {
+        set_status(L"Arquivo de macros inválido ou inacessível; o arquivo original foi preservado.");
+        return;
+    }
+    macro = macro_store_get(&g_macro_store, macro_id);
+    if (!macro) {
+        set_status(L"Macro não encontrada ou inválida.");
+        return;
+    }
+
+    if (g_macro_thread) {
+        wait_result = WaitForSingleObject(g_macro_thread, 0);
+        if (wait_result == WAIT_TIMEOUT) {
+            set_status(L"Já existe uma Multi Action em execução.");
+            return;
+        }
+        CloseHandle(g_macro_thread);
+        g_macro_thread = NULL;
+    }
+
+    InterlockedExchange(&g_macro_cancelled, 0);
+    args = (MacroThreadArgs *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*args));
+    if (!args) {
+        set_status(L"Memória insuficiente para iniciar a macro.");
+        return;
+    }
+    args->hwnd = hwnd;
+    args->macro = *macro;
+    args->cancelled = &g_macro_cancelled;
+    g_macro_thread = CreateThread(NULL, 0, macro_worker_thread, args, 0, NULL);
+    if (!g_macro_thread) {
+        HeapFree(GetProcessHeap(), 0, args);
+        set_status(L"Não foi possível iniciar a execução da macro.");
+        return;
+    }
+    set_status(L"Multi Action em execução...");
+}
+
 
 static int save_active_profile(void) {
     /* Never overwrite an unreadable/future-version profile file with fallback defaults. */
@@ -381,6 +500,14 @@ static void execute_key_action(int key_index) {
             result = action_get_mic_mute(&mic_muted);
             if (result != ACTION_SUCCESS) report_result(result, L"Microfone alternado.");
             else set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
+        }
+    } else if (strncmp(app->path, "action:macro:", 13) == 0) {
+        char *end = NULL;
+        unsigned long macro_id = strtoul(app->path + 13, &end, 10);
+        if (!end || *end != '\0' || macro_id == 0 || macro_id > DECK_MACRO_COUNT) {
+            set_status(L"Referência de macro inválida.");
+        } else {
+            start_macro_execution(g_main_window, (unsigned int)macro_id);
         }
     } else if (strcmp(app->path, "action:sound_devices") == 0) {
         report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
@@ -1703,11 +1830,25 @@ static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
         return;
     }
 
-    if (count == 0) {
-        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
-                    category == DECK_LIBRARY_MULTIACTION
-                        ? L"Motor de macros ainda não disponível"
-                        : L"Nenhuma ação cadastrada nesta categoria");
+    if (category == DECK_LIBRARY_MULTIACTION) {
+        size_t macro_count = g_macro_store_ready ? macro_store_count(&g_macro_store) : 0;
+        if (!g_macro_store_ready) {
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Arquivo de macros inválido ou inacessível");
+        } else if (macro_count == 0) {
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Nenhuma macro. Consulte macros.cfg.example");
+        } else {
+            for (unsigned int id = 1; id <= DECK_MACRO_COUNT; ++id) {
+                const DeckMacro *macro = macro_store_get(&g_macro_store, id);
+                wchar_t macro_name[DECK_MACRO_NAME_MAX];
+                wchar_t label[DECK_MACRO_NAME_MAX + 32];
+                if (!macro) continue;
+                utf8_to_wide(macro->name, macro_name, DECK_MACRO_NAME_MAX);
+                swprintf(label, sizeof(label) / sizeof(label[0]), L"Adicionar macro: %ls", macro_name);
+                AppendMenuW(menu, MF_STRING, ID_LIBRARY_MACRO_BASE + id - 1, label);
+            }
+        }
+    } else if (count == 0) {
+        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Nenhuma ação cadastrada nesta categoria");
     } else {
         for (size_t i = 0; i < count; ++i) {
             const DeckLibraryAction *action = action_library_get(category, i);
@@ -1725,9 +1866,50 @@ static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
     PostMessageW(hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
 
-    if (count == 0) {
-        if (category == DECK_LIBRARY_MULTIACTION) {
-            set_status(L"Multi Action ficará disponível após a implementação do motor de macros.");
+    if (category == DECK_LIBRARY_MULTIACTION) {
+        unsigned int macro_id;
+        const DeckMacro *macro;
+        DeckApp previous;
+        DeckApp *target;
+        if (command < ID_LIBRARY_MACRO_BASE ||
+            command >= ID_LIBRARY_MACRO_BASE + DECK_MACRO_COUNT ||
+            g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) {
+            if (!g_macro_store_ready) set_status(L"Arquivo de macros inválido; não foi sobrescrito.");
+            else if (macro_store_count(&g_macro_store) == 0) set_status(L"Copie macros.cfg.example para macros.cfg para começar.");
+            return;
+        }
+        macro_id = command - ID_LIBRARY_MACRO_BASE + 1;
+        macro = macro_store_get(&g_macro_store, macro_id);
+        if (!macro) {
+            set_status(L"Macro não encontrada ou inválida.");
+            return;
+        }
+        previous = g_config.apps[g_selected_key];
+        target = &g_config.apps[g_selected_key];
+        ZeroMemory(target, sizeof(*target));
+        if (strlen(macro->name) >= sizeof(target->name)) {
+            *target = previous;
+            set_status(L"Nome da macro excede o limite do slot.");
+            return;
+        }
+        strcpy(target->name, macro->name);
+        snprintf(target->path, sizeof(target->path), "action:macro:%u", macro_id);
+        strcpy(target->icon_path, "icon:15");
+        target->configured = 1;
+        if (!save_active_profile()) {
+            *target = previous;
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Não foi possível salvar a macro. A configuração anterior foi restaurada.");
+            return;
+        }
+        update_inspector_ui();
+        InvalidateRect(hwnd, NULL, FALSE);
+        {
+            wchar_t status[128];
+            swprintf(status, sizeof(status) / sizeof(status[0]),
+                     L"Macro adicionada e salva na tecla %d.", g_selected_key + 1);
+            set_status(status);
         }
         return;
     }
@@ -2399,6 +2581,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             update_inspector_ui();
             return 0;
 
+        case WM_MACRO_COMPLETE:
+            if (g_macro_thread) {
+                CloseHandle(g_macro_thread);
+                g_macro_thread = NULL;
+            }
+            if ((DeckMacroResult)wparam == DECK_MACRO_OK) set_status(L"Multi Action concluída.");
+            else if ((DeckMacroResult)wparam == DECK_MACRO_CANCELLED) set_status(L"Multi Action cancelada.");
+            else set_status(L"Multi Action interrompida após uma falha. Confira os destinos e ações.");
+            update_inspector_ui();
+            return 0;
+
         case WM_TRAYICON:
             if (lparam == WM_LBUTTONDBLCLK) {
                 remove_tray_icon();
@@ -2436,6 +2629,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
 
         case WM_DESTROY:
+            InterlockedExchange(&g_macro_cancelled, 1);
+            if (g_macro_thread) {
+                WaitForSingleObject(g_macro_thread, 1000);
+                CloseHandle(g_macro_thread);
+                g_macro_thread = NULL;
+            }
             KillTimer(hwnd, ID_VOLUME_TIMER);
             UnregisterHotKey(hwnd, ID_HOTKEY_UP);
             UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
@@ -2490,6 +2689,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
         g_enable_hotkeys = 1;
         g_window_opacity = 100;
     }
+    g_macro_store_ready = macro_store_load(&g_macro_store, g_config_path);
 
     {
         INITCOMMONCONTROLSEX controls;
@@ -2551,6 +2751,8 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
         set_status(L"Não foi possível inicializar o perfil selecionado; o perfil padrão foi carregado. Verifique as permissões da pasta config.");
     } else if (g_profile_store.preferences_recovered) {
         set_status(L"Preferências inválidas; padrões carregados. O arquivo original foi preservado.");
+    } else if (!g_macro_store_ready) {
+        set_status(L"Arquivo de macros inválido ou inacessível; o arquivo original foi preservado.");
     }
 
     while (GetMessageW(&message, NULL, 0, 0) > 0) {
