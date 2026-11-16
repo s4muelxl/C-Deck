@@ -125,7 +125,7 @@ int main(void) {
            (COLORREF)deck_ui_rgb_to_colorref(0x12161Bu));
 
     /* The selected indicator and independent keyboard-focus ring stay visible. */
-    assert(pixel_at(memory_dc, &slot_seven, 8,
+    assert(pixel_at(memory_dc, &slot_seven, 13,
                     (slot_seven.bottom - slot_seven.top) / 2) ==
            (COLORREF)deck_ui_rgb_to_colorref(0x9DFF00u));
     assert(pixel_at(memory_dc, &slot_zero, 5,
