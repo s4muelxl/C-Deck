@@ -209,6 +209,29 @@ int main(void) {
         "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
         "enable_hotkeys=1\nwindow_opacity=100\nwindow_opacity=90\n",
         "window_opacity=100", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[future]\nmarker=unknown-section\n",
+        "marker=unknown-section", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\nunknown_meta_key=1\n[preferences]\n"
+        "active_profile=0\nminimize_to_tray=1\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "unknown_meta_key=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\nminimize_to_tray=1\n"
+        "enable_hotkeys=1\nwindow_opacity=100\nfuture_preference=1\n",
+        "future_preference=1", &initial);
+    assert_invalid_preferences_preserved(
+        "[meta]\nversion=1\n[preferences]\nactive_profile=0\n"
+        "this-is-not-a-key\nminimize_to_tray=1\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "this-is-not-a-key", &initial);
+    assert_invalid_preferences_preserved(
+        "orphan=value\n[meta]\nversion=1\n[preferences]\nactive_profile=0\n"
+        "minimize_to_tray=1\nenable_hotkeys=1\nwindow_opacity=100\n",
+        "orphan=value", &initial);
+    assert_invalid_preferences_preserved(
+        "[preferences]\nactive_profile=0\nminimize_to_tray=1\nenable_hotkeys=1\n"
+        "window_opacity=100\n[meta]\nversion=1\n",
+        "active_profile=0", &initial);
 
     remove_profile_files("test-profile");
 
