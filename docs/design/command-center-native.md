@@ -360,3 +360,19 @@ A paleta semântica ganhou três papéis explícitos:
 A consulta deve ocorrer na inicialização e novamente após WM_SETTINGCHANGE quando as configurações de acessibilidade mudarem. Se a paleta mudar, o chamador deve recriar o cache GDI do renderer (destruir e inicializar novamente) antes da próxima pintura. O adaptador não altera configurações do Windows, não executa ações e ainda não está conectado ao WndProc da aplicação.
 
 A suíte Windows/MinGW usa cores de sistema sintéticas para validar o mapeamento determinístico e consulta o estado real do runner sem ativar/desativar High Contrast globalmente. Isso valida a conversão e a API Win32; não substitui inspeção de contraste em um perfil High Contrast interativo.
+
+
+### Transição completa de High Contrast (16/11/2026)
+
+A auditoria do adaptador Win32 identificou que a consulta de baixo nível deck_ui_win32_theme_query_palette preserva a paleta recebida quando High Contrast está desativado. Esse contrato é útil para consultas pontuais, mas não é suficiente para uma atualização de tema: se o chamador passar a própria paleta High Contrast atual, desativar o recurso no Windows deixaria as cores de acessibilidade aplicadas indefinidamente.
+
+Para evitar esse estado preso, foram adicionados dois contratos:
+
+- deck_ui_win32_theme_palette_resolve: resolução determinística a partir de uma paleta normal estável e de um snapshot de cores do sistema. Com High Contrast ativo, usa os papéis semânticos do Windows; desativado, restaura a paleta normal completa. Aceita entrada/saída no mesmo objeto e mantém a saída intacta para argumentos inválidos.
+- deck_ui_win32_theme_refresh_palette: consulta SPI_GETHIGHCONTRAST e resolve sempre a partir da paleta normal estável. Em WM_SETTINGCHANGE, o chamador deve comparar o resultado com a paleta ativa; se mudou, deve construir um novo cache GDI e só então trocar o renderer na thread de UI. Falhas da API preservam a paleta resolvida anterior.
+
+A função anterior deck_ui_win32_theme_query_palette permanece como consulta de baixo nível, com sua semântica original de não alterar a paleta quando o recurso está inativo. Para o ciclo de vida de tema da janela, deve-se preferir refresh_palette.
+
+Os testes agora cobrem a transição High Contrast ligado → desligado, restauração da paleta normal, resolução ativa com cores sintéticas, aliasing de entrada/saída, argumentos inválidos, preservação transacional em erro e consulta do estado real do runner. Os testes não alteram as preferências globais de acessibilidade do Windows.
+
+**Limite de integração:** os contratos continuam isolados da janela de produção. A conexão de WM_SETTINGCHANGE, a comparação com a paleta ativa e a troca do cache GDI dependem da coordenação com a PR #16, que altera src/interface.c. Não se deve afirmar que a janela já reage dinamicamente à mudança de High Contrast até essa integração e um smoke test em sessão gráfica Windows.
