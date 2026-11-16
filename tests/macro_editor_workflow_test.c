@@ -221,7 +221,7 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
                      MAKEWPARAM(ID_EDITOR_MACRO_COMBO, CBN_SELCHANGE), (LPARAM)combo);
         GetWindowTextW(name_edit, current_name,
                        (int)(sizeof(current_name) / sizeof(current_name[0])));
-        if (wcscmp(current_name, L"Macro editada pelo teste") != 0 ||
+        if (wcscmp(current_name, L"Rascunho antes da troca") != 0 ||
             !click_control(editor, ID_EDITOR_SAVE)) {
             InterlockedExchange(&driver->failure_stage, 17);
             InterlockedExchange(&driver->failed, 1);
