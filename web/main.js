@@ -282,6 +282,12 @@
           case 'ArrowDown':
             if (row < 2) nextIndex = index + 3;
             break;
+          case 'Home':
+            nextIndex = (event.ctrlKey || event.metaKey) ? 0 : row * 3;
+            break;
+          case 'End':
+            nextIndex = (event.ctrlKey || event.metaKey) ? buttons.length - 1 : row * 3 + 2;
+            break;
           default:
             return;
         }
