@@ -232,3 +232,7 @@ O contrato nativo C11 espelha o mesmo modelo com `deck_ui_grid_focus_boundary`: 
 ## Acento de assinatura reservado ao estado selecionado (16/11/2026)
 
 A landing page mantém o acento neutro (`#EEF1F5`) para foco genérico, links e controles. O verde-lima oficial (`#9DFF00`) fica reservado ao estado ativo/selecionado da tecla de reprodução no simulador, alinhando a demonstração ao token `DECK_UI_STATE_SELECTED` da paleta C11 sem colorir indiscriminadamente a interface. O indicador usa uma borda e um brilho discretos; o ícone também assume o acento enquanto a reprodução simulada está ativa. Em `forced-colors`, o estado usa a cor de sistema `Highlight`, preservando a semântica em alto contraste.
+
+## Feedback persistente do simulador
+
+A barra de status do simulador web distingue mensagens transitórias de estado demonstrativo estável. Após o feedback temporário, o texto deve refletir a combinação atual de reprodução simulada e mute simulado; não deve retornar a um estado genérico de pronto enquanto a reprodução estiver marcada como ativa. Os rótulos sempre incluem o contexto de simulação e não representam estado do player ou do Windows.
