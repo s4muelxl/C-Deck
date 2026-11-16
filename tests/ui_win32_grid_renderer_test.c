@@ -155,30 +155,6 @@ int main(void) {
                DECK_UI_WIN32_RENDER_OK);
     }
 
-    /* A minimum-size compact layout must keep its icon clear of its label. */
-    {
-        DeckUiLayout compact_layout;
-        DeckUiLayoutInput compact_input = { 320, 270, 1 };
-        DeckUiViewState compact_view;
-        DeckUiGridFrame compact_frame;
-        const wchar_t *compact_labels[DECK_UI_GRID_SLOT_COUNT] = { NULL };
-        HICON compact_icons[DECK_UI_GRID_SLOT_COUNT] = { NULL };
-
-        assert(deck_ui_layout_compute(&compact_input, &compact_layout) ==
-               DECK_UI_LAYOUT_OK);
-        assert(compact_layout.slot_size_dip == 45);
-        deck_ui_view_state_init(&compact_view);
-        compact_labels[0] = L"Compact";
-        compact_icons[0] = icons[13];
-        assert(deck_ui_grid_frame_build(&compact_layout, &compact_view,
-                                        &palette, NULL, &compact_frame) ==
-               DECK_UI_GRID_FRAME_OK);
-        assert(deck_ui_win32_grid_renderer_paint(
-                   &renderer, memory_dc, &compact_frame,
-                   compact_labels, compact_icons) ==
-               DECK_UI_WIN32_RENDER_OK);
-    }
-
     resources_after_paint = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     assert(resources_after_paint == resources_after_warmup);
     assert(resources_after_init > resources_before_init);
@@ -211,6 +187,33 @@ int main(void) {
     assert(pixel_at(memory_dc, &slot_zero, 5,
                     (slot_zero.bottom - slot_zero.top) / 2) ==
            (COLORREF)deck_ui_rgb_to_colorref(0xFFFFFFu));
+
+    /* A minimum-size compact layout must keep its icon clear of its label. */
+    {
+        DeckUiLayout compact_layout;
+        DeckUiLayoutInput compact_input = { 320, 270, 1 };
+        DeckUiViewState compact_view;
+        DeckUiGridFrame compact_frame;
+        const wchar_t *compact_labels[DECK_UI_GRID_SLOT_COUNT] = { NULL };
+        HICON compact_icons[DECK_UI_GRID_SLOT_COUNT] = { NULL };
+
+        assert(deck_ui_layout_compute(&compact_input, &compact_layout) ==
+               DECK_UI_LAYOUT_OK);
+        assert(compact_layout.slot_size_dip == 45);
+        deck_ui_view_state_init(&compact_view);
+        compact_labels[0] = L"Compact";
+        compact_icons[0] = icons[13];
+        assert(deck_ui_grid_frame_build(&compact_layout, &compact_view,
+                                        &palette, NULL, &compact_frame) ==
+               DECK_UI_GRID_FRAME_OK);
+        assert(deck_ui_win32_grid_renderer_paint(
+                   &renderer, memory_dc, &compact_frame,
+                   compact_labels, compact_icons) ==
+               DECK_UI_WIN32_RENDER_OK);
+    }
+
+    resources_after_paint = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    assert(resources_after_paint == resources_after_warmup);
 
     {
         DeckUiGridFrame invalid_frame = frame;
