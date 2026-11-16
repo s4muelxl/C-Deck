@@ -46,7 +46,7 @@ int main(void) {
     memset(&app, 0, sizeof(app));
     app.configured = 1;
     {
-        const char prefix[] = "C:\\\\";
+        const char prefix[] = "C:\\";
         const char suffix[] = ".exe";
         size_t prefix_length = sizeof(prefix) - 1;
         size_t suffix_length = sizeof(suffix) - 1;
@@ -61,7 +61,7 @@ int main(void) {
         assert(strlen(app.path) == DECK_PATH_TEXT_MAX - 1);
         assert(action_prepare_launch_target(&app, actual, DECK_PATH_WIDE_MAX) == ACTION_SUCCESS);
         assert(wcslen(actual) == prefix_length + payload_length / 2 + suffix_length);
-        assert(actual[prefix_length] == L'\\u00e9');
+        assert(actual[prefix_length] == (wchar_t)0x00E9);
     }
 
     memset(&app, 0, sizeof(app));
