@@ -28,7 +28,7 @@ static int file_contains(const char *path, const char *needle) {
 }
 
 static void remove_utf8_profile_files(const char *prefix) {
-    wchar_t wide_path[DECK_PROFILE_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
     char path[256];
     const char *suffixes[] = {
         "-apps.cfg", "-apps.cfg.bak",
@@ -40,17 +40,17 @@ static void remove_utf8_profile_files(const char *prefix) {
     for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i) {
         snprintf(path, sizeof(path), "%s%s", prefix, suffixes[i]);
         if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1,
-                                wide_path, DECK_PROFILE_PATH_MAX) > 0) DeleteFileW(wide_path);
+                                wide_path, DECK_PATH_WIDE_MAX) > 0) DeleteFileW(wide_path);
         snprintf(path, sizeof(path), "%s%s.tmp", prefix, suffixes[i]);
         if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1,
-                                wide_path, DECK_PROFILE_PATH_MAX) > 0) DeleteFileW(wide_path);
+                                wide_path, DECK_PATH_WIDE_MAX) > 0) DeleteFileW(wide_path);
     }
 }
 
 static void assert_invalid_preferences_preserved(const char *contents,
                                                    const char *marker,
                                                    const DeckConfig *initial) {
-    DeckProfileStore store;
+    static DeckProfileStore store;
     DeckConfig active;
     write_text("test-profile-apps-preferences.cfg", contents);
     assert(profiles_load(&store, "test-profile-apps.cfg", initial, &active) == 1);
@@ -80,8 +80,8 @@ int main(void) {
     DeckConfig initial;
     DeckConfig active;
     DeckConfig reloaded_active;
-    DeckProfileStore store;
-    DeckProfileStore reloaded;
+    static DeckProfileStore store;
+    static DeckProfileStore reloaded;
     DeckPreferences next;
 
     remove_profile_files("test-profile");
@@ -97,7 +97,7 @@ int main(void) {
 
     /* A missing file is recoverable, but a broken parent path is a storage error. */
     {
-        DeckProfileStore invalid_store;
+        static DeckProfileStore invalid_store;
         DeckConfig invalid_active;
         write_text("test-profile-parent-blocker", "not a directory");
         assert(profiles_load(&invalid_store,
