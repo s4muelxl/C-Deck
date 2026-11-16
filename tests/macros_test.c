@@ -234,7 +234,7 @@ int main(void) {
             offset += 2;
         }
         if (offset < remaining) max_target[prefix_length + offset++] = 'x';
-        max_target[prefix_length + offset] = '\\0';
+        max_target[prefix_length + offset] = '\0';
         assert(strlen(max_target) == DECK_MACRO_VALUE_MAX - 1);
         assert(snprintf(expression, sizeof(expression), "open:%s", max_target) > 0);
         assert(macro_step_parse(expression, &step));
@@ -246,7 +246,7 @@ int main(void) {
         boundary_macro.steps[0] = step;
         assert(macro_validate(&boundary_macro));
         open_calls = 0;
-        last_open_target[0] = '\\0';
+        last_open_target[0] = '\0';
         cancel_now = 0;
         assert(macro_execute(&boundary_macro, test_action, test_open, test_delay,
                              test_cancel, NULL) == DECK_MACRO_OK);
@@ -255,7 +255,7 @@ int main(void) {
         memcpy(oversized_target, prefix, prefix_length);
         memset(oversized_target + prefix_length, 'x',
                DECK_MACRO_VALUE_MAX - prefix_length);
-        oversized_target[DECK_MACRO_VALUE_MAX] = '\\0';
+        oversized_target[DECK_MACRO_VALUE_MAX] = '\0';
         assert(strlen(oversized_target) == DECK_MACRO_VALUE_MAX);
         assert(snprintf(oversized_expression, sizeof(oversized_expression),
                         "open:%s", oversized_target) > 0);
