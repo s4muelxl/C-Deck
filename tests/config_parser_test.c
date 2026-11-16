@@ -11,7 +11,7 @@ static void write_config(const char *contents) {
 }
 
 static int file_contains(const char *path, const char *needle) {
-    char line[512];
+    char line[DECK_CONFIG_LINE_MAX];
     FILE *file = fopen(path, "r");
     int found = 0;
     if (!file) return 0;
@@ -23,8 +23,8 @@ static int file_contains(const char *path, const char *needle) {
 }
 
 int main(void) {
-    DeckConfig config;
-    DeckConfig loaded;
+    static DeckConfig config;
+    static DeckConfig loaded;
 
     config_set_defaults(&config);
     assert(config.apps[0].configured == 1);
@@ -158,8 +158,50 @@ int main(void) {
         assert(config_load("test-apps.cfg", &config) == 0);
     }
 
+    /* v3 remains readable; the next explicit save upgrades it to v4 with a backup. */
+    {
+        char long_path[DECK_PATH_TEXT_MAX];
+        char long_icon[DECK_PATH_TEXT_MAX];
+        char contents[DECK_CONFIG_LINE_MAX * 2];
+        int written;
+        strcpy(long_path, "C:\\Apps\\");
+        for (int i = 0; i < 400; ++i) strcat(long_path, "音");
+        strcat(long_path, ".exe");
+        strcpy(long_icon, "C:\\Icons\\");
+        for (int i = 0; i < 350; ++i) strcat(long_icon, "アイ");
+        strcat(long_icon, ".ico");
+        written = snprintf(contents, sizeof(contents),
+                           "[meta]\\nversion=3\\n[app1]\\nname=Long path\\npath=%s\\nicon=%s\\n",
+                           long_path, long_icon);
+        assert(written > 0 && (size_t)written < sizeof(contents));
+        write_config(contents);
+        assert(config_load("test-apps.cfg", &loaded) == 1);
+        assert(strlen(loaded.apps[0].path) > DECK_TEXT_MAX);
+        assert(strlen(loaded.apps[0].icon_path) > DECK_TEXT_MAX);
+        assert(strcmp(loaded.apps[0].path, long_path) == 0);
+        assert(strcmp(loaded.apps[0].icon_path, long_icon) == 0);
+        assert(config_save("test-apps.cfg", &loaded) == 1);
+        assert(file_contains("test-apps.cfg", "version=4"));
+        assert(file_contains("test-apps.cfg.bak", "version=3"));
+        assert(config_load("test-apps.cfg", &config) == 1);
+        assert(strcmp(config.apps[0].path, long_path) == 0);
+        assert(strcmp(config.apps[0].icon_path, long_icon) == 0);
+    }
+
+    /* Reject path and icon fields above their new UTF-8 byte capacity. */
+    {
+        char too_long[DECK_CONFIG_LINE_MAX + 64];
+        const char *prefix = "[meta]\\nversion=4\\n[app1]\\nname=Too long\\npath=";
+        size_t offset = strlen(prefix);
+        memcpy(too_long, prefix, offset);
+        memset(too_long + offset, 'P', DECK_PATH_TEXT_MAX);
+        strcpy(too_long + offset + DECK_PATH_TEXT_MAX, "\\n");
+        write_config(too_long);
+        assert(config_load("test-apps.cfg", &config) == 0);
+    }
+
     /* Invalid UTF-8 must not enter the in-memory configuration. */
-    write_config("[meta]\nversion=3\n[app1]\nname=Invalid \xC3\x28\npath=bad.exe\n");
+    write_config("[meta]\\nversion=3\\n[app1]\\nname=Invalid \\xC3\\x28\\npath=bad.exe\\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
     memset(&config, 0, sizeof(config));
@@ -185,7 +227,7 @@ int main(void) {
     assert(loaded.apps[14].configured == 1);
     assert(strcmp(loaded.apps[14].path, "example.exe") == 0);
     assert(file_contains("test-apps-saved.cfg", "[meta]"));
-    assert(file_contains("test-apps-saved.cfg", "version=3"));
+    assert(file_contains("test-apps-saved.cfg", "version=4"));
     assert(file_contains("test-apps-saved.cfg", "[app15]"));
 
     strcpy(config.apps[6].name, "Editor atualizado");
