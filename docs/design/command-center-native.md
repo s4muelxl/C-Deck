@@ -347,3 +347,16 @@ A suíte `tests/ui_win32_input_test.c` foi adicionada ao workflow Windows/MinGW 
 ### Cancelamento explícito de interação Win32 (16/11/2026)
 
 O adaptador também trata `WM_CANCELMODE`, mensagem enviada pelo Windows quando a interação atual precisa ser encerrada antes de outro modo assumir o controle (por exemplo, abertura de menu ou transição modal). O handler limpa hover/pressed, cancela tanto o pressionamento do mouse quanto o de Space e nunca converte cancelamento em seleção. Se havia captura do mouse, o resultado solicita que o WndProc chame `ReleaseCapture`; a mensagem subsequente `WM_CAPTURECHANGED` é inofensiva porque o estado lógico já foi limpo. Os testes cobrem cancelamento de mouse e teclado, preservação da seleção anterior e ausência de seleção acidental.
+
+
+## Acessibilidade nativa — High Contrast do Windows (16/11/2026)
+
+O adaptador src/ui_win32_theme.c / src/ui_win32_theme.h consulta SPI_GETHIGHCONTRAST sem alterar as preferências do sistema. Quando HCF_HIGHCONTRASTON está ativo, ele monta uma paleta a partir das cores de sistema (GetSysColor); quando o recurso não está ativo, retorna DECK_UI_WIN32_THEME_NOT_ACTIVE e deixa a paleta de entrada intacta. Falha da API e argumentos inválidos também não modificam a saída.
+
+A paleta semântica ganhou três papéis explícitos:
+- TEXT_ON_ACCENT: texto sobre a superfície selecionada. No tema normal mantém o mesmo valor do texto primário; no High Contrast usa COLOR_HIGHLIGHTTEXT, pareado com COLOR_HIGHLIGHT.
+- DANGER_BACKGROUND e WARNING_BACKGROUND: fundos próprios para estados semânticos. No tema normal preservam a superfície grafite atual; no High Contrast usam COLOR_WINDOW e o par COLOR_INFOBK / COLOR_INFOTEXT, evitando aplicar texto de aviso sobre uma superfície arbitrária.
+
+A consulta deve ocorrer na inicialização e novamente após WM_SETTINGCHANGE quando as configurações de acessibilidade mudarem. Se a paleta mudar, o chamador deve recriar o cache GDI do renderer (destruir e inicializar novamente) antes da próxima pintura. O adaptador não altera configurações do Windows, não executa ações e ainda não está conectado ao WndProc da aplicação.
+
+A suíte Windows/MinGW usa cores de sistema sintéticas para validar o mapeamento determinístico e consulta o estado real do runner sem ativar/desativar High Contrast globalmente. Isso valida a conversão e a API Win32; não substitui inspeção de contraste em um perfil High Contrast interativo.

@@ -14,10 +14,13 @@ void deck_ui_palette_init(DeckUiPalette *palette) {
         0xF3F5F7u, /* primary text */
         0xA5AFBAu, /* secondary text */
         0x69737Fu, /* disabled text */
+        0xF3F5F7u, /* text on selected/accent surface */
         0x9DFF00u, /* official C-Deck lime accent */
         0x18281Au, /* selected surface */
         0xF06B6Bu, /* danger */
+        0x12161Bu, /* danger surface */
         0xE6B85Cu, /* warning */
+        0x12161Bu, /* warning surface */
         0xFFFFFFu  /* keyboard focus */
     };
 
@@ -69,7 +72,7 @@ DeckUiStyle deck_ui_style_for_state(const DeckUiPalette *palette, DeckUiVisualSt
                               DECK_UI_COLOR_BORDER_STRONG, DECK_UI_STYLE_NONE);
         case DECK_UI_STATE_SELECTED:
             return make_style(palette, DECK_UI_COLOR_ACCENT_BACKGROUND,
-                              DECK_UI_COLOR_TEXT_PRIMARY, DECK_UI_COLOR_ACCENT,
+                              DECK_UI_COLOR_TEXT_ON_ACCENT, DECK_UI_COLOR_ACCENT,
                               DECK_UI_COLOR_ACCENT, DECK_UI_STYLE_NONE);
         case DECK_UI_STATE_DISABLED:
             return make_style(palette, DECK_UI_COLOR_SURFACE_1,
@@ -80,11 +83,11 @@ DeckUiStyle deck_ui_style_for_state(const DeckUiPalette *palette, DeckUiVisualSt
                               DECK_UI_COLOR_TEXT_PRIMARY, DECK_UI_COLOR_FOCUS,
                               DECK_UI_COLOR_FOCUS, DECK_UI_STYLE_FOCUS_RING);
         case DECK_UI_STATE_ERROR:
-            return make_style(palette, DECK_UI_COLOR_SURFACE_1,
+            return make_style(palette, DECK_UI_COLOR_DANGER_BACKGROUND,
                               DECK_UI_COLOR_DANGER, DECK_UI_COLOR_DANGER,
                               DECK_UI_COLOR_DANGER, DECK_UI_STYLE_NONE);
         case DECK_UI_STATE_WARNING:
-            return make_style(palette, DECK_UI_COLOR_SURFACE_1,
+            return make_style(palette, DECK_UI_COLOR_WARNING_BACKGROUND,
                               DECK_UI_COLOR_WARNING, DECK_UI_COLOR_WARNING,
                               DECK_UI_COLOR_WARNING, DECK_UI_STYLE_NONE);
         case DECK_UI_STATE_NORMAL:

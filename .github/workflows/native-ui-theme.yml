@@ -6,6 +6,9 @@ on:
       - 'src/ui_theme.c'
       - 'src/ui_theme.h'
       - 'tests/ui_theme_test.c'
+      - 'src/ui_win32_theme.c'
+      - 'src/ui_win32_theme.h'
+      - 'tests/ui_win32_theme_test.c'
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
@@ -36,6 +39,9 @@ on:
       - 'src/ui_theme.c'
       - 'src/ui_theme.h'
       - 'tests/ui_theme_test.c'
+      - 'src/ui_win32_theme.c'
+      - 'src/ui_win32_theme.h'
+      - 'tests/ui_win32_theme_test.c'
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
@@ -112,6 +118,8 @@ jobs:
           mkdir -p build
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c tests/ui_theme_test.c -lm -o build/ui-theme-test.exe
           ./build/ui-theme-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_win32_theme.c tests/ui_win32_theme_test.c -luser32 -o build/ui-win32-theme-test.exe
+          ./build/ui-win32-theme-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o build/ui-layout-test.exe
           ./build/ui-layout-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o build/ui-navigation-test.exe

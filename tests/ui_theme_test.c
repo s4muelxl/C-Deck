@@ -33,6 +33,9 @@ static void test_palette_tokens(void) {
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_CANVAS) == 0x0B0D10u);
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_SURFACE_1) == 0x12161Bu);
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_TEXT_PRIMARY) == 0xF3F5F7u);
+    assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_TEXT_ON_ACCENT) == 0xF3F5F7u);
+    assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_DANGER_BACKGROUND) == 0x12161Bu);
+    assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_WARNING_BACKGROUND) == 0x12161Bu);
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_ACCENT) == 0x9DFF00u);
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_DANGER) == 0xF06B6Bu);
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_WARNING) == 0xE6B85Cu);
@@ -85,7 +88,10 @@ static void test_component_states(void) {
     assert(hover.fill == 0x222A33u && hover.border == 0x46515Eu);
     assert(pressed.fill == 0x0B0D10u);
     assert(selected.fill == 0x18281Au);
+    assert(selected.text == 0xF3F5F7u);
     assert(selected.border == 0x9DFF00u && selected.indicator == 0x9DFF00u);
+    assert(error.fill == 0x12161Bu);
+    assert(warning.fill == 0x12161Bu);
     assert(disabled.text == 0x69737Fu);
     assert(disabled.border != 0x9DFF00u);
     assert(focused.border == 0xFFFFFFu);
@@ -160,7 +166,9 @@ static void test_wcag_palette_contrast(void) {
         DECK_UI_COLOR_SURFACE_1,
         DECK_UI_COLOR_SURFACE_2,
         DECK_UI_COLOR_SURFACE_3,
-        DECK_UI_COLOR_ACCENT_BACKGROUND
+        DECK_UI_COLOR_ACCENT_BACKGROUND,
+        DECK_UI_COLOR_DANGER_BACKGROUND,
+        DECK_UI_COLOR_WARNING_BACKGROUND
     };
     static const DeckUiColorRole normal_text[] = {
         DECK_UI_COLOR_TEXT_PRIMARY,
@@ -176,6 +184,13 @@ static void test_wcag_palette_contrast(void) {
     size_t background_index;
 
     deck_ui_palette_init(&palette);
+
+    assert(contrast_ratio(deck_ui_palette_get(&palette, DECK_UI_COLOR_TEXT_ON_ACCENT),
+                          deck_ui_palette_get(&palette, DECK_UI_COLOR_ACCENT_BACKGROUND)) >= 4.5);
+    assert(contrast_ratio(deck_ui_palette_get(&palette, DECK_UI_COLOR_DANGER),
+                          deck_ui_palette_get(&palette, DECK_UI_COLOR_DANGER_BACKGROUND)) >= 4.5);
+    assert(contrast_ratio(deck_ui_palette_get(&palette, DECK_UI_COLOR_WARNING),
+                          deck_ui_palette_get(&palette, DECK_UI_COLOR_WARNING_BACKGROUND)) >= 4.5);
 
     for (background_index = 0u;
          background_index < sizeof(backgrounds) / sizeof(backgrounds[0]);
