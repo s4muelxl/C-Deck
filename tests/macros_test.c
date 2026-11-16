@@ -214,6 +214,54 @@ int main(void) {
         assert(open_calls == 1 && strcmp(last_open_target, long_url) == 0);
     }
 
+    /* OPEN targets accept exactly DECK_MACRO_VALUE_MAX - 1 UTF-8 bytes,
+       including multibyte characters, and reject the first byte beyond the limit. */
+    {
+        const char *prefix = "https://example.com/";
+        char max_target[DECK_MACRO_VALUE_MAX];
+        char expression[DECK_MACRO_VALUE_MAX + 16];
+        char oversized_target[DECK_MACRO_VALUE_MAX + 1];
+        char oversized_expression[DECK_MACRO_VALUE_MAX + 16];
+        size_t prefix_length = strlen(prefix);
+        size_t remaining = sizeof(max_target) - 1 - prefix_length;
+        size_t offset = 0;
+        DeckMacro boundary_macro;
+
+        memcpy(max_target, prefix, prefix_length);
+        while (offset + 1 < remaining) {
+            max_target[prefix_length + offset] = (char)0xC3;
+            max_target[prefix_length + offset + 1] = (char)0xA9;
+            offset += 2;
+        }
+        if (offset < remaining) max_target[prefix_length + offset++] = 'x';
+        max_target[prefix_length + offset] = '\\0';
+        assert(strlen(max_target) == DECK_MACRO_VALUE_MAX - 1);
+        assert(snprintf(expression, sizeof(expression), "open:%s", max_target) > 0);
+        assert(macro_step_parse(expression, &step));
+
+        memset(&boundary_macro, 0, sizeof(boundary_macro));
+        strcpy(boundary_macro.name, "Limite UTF-8");
+        boundary_macro.configured = 1;
+        boundary_macro.step_count = 1;
+        boundary_macro.steps[0] = step;
+        assert(macro_validate(&boundary_macro));
+        open_calls = 0;
+        last_open_target[0] = '\\0';
+        cancel_now = 0;
+        assert(macro_execute(&boundary_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_OK);
+        assert(open_calls == 1 && strcmp(last_open_target, max_target) == 0);
+
+        memcpy(oversized_target, prefix, prefix_length);
+        memset(oversized_target + prefix_length, 'x',
+               DECK_MACRO_VALUE_MAX - prefix_length);
+        oversized_target[DECK_MACRO_VALUE_MAX] = '\\0';
+        assert(strlen(oversized_target) == DECK_MACRO_VALUE_MAX);
+        assert(snprintf(oversized_expression, sizeof(oversized_expression),
+                        "open:%s", oversized_target) > 0);
+        assert(!macro_step_parse(oversized_expression, &step));
+    }
+
     fail_action = 1;
     action_calls = open_calls = delay_calls = 0;
     assert(macro_execute(&macro, test_action, test_open, test_delay, test_cancel, NULL) == DECK_MACRO_EXECUTION_FAILED);
