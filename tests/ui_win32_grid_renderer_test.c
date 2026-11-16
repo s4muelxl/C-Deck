@@ -74,7 +74,7 @@ int main(void) {
     model_states[9] = DECK_UI_STATE_ERROR;
     model_states[10] = DECK_UI_STATE_WARNING;
     labels[14] = L"Áudio";
-    icons[13] = LoadIconW(NULL, IDI_APPLICATION);
+    icons[13] = LoadIconW(NULL, MAKEINTRESOURCEW(32512));
     assert(icons[13] != NULL);
 
     assert(deck_ui_grid_frame_build(&layout, &view, &palette,
