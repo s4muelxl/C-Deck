@@ -96,7 +96,7 @@ int config_load(const char *path, DeckConfig *out_config) {
     unsigned int seen_app_sections = 0;
     unsigned int seen_app_fields[DECK_KEY_COUNT] = {0};
     int schema_version = 1;
-    wchar_t wide_path[MAX_PATH * 4];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
 
     if (!path || !out_config || !utf8_path_to_wide(path, wide_path, sizeof(wide_path) / sizeof(wide_path[0]))) return 0;
     memset(out_config, 0, sizeof(*out_config));
@@ -248,7 +248,7 @@ int config_load(const char *path, DeckConfig *out_config) {
 }
 
 int config_save(const char *path, const DeckConfig *config) {
-    wchar_t wide_path[MAX_PATH * 4];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
     wchar_t temporary[MAX_PATH * 4];
     wchar_t backup[MAX_PATH * 4];
     FILE *file;
