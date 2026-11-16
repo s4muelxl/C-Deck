@@ -194,7 +194,7 @@ test('the reset control has an accessible name and a compact icon-only layout', 
 });
 
 
-test('rapid demo launches replace the toast timer and reset dismisses stale feedback', () => {
+test('rapid launches replace stale feedback and settled status reflects simulator state', () => {
   const vm = require('node:vm');
 
   class FakeElement {
@@ -273,6 +273,17 @@ test('rapid demo launches replace the toast timer and reset dismisses stale feed
   elements['demo-reset'].dispatch('click');
   assert.equal(toast.classList.contains('visible'), false);
   assert.equal(clearedTimers.size, 4, 'reset clears the current status and toast timers');
+
+  elements['key-play'].dispatch('click');
+  assert.equal(elements['demo-status-text'].textContent, 'Simulação: reprodução iniciada');
+  timers.get(nextTimerId)();
+  assert.equal(elements['demo-status-text'].textContent, 'REPRODUÇÃO SIMULADA ATIVA',
+    'the settled status must retain the active simulated playback state');
+
+  elements['key-mute'].dispatch('click');
+  timers.get(nextTimerId)();
+  assert.equal(elements['demo-status-text'].textContent, 'REPRODUÇÃO SIMULADA ATIVA · MUDO ATIVO',
+    'the settled status must preserve both simulated playback and mute states');
 });
 
 
