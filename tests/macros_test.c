@@ -11,12 +11,16 @@ static int open_calls;
 static int delay_calls;
 static int fail_action;
 static int cancel_now;
+static int cancel_on_action;
+static int cancel_on_open;
+static int cancel_on_delay;
 static char last_open_target[DECK_MACRO_VALUE_MAX];
 
 static int test_action(const char *action_id, void *context) {
     (void)context;
     assert(action_id && action_id[0]);
     ++action_calls;
+    if (cancel_on_action) cancel_now = 1;
     return fail_action;
 }
 
@@ -26,6 +30,7 @@ static int test_open(const char *target, void *context) {
     assert(strlen(target) < sizeof(last_open_target));
     strcpy(last_open_target, target);
     ++open_calls;
+    if (cancel_on_open) cancel_now = 1;
     return 0;
 }
 
@@ -33,6 +38,7 @@ static int test_delay(unsigned int milliseconds, void *context) {
     (void)context;
     assert(milliseconds > 0 && milliseconds <= DECK_MACRO_STEP_DELAY_MAX_MS);
     ++delay_calls;
+    if (cancel_on_delay) cancel_now = 1;
     return 0;
 }
 
@@ -166,6 +172,56 @@ int main(void) {
     assert(macro_execute(&macro, test_action, test_open, test_delay, test_cancel, NULL) == DECK_MACRO_OK);
     assert(action_calls == 1 && open_calls == 1 && delay_calls == 1);
     assert(strcmp(last_open_target, "C:\\Program Files\\OBS Studio\\bin\\应用.exe") == 0);
+
+    /* Cancellation raised by the final executor must never be reported as success. */
+    {
+        DeckMacro cancel_macro;
+        memset(&cancel_macro, 0, sizeof(cancel_macro));
+        strcpy(cancel_macro.name, "Cancelamento durante ação");
+        cancel_macro.configured = 1;
+        cancel_macro.step_count = 1;
+        cancel_macro.steps[0].type = DECK_MACRO_STEP_ACTION;
+        strcpy(cancel_macro.steps[0].value, "volume_up");
+
+        action_calls = open_calls = delay_calls = 0;
+        fail_action = cancel_now = 0;
+        cancel_on_action = 1;
+        cancel_on_open = cancel_on_delay = 0;
+        assert(macro_execute(&cancel_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_CANCELLED);
+        assert(action_calls == 1 && open_calls == 0 && delay_calls == 0);
+
+        memset(&cancel_macro, 0, sizeof(cancel_macro));
+        strcpy(cancel_macro.name, "Cancelamento durante abertura");
+        cancel_macro.configured = 1;
+        cancel_macro.step_count = 1;
+        cancel_macro.steps[0].type = DECK_MACRO_STEP_OPEN;
+        strcpy(cancel_macro.steps[0].value, "https://example.com/");
+        action_calls = open_calls = delay_calls = 0;
+        cancel_now = 0;
+        cancel_on_action = 0;
+        cancel_on_open = 1;
+        assert(macro_execute(&cancel_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_CANCELLED);
+        assert(action_calls == 0 && open_calls == 1 && delay_calls == 0);
+
+        memset(&cancel_macro, 0, sizeof(cancel_macro));
+        strcpy(cancel_macro.name, "Cancelamento durante atraso");
+        cancel_macro.configured = 1;
+        cancel_macro.step_count = 1;
+        cancel_macro.steps[0].type = DECK_MACRO_STEP_DELAY;
+        cancel_macro.steps[0].delay_ms = 100;
+        action_calls = open_calls = delay_calls = 0;
+        cancel_now = 0;
+        cancel_on_open = 0;
+        cancel_on_delay = 1;
+        assert(macro_execute(&cancel_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_CANCELLED);
+        assert(action_calls == 0 && open_calls == 0 && delay_calls == 1);
+
+        cancel_on_action = cancel_on_open = cancel_on_delay = 0;
+        cancel_now = 0;
+    }
 
     /* A Unicode URL must survive validation and reach the open executor unchanged. */
     {
