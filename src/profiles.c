@@ -156,86 +156,82 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
         char *entry;
         char *equals;
         int parsed;
+        int next_section;
 
         if (!strchr(line, '\n') &&
             (strlen(line) == sizeof(line) - 1 || !feof(file))) {
-            fclose(file);
-            return 0;
+            goto invalid;
         }
         entry = trim_text(line);
         if (!entry[0] || entry[0] == '#' || entry[0] == ';') continue;
+
         if (entry[0] == '[') {
-            int next_section = (_stricmp(entry, "[meta]") == 0) ? 1 :
-                               (_stricmp(entry, "[preferences]") == 0) ? 2 : 0;
-            int section_bit = next_section == 1 ? 1 : next_section == 2 ? 2 : 0;
-            if (section_bit && (sections_seen & section_bit)) {
-                fclose(file);
-                return 0;
+            if (_stricmp(entry, "[meta]") == 0) next_section = 1;
+            else if (_stricmp(entry, "[preferences]") == 0) next_section = 2;
+            else goto invalid;
+
+            /* Preferences must follow a complete, supported metadata header. */
+            if (next_section == 2 && (!(sections_seen & 1) ||
+                                      !version_seen || version != 1)) {
+                goto invalid;
             }
-            sections_seen |= section_bit;
+            if ((next_section == 1 && (sections_seen & 1)) ||
+                (next_section == 2 && (sections_seen & 2))) {
+                goto invalid;
+            }
+            sections_seen |= next_section == 1 ? 1 : 2;
             section = next_section;
             continue;
         }
+
         equals = strchr(entry, '=');
-        if (!equals) continue;
+        if (!equals || section == 0) goto invalid;
         *equals++ = '\0';
         entry = trim_text(entry);
         equals = trim_text(equals);
+        if (!entry[0]) goto invalid;
 
-        if (section == 1 && _stricmp(entry, "version") == 0) {
-            if (version_seen) {
-                fclose(file);
-                return 0;
+        if (section == 1) {
+            if (_stricmp(entry, "version") != 0 || version_seen ||
+                !parse_integer(equals, &version)) {
+                goto invalid;
             }
             version_seen = 1;
-            if (!parse_integer(equals, &version)) {
-                fclose(file);
-                return 0;
-            }
         } else if (section == 2) {
-            if (!parse_integer(equals, &parsed)) {
-                fclose(file);
-                return 0;
-            }
+            if (!parse_integer(equals, &parsed)) goto invalid;
+
             if (_stricmp(entry, "active_profile") == 0) {
-                if (seen & 1u) {
-                    fclose(file);
-                    return 0;
-                }
+                if (seen & 1u) goto invalid;
                 preferences->active_profile = parsed;
                 seen |= 1u;
             } else if (_stricmp(entry, "minimize_to_tray") == 0) {
-                if (seen & 2u) {
-                    fclose(file);
-                    return 0;
-                }
+                if (seen & 2u) goto invalid;
                 preferences->minimize_to_tray = parsed;
                 seen |= 2u;
             } else if (_stricmp(entry, "enable_hotkeys") == 0) {
-                if (seen & 4u) {
-                    fclose(file);
-                    return 0;
-                }
+                if (seen & 4u) goto invalid;
                 preferences->enable_hotkeys = parsed;
                 seen |= 4u;
             } else if (_stricmp(entry, "window_opacity") == 0) {
-                if (seen & 8u) {
-                    fclose(file);
-                    return 0;
-                }
+                if (seen & 8u) goto invalid;
                 preferences->window_opacity = parsed;
                 seen |= 8u;
+            } else {
+                goto invalid;
             }
+        } else {
+            goto invalid;
         }
     }
 
-    if (ferror(file)) {
-        fclose(file);
-        return 0;
-    }
+    if (ferror(file)) goto invalid;
     fclose(file);
     return sections_seen == 3 && version_seen && version == 1 &&
            seen == 15u && validate_preferences(preferences);
+
+invalid:
+    fclose(file);
+    return 0;
 }
 
 static int save_preferences_file(const char *path, const DeckPreferences *preferences) {
