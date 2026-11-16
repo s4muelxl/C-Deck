@@ -108,8 +108,7 @@ static DeckUiWin32InputStatus hit_test_message_point(
     const DeckUiLayout *layout,
     LPARAM l_param,
     UINT dpi,
-    uint32_t *slot,
-    int *inside) {
+    uint32_t *slot) {
     const int32_t x_dip = deck_ui_px_to_dip(signed_low_word(l_param), dpi);
     const int32_t y_dip = deck_ui_px_to_dip(signed_high_word(l_param), dpi);
     DeckUiHitTestStatus status;
@@ -121,9 +120,18 @@ static DeckUiWin32InputStatus hit_test_message_point(
     if (status == DECK_UI_HIT_TEST_INVALID_ARGUMENT) {
         return DECK_UI_WIN32_INPUT_INVALID_ARGUMENT;
     }
-    *inside = status == DECK_UI_HIT_TEST_HIT;
-    if (!*inside) *slot = DECK_UI_SLOT_NONE;
+    if (status != DECK_UI_HIT_TEST_HIT) *slot = DECK_UI_SLOT_NONE;
     return DECK_UI_WIN32_INPUT_OK;
+}
+
+static DeckUiWin32InputStatus return_unhandled(
+    DeckUiWin32InputResult *result) {
+    DeckUiWin32InputResult empty;
+
+    memset(&empty, 0, sizeof(empty));
+    empty.selected_slot = DECK_UI_SLOT_NONE;
+    *result = empty;
+    return DECK_UI_WIN32_INPUT_UNHANDLED;
 }
 
 static int key_is_repeated(LPARAM l_param) {
@@ -171,7 +179,6 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
     uint16_t focusable_mask = 0u;
     DeckUiGridFrameStatus mask_status;
     DeckUiWin32InputStatus status = DECK_UI_WIN32_INPUT_OK;
-    int inside = 0;
     uint32_t hit_slot = DECK_UI_SLOT_NONE;
 
     if (!input || !view_state || !layout || !result ||
@@ -198,8 +205,7 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
 
     switch (message) {
         case WM_MOUSEMOVE:
-            status = hit_test_message_point(layout, l_param, dpi,
-                                            &hit_slot, &inside);
+            status = hit_test_message_point(layout, l_param, dpi, &hit_slot);
             if (status != DECK_UI_WIN32_INPUT_OK) return status;
             next_result.handled = 1;
             next_result.request_mouse_leave_tracking = 1;
@@ -230,10 +236,11 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
             break;
 
         case WM_LBUTTONDOWN:
-            status = hit_test_message_point(layout, l_param, dpi,
-                                            &hit_slot, &inside);
+            status = hit_test_message_point(layout, l_param, dpi, &hit_slot);
             if (status != DECK_UI_WIN32_INPUT_OK) return status;
-            if (!inside) return DECK_UI_WIN32_INPUT_UNHANDLED;
+            if (hit_slot == DECK_UI_SLOT_NONE) {
+                return return_unhandled(result);
+            }
             next_result.handled = 1;
             if (next_input.press_source != DECK_UI_WIN32_PRESS_NONE) break;
             if (deck_ui_view_set_hover(&next_view, hit_slot) !=
@@ -253,10 +260,9 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
 
         case WM_LBUTTONUP:
             if (next_input.press_source != DECK_UI_WIN32_PRESS_MOUSE) {
-                return DECK_UI_WIN32_INPUT_UNHANDLED;
+                return return_unhandled(result);
             }
-            status = hit_test_message_point(layout, l_param, dpi,
-                                            &hit_slot, &inside);
+            status = hit_test_message_point(layout, l_param, dpi, &hit_slot);
             if (status != DECK_UI_WIN32_INPUT_OK) return status;
             next_result.handled = 1;
             next_result.release_mouse_capture = 1;
@@ -293,7 +299,7 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
 
         case WM_CAPTURECHANGED:
             if (next_input.press_source != DECK_UI_WIN32_PRESS_MOUSE) {
-                return DECK_UI_WIN32_INPUT_UNHANDLED;
+                return return_unhandled(result);
             }
             next_result.handled = 1;
             if (deck_ui_view_pointer_drag(
@@ -393,13 +399,13 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
                 break;
             }
 
-            return DECK_UI_WIN32_INPUT_UNHANDLED;
+            return return_unhandled(result);
         }
 
         case WM_KEYUP:
             if (w_param != VK_SPACE ||
                 next_input.press_source != DECK_UI_WIN32_PRESS_KEYBOARD) {
-                return DECK_UI_WIN32_INPUT_UNHANDLED;
+                return return_unhandled(result);
             }
             next_result.handled = 1;
             if (next_view.pressed_slot == next_input.keyboard_pressed_slot &&
@@ -418,7 +424,7 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
             break;
 
         default:
-            return DECK_UI_WIN32_INPUT_UNHANDLED;
+            return return_unhandled(result);
     }
 
     finish_result(&before_view, &next_view, &next_result);
