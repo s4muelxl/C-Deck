@@ -240,7 +240,6 @@ int main(void) {
     assert(macro_store_load(&reloaded, config_path));
     assert(macro_store_count(&reloaded) == 2);
     assert(strlen(macro_store_get(&reloaded, 2)->steps[0].value) > 260);
-    assert(macro_store_count(&reloaded) == 1);
     assert(strcmp(macro_store_get(&reloaded, 1)->name,
                   "Macro criada pelo teste") == 0);
 

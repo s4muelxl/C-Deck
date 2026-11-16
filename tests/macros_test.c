@@ -195,11 +195,11 @@ int main(void) {
         char expression[DECK_MACRO_VALUE_MAX + 16];
         size_t prefix_length = strlen(prefix);
         DeckMacro long_url_macro;
-        assert(prefix_length + 500 + 1 < sizeof(long_url));
+        assert(prefix_length + 1200 + 1 < sizeof(long_url));
         memcpy(long_url, prefix, prefix_length);
-        memset(long_url + prefix_length, 'u', 500);
-        long_url[prefix_length + 500] = '\\0';
-        assert(strlen(long_url) > 260);
+        memset(long_url + prefix_length, 'u', 1200);
+        long_url[prefix_length + 1200] = '\0';
+        assert(strlen(long_url) > 1024);
         assert(snprintf(expression, sizeof(expression), "open:%s", long_url) > 0);
         assert(macro_step_parse(expression, &step));
         memset(&long_url_macro, 0, sizeof(long_url_macro));
@@ -262,11 +262,11 @@ int main(void) {
         char expression[DECK_MACRO_VALUE_MAX + 16];
         size_t prefix_length = strlen(prefix);
         DeckMacro long_path_macro;
-        assert(prefix_length + 500 + sizeof(".exe") < sizeof(long_target));
+        assert(prefix_length + 1500 + sizeof(".exe") < sizeof(long_target));
         memcpy(long_target, prefix, prefix_length);
-        memset(long_target + prefix_length, 'p', 500);
-        memcpy(long_target + prefix_length + 500, ".exe", sizeof(".exe"));
-        assert(strlen(long_target) > 260);
+        memset(long_target + prefix_length, 'p', 1500);
+        memcpy(long_target + prefix_length + 1500, ".exe", sizeof(".exe"));
+        assert(strlen(long_target) > 1024);
         assert(snprintf(expression, sizeof(expression), "open:%s", long_target) > 0);
         assert(macro_step_parse(expression, &step));
 

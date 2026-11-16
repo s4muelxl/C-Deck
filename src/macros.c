@@ -246,6 +246,13 @@ static int parse_macro_section(const char *section_name) {
     return (int)id - 1;
 }
 
+static int macro_load_fail(FILE *file, DeckMacro *parsed, DeckMacroStore *store) {
+    if (file) fclose(file);
+    if (parsed) HeapFree(GetProcessHeap(), 0, parsed);
+    if (store) store->read_only = 1;
+    return 0;
+}
+
 int macro_store_load(DeckMacroStore *store, const char *config_path) {
     wchar_t wide_path[DECK_PATH_WIDE_MAX];
     FILE *file = NULL;
@@ -264,10 +271,13 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     if (!store || !build_macro_path(store->path, sizeof(store->path), config_path) ||
         !utf8_path_to_wide(store->path, wide_path, DECK_PATH_WIDE_MAX)) return 0;
 
+    store->loaded = 0;
+    store->read_only = 0;
+    ZeroMemory(store->macros, sizeof(store->macros));
     parsed = (DeckMacro *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                     sizeof(*parsed) * DECK_MACRO_COUNT);
     if (!parsed) {
-        return macro_load_fail(file, parsed, store);
+        return macro_load_fail(NULL, NULL, store);
     }
     ZeroMemory(parsed, sizeof(*parsed) * DECK_MACRO_COUNT);
     ZeroMemory(seen_steps, sizeof(seen_steps));
@@ -285,12 +295,12 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
             HeapFree(GetProcessHeap(), 0, parsed);
             return 1;
         }
-        return macro_load_fail(NULL, parsed, store);
+        return macro_load_fail(file, parsed, store);
     }
 
     file = _wfopen(wide_path, L"r");
     if (!file) {
-        return macro_load_fail(NULL, parsed, store);
+        return macro_load_fail(file, parsed, store);
     }
 
     while (fgets(line, sizeof(line), file)) {
@@ -330,9 +340,7 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
             unsigned int parsed_version;
             if (version_seen ||
                 !parse_unsigned(equals, &parsed_version) || parsed_version > INT_MAX) {
-                fclose(file);
-                store->read_only = 1;
-                return 0;
+                return macro_load_fail(file, parsed, store);
             }
             version_seen = 1;
             version = (int)parsed_version;
@@ -396,17 +404,6 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
 
     memcpy(store->macros, parsed, sizeof(*parsed) * DECK_MACRO_COUNT);
     HeapFree(GetProcessHeap(), 0, parsed);
-    store->loaded = 1;
-    return 1;
-}
-nfigured = 1;
-        if (!macro_validate(&parsed[i])) {
-            store->read_only = 1;
-            return 0;
-        }
-    }
-
-    memcpy(store->macros, parsed, sizeof(parsed));
     store->loaded = 1;
     return 1;
 }
