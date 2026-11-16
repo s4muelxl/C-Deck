@@ -221,7 +221,7 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
     int32_t height;
     int32_t bottom_pad = 0;
     int32_t label_height = 0;
-    int32_t label_top = 0;
+    int64_t label_top64 = 0;
 
     if (!slot_bounds || !content || dpi < 48u || dpi > 768u ||
         (has_icon != 0 && has_icon != 1) ||
@@ -242,6 +242,9 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
     if (has_label) {
         int32_t horizontal_pad = scaled_dip(6, dpi);
         int32_t max_pad = (width - 1) / 2;
+        int64_t label_left64;
+        int64_t label_right64;
+        int64_t label_bottom64;
 
         if (horizontal_pad > max_pad) horizontal_pad = max_pad;
         label_height = scaled_dip(18, dpi);
@@ -254,40 +257,52 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
             return DECK_UI_WIN32_RENDER_INVALID_FRAME;
         }
 
-        label_top = slot_bounds->bottom - bottom_pad - label_height;
-        candidate.label_bounds.left = slot_bounds->left + horizontal_pad;
-        candidate.label_bounds.top = label_top;
-        candidate.label_bounds.right = slot_bounds->right - horizontal_pad;
-        candidate.label_bounds.bottom = slot_bounds->bottom - bottom_pad;
-        if (candidate.label_bounds.right <= candidate.label_bounds.left ||
-            candidate.label_bounds.bottom <= candidate.label_bounds.top) {
+        label_left64 = (int64_t)slot_bounds->left + horizontal_pad;
+        label_right64 = (int64_t)slot_bounds->right - horizontal_pad;
+        label_bottom64 = (int64_t)slot_bounds->bottom - bottom_pad;
+        label_top64 = label_bottom64 - label_height;
+        if (label_left64 < LONG_MIN || label_left64 > LONG_MAX ||
+            label_right64 < LONG_MIN || label_right64 > LONG_MAX ||
+            label_top64 < LONG_MIN || label_top64 > LONG_MAX ||
+            label_bottom64 < LONG_MIN || label_bottom64 > LONG_MAX ||
+            label_right64 <= label_left64 ||
+            label_bottom64 <= label_top64) {
             return DECK_UI_WIN32_RENDER_INVALID_FRAME;
         }
+
+        candidate.label_bounds.left = (LONG)label_left64;
+        candidate.label_bounds.top = (LONG)label_top64;
+        candidate.label_bounds.right = (LONG)label_right64;
+        candidate.label_bounds.bottom = (LONG)label_bottom64;
         candidate.has_label = 1;
     }
 
     if (has_icon) {
         int32_t desired_size = scaled_dip(24, dpi);
         int32_t icon_size;
-        int32_t icon_top;
+        int64_t icon_top64;
+        int64_t icon_left64;
+        int64_t icon_right64;
+        int64_t icon_bottom64;
 
         if (has_label) {
             const int32_t gap = scaled_dip(3, dpi);
             int32_t top_pad = scaled_dip(8, dpi);
-            int32_t available = label_top - gap -
-                (slot_bounds->top + top_pad);
+            int64_t available64 = label_top64 - gap -
+                ((int64_t)slot_bounds->top + top_pad);
 
-            if (available < desired_size) {
+            if (available64 < desired_size) {
                 top_pad = scaled_dip(4, dpi);
-                available = label_top - gap -
-                    (slot_bounds->top + top_pad);
+                available64 = label_top64 - gap -
+                    ((int64_t)slot_bounds->top + top_pad);
             }
-            if (available <= 0) {
+            if (available64 <= 0 || available64 > INT32_MAX) {
                 return DECK_UI_WIN32_RENDER_INVALID_FRAME;
             }
-            icon_size = available < desired_size ? available : desired_size;
-            icon_top = slot_bounds->top + top_pad;
-            if (icon_top + icon_size > label_top - gap) {
+            icon_size = available64 < desired_size
+                ? (int32_t)available64 : desired_size;
+            icon_top64 = (int64_t)slot_bounds->top + top_pad;
+            if (icon_top64 + icon_size > label_top64 - gap) {
                 return DECK_UI_WIN32_RENDER_INVALID_FRAME;
             }
         } else {
@@ -300,15 +315,26 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
             }
             icon_size = max_width < max_height ? max_width : max_height;
             if (icon_size > desired_size) icon_size = desired_size;
-            icon_top = slot_bounds->top + (height - icon_size) / 2;
+            icon_top64 = (int64_t)slot_bounds->top +
+                (height - icon_size) / 2;
         }
 
         if (icon_size <= 0) return DECK_UI_WIN32_RENDER_INVALID_FRAME;
-        candidate.icon_bounds.left =
-            slot_bounds->left + (width - icon_size) / 2;
-        candidate.icon_bounds.top = icon_top;
-        candidate.icon_bounds.right = candidate.icon_bounds.left + icon_size;
-        candidate.icon_bounds.bottom = icon_top + icon_size;
+        icon_left64 = (int64_t)slot_bounds->left +
+            (width - icon_size) / 2;
+        icon_right64 = icon_left64 + icon_size;
+        icon_bottom64 = icon_top64 + icon_size;
+        if (icon_left64 < LONG_MIN || icon_left64 > LONG_MAX ||
+            icon_right64 < LONG_MIN || icon_right64 > LONG_MAX ||
+            icon_top64 < LONG_MIN || icon_top64 > LONG_MAX ||
+            icon_bottom64 < LONG_MIN || icon_bottom64 > LONG_MAX) {
+            return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+        }
+
+        candidate.icon_bounds.left = (LONG)icon_left64;
+        candidate.icon_bounds.top = (LONG)icon_top64;
+        candidate.icon_bounds.right = (LONG)icon_right64;
+        candidate.icon_bounds.bottom = (LONG)icon_bottom64;
         candidate.has_icon = 1;
     }
 
