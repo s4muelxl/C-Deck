@@ -174,11 +174,11 @@ static void test_invalid_arguments(void) {
     DeckUiLayout layout;
 
     memset(&layout, 0xA5, sizeof(layout));
-    assert(deck_ui_layout_compute(&zero_width, &layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT);
+    assert(deck_ui_layout_compute(&zero_width, &layout) == DECK_UI_LAYOUT_INVALID_ARGUMENT);
     assert(layout.mode == DECK_UI_LAYOUT_MODE_UNSUPPORTED);
     assert(layout.slot_count == 0u);
-    assert(deck_ui_layout_compute(NULL, &layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT);
-    assert(deck_ui_layout_compute(&zero_width, NULL) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT);
+    assert(deck_ui_layout_compute(NULL, &layout) == DECK_UI_LAYOUT_INVALID_ARGUMENT);
+    assert(deck_ui_layout_compute(&zero_width, NULL) == DECK_UI_LAYOUT_INVALID_ARGUMENT);
 }
 
 static void test_dpi_conversion(void) {
@@ -468,37 +468,37 @@ static void test_layout_validation_rejects_corrupt_shell_regions(void) {
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.top_bar.width -= 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.sidebar.width += 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.workspace.x += 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.inspector.x -= 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.status_bar.y += 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.sidebar_visible = 2;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.slots[1].x += 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_GRID);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_GRID);
 
     assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
     layout.slot_gap_dip += 1;
-    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_GRID);
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALIDATION_INVALID_GRID);
 
-    assert(deck_ui_layout_validate(NULL) == DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT);
+    assert(deck_ui_layout_validate(NULL) == DECK_UI_LAYOUT_VALIDATION_INVALID_ARGUMENT);
 }
 
 int main(void) {

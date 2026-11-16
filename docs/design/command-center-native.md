@@ -318,7 +318,7 @@ O contrato C11 de layout agora expõe `deck_ui_layout_validate`. A validação n
 - Sidebar, workspace e inspector precisam formar uma partição contínua do corpo da janela, sem sobreposição, lacuna ou retângulo residual quando um painel está recolhido.
 - A visibilidade e as larguras dos painéis devem corresponder ao modo wide, medium, narrow ou compact; larguras nas bordas dos breakpoints não podem ser rotuladas como outro modo.
 - A grade precisa manter 15 slots quadrados, gap uniforme, ordem row-major e centralização no workspace.
-- Geometria de regiões inválida retorna `DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS`; grade inválida retorna `DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_GRID`. O validador é somente leitura.
+- Geometria de regiões inválida retorna `DECK_UI_LAYOUT_VALIDATION_INVALID_REGIONS`; grade inválida retorna `DECK_UI_LAYOUT_VALIDATION_INVALID_GRID`. O validador é somente leitura.
 
 `deck_ui_grid_frame_build` passou a usar esse validador público. Portanto, um shell inconsistente é rejeitado antes de produzir o snapshot para o renderer, mesmo que os 15 retângulos individuais ainda pareçam válidos. Os testes incluem as larguras 900/1119/1120/1359/1360 DIP e mutações isoladas de top bar, sidebar, workspace, inspector, status bar, flags de visibilidade, ordem/gap da grade e preservação da saída do frame.
 
