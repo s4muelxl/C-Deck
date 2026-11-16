@@ -12,6 +12,8 @@
   --accent: #eef1f5;
   --accent-hover: #ffffff;
   --accent-glow: rgba(238, 241, 245, 0.14);
+  --signature: #9dff00;
+  --signature-glow: rgba(157, 255, 0, 0.16);
   --danger: #ff5c5c;
   --danger-bg: rgba(255, 92, 92, 0.12);
   --cyan: #b0b8c4;
@@ -1073,8 +1075,17 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
 .volume-interactive-wrap:focus-within { outline: none; }
 
 .deck-key.key-active-media {
-  border-color: rgba(238,241,245,.52);
-  box-shadow: 0 0 0 1px rgba(238,241,245,.12);
+  border-color: var(--signature);
+  box-shadow: 0 0 0 1px var(--signature-glow);
+}
+.deck-key.key-active-media .key-glyph { color: var(--signature); }
+
+@media (forced-colors: active) {
+  .deck-key.key-active-media {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+  .deck-key.key-active-media .key-glyph { color: Highlight; }
 }
 .window-status { color: #dbe1e8; }
 .window-status.flash {
