@@ -44,7 +44,7 @@ static int utf8_to_wide_path(const char *path, wchar_t *wide, size_t capacity) {
 
 /* Returns 0 only for a missing file. Other Win32 lookup failures are errors. */
 static int path_exists(const char *path) {
-    wchar_t wide[DECK_PROFILE_PATH_MAX];
+    wchar_t wide[DECK_PATH_WIDE_MAX];
     DWORD attributes;
     DWORD error;
 
@@ -139,7 +139,7 @@ static int parse_integer(const char *value, int *out_value) {
 }
 
 static int load_preferences_file(const char *path, DeckPreferences *preferences) {
-    wchar_t wide_path[DECK_PROFILE_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
     FILE *file;
     char line[256];
     int section = 0;
@@ -239,9 +239,9 @@ static int load_preferences_file(const char *path, DeckPreferences *preferences)
 }
 
 static int save_preferences_file(const char *path, const DeckPreferences *preferences) {
-    wchar_t wide_path[DECK_PROFILE_PATH_MAX];
-    wchar_t temporary[DECK_PROFILE_PATH_MAX];
-    wchar_t backup[DECK_PROFILE_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+    wchar_t temporary[DECK_PATH_WIDE_MAX];
+    wchar_t backup[DECK_PATH_WIDE_MAX];
     FILE *file;
     size_t length;
     int written = 1;
