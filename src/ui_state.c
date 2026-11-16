@@ -178,6 +178,21 @@ DeckUiViewStatus deck_ui_view_pointer_press(DeckUiViewState *state,
     return DECK_UI_VIEW_OK;
 }
 
+DeckUiViewStatus deck_ui_view_pointer_drag(DeckUiViewState *state,
+                                           uint32_t pressed_slot,
+                                           uint32_t hovered_slot) {
+    if (!state) return DECK_UI_VIEW_INVALID_ARGUMENT;
+    if (pressed_slot >= DECK_UI_GRID_SLOT_COUNT ||
+        !valid_slot_or_none(hovered_slot)) {
+        return DECK_UI_VIEW_INVALID_SLOT;
+    }
+
+    state->hovered_slot = hovered_slot;
+    state->pressed_slot = hovered_slot == pressed_slot
+        ? pressed_slot : DECK_UI_SLOT_NONE;
+    return DECK_UI_VIEW_OK;
+}
+
 DeckUiViewStatus deck_ui_view_pointer_release(DeckUiViewState *state,
                                               uint32_t slot) {
     uint32_t pressed_slot;
