@@ -314,37 +314,42 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
 
         if (entry[0] == '[') {
             if (_stricmp(entry, "[meta]") == 0) {
-                if (meta_seen) {
+                if (meta_seen || seen_macro_sections != 0) {
                     return macro_load_fail(file, parsed, store);
                 }
                 meta_seen = 1;
                 section = -2;
             } else {
                 section = parse_macro_section(entry);
-                if (section == -2 ||
-                    (section >= 0 && (seen_macro_sections & (1u << section)) != 0)) {
+                if (!meta_seen || !version_seen || section < 0 ||
+                    (seen_macro_sections & (1u << section)) != 0) {
                     return macro_load_fail(file, parsed, store);
                 }
-                if (section >= 0) seen_macro_sections |= 1u << section;
+                seen_macro_sections |= 1u << section;
             }
             continue;
         }
 
         equals = strchr(entry, '=');
-        if (!equals) continue;
+        if (!equals) {
+            return macro_load_fail(file, parsed, store);
+        }
         *equals++ = '\0';
         entry = trim_text(entry);
         equals = trim_text(equals);
 
-        if (section == -2 && _stricmp(entry, "version") == 0) {
+        if (section == -1) {
+            return macro_load_fail(file, parsed, store);
+        }
+        if (section == -2) {
             unsigned int parsed_version;
-            if (version_seen ||
+            if (_stricmp(entry, "version") != 0 || version_seen ||
                 !parse_unsigned(equals, &parsed_version) || parsed_version > INT_MAX) {
                 return macro_load_fail(file, parsed, store);
             }
             version_seen = 1;
             version = (int)parsed_version;
-        } else if (section >= 0) {
+        } else if (section >= 0 && section < DECK_MACRO_COUNT) {
             DeckMacro *macro = &parsed[section];
             if (_stricmp(entry, "name") == 0) {
                 if (seen_names[section] ||
@@ -370,7 +375,11 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
                 }
                 macro->steps[step_id - 1] = step;
                 seen_steps[section] |= 1u << (step_id - 1);
+            } else {
+                return macro_load_fail(file, parsed, store);
             }
+        } else {
+            return macro_load_fail(file, parsed, store);
         }
     }
 
