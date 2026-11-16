@@ -21,7 +21,7 @@ DeckCaptureEndpointRole deck_capture_endpoint_resolve(DeckCaptureEndpointAttempt
    non-null. A partial interface returned with a failing HRESULT is released
    and cleared when a release callback is supplied. */
 typedef void (*DeckAudioComRelease)(void *object);
-int deck_audio_com_output_accept(int32_t hresult, void **output,
+int deck_audio_com_output_accept(int32_t hresult, void *output,
                                  DeckAudioComRelease release);
 
 #endif
