@@ -227,3 +227,8 @@ A demonstração web 3×3 usa roving tabindex para evitar nove paradas consecuti
 - As instruções são fornecidas por texto visualmente oculto e associado ao grupo via `aria-describedby`.
 
 O contrato nativo C11 espelha o mesmo modelo com `deck_ui_grid_focus_boundary`: sem modificador, calcula o início/fim da linha; com `entire_grid=true`, calcula o primeiro/último slot global. O helper só calcula o destino de foco e nunca seleciona ou executa uma ação. A integração desses comandos às mensagens de teclado Win32 ainda depende de coordenação com a PR #16.
+
+
+## Acento de assinatura reservado ao estado selecionado (16/11/2026)
+
+A landing page mantém o acento neutro (`#EEF1F5`) para foco genérico, links e controles. O verde-lima oficial (`#9DFF00`) fica reservado ao estado ativo/selecionado da tecla de reprodução no simulador, alinhando a demonstração ao token `DECK_UI_STATE_SELECTED` da paleta C11 sem colorir indiscriminadamente a interface. O indicador usa uma borda e um brilho discretos; o ícone também assume o acento enquanto a reprodução simulada está ativa. Em `forced-colors`, o estado usa a cor de sistema `Highlight`, preservando a semântica em alto contraste.
