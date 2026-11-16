@@ -29,18 +29,23 @@ static IAudioEndpointVolume *get_endpoint_volume(void) {
 
     hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
                           &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&enumerator,
-                                      release_device_enumerator)) return NULL;
+    if (!deck_audio_com_output_accept((int32_t)hr, enumerator,
+                                      release_device_enumerator)) {
+        enumerator = NULL;
+        return NULL;
+    }
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eRender, eMultimedia, &device);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&device, release_audio_device)) {
+    if (!deck_audio_com_output_accept((int32_t)hr, device, release_audio_device)) {
+        device = NULL;
         goto cleanup;
     }
 
     hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
                             NULL, (void **)&volume);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&volume,
+    if (!deck_audio_com_output_accept((int32_t)hr, volume,
                                       release_endpoint_volume)) {
+        volume = NULL;
         goto cleanup;
     }
 
@@ -73,7 +78,8 @@ static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(activation->enumerator,
                                                        eCapture, windows_role, &device);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&device, release_audio_device)) {
+    if (!deck_audio_com_output_accept((int32_t)hr, device, release_audio_device)) {
+        device = NULL;
         return 0;
     }
 
@@ -82,8 +88,9 @@ static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context
        try the multimedia capture role. */
     hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
                             NULL, (void **)&volume);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&volume,
+    if (!deck_audio_com_output_accept((int32_t)hr, volume,
                                       release_endpoint_volume)) {
+        volume = NULL;
         IMMDevice_Release(device);
         return 0;
     }
@@ -100,7 +107,7 @@ static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
 
     hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
                           &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&enumerator,
+    if (!deck_audio_com_output_accept((int32_t)hr, enumerator,
                                       release_device_enumerator)) return NULL;
 
     activation.enumerator = enumerator;
