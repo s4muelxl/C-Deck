@@ -72,6 +72,7 @@ static void assert_invalid_store_is_read_only(const char *contents, const char *
     write_text("macros.cfg", contents);
     assert(!macro_store_load(&invalid, "macros-test-apps.cfg"));
     assert(invalid.read_only);
+    assert(!macro_store_save(&invalid));
     assert(file_contains("macros.cfg", marker));
 }
 
@@ -438,6 +439,28 @@ int main(void) {
         "[meta]\nversion=1\n[macro1]\nname=Macro\nstep_count=1\n"
         "step1=action:volume_up\nstep1=action:volume_down\nmarker=duplicate-step\n",
         "marker=duplicate-step");
+
+    /* Unknown syntax is rejected fail-closed and never rewritten. */
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[profile]\nmarker=unknown-section\n",
+        "marker=unknown-section");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\nunknown_option=true\nmarker=unknown-meta-key\n",
+        "marker=unknown-meta-key");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro1]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\nunknown_option=true\nmarker=unknown-macro-key\n",
+        "marker=unknown-macro-key");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\nthis-is-not-a-key\nmarker=bare-line\n",
+        "marker=bare-line");
+    assert_invalid_store_is_read_only(
+        "orphan=value\n[meta]\nversion=1\nmarker=outside-section\n",
+        "marker=outside-section");
+    assert_invalid_store_is_read_only(
+        "[macro1]\nname=Macro\nstep_count=1\nstep1=action:volume_up\n"
+        "[meta]\nversion=1\nmarker=meta-after-macro\n",
+        "marker=meta-after-macro");
 
     /* Exercise macro storage under a real non-ASCII directory path. */
     {
