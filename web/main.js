@@ -97,6 +97,15 @@
   const soundToggleBtn = document.getElementById('demo-sound-toggle');
   const demoResetBtn = document.getElementById('demo-reset');
 
+  function getIdleStatusMessage() {
+    if (state.playing && state.muted) {
+      return 'REPRODUÇÃO SIMULADA ATIVA · MUDO ATIVO';
+    }
+    if (state.playing) return 'REPRODUÇÃO SIMULADA ATIVA';
+    if (state.muted) return 'PRONTO · MUDO ATIVO · DEMONSTRAÇÃO';
+    return 'PRONTO · MODO DEMONSTRAÇÃO';
+  }
+
   function setStatus(message) {
     if (!statusEl) return;
     statusEl.textContent = message;
@@ -106,11 +115,7 @@
 
     if (state.statusTimer) clearTimeout(state.statusTimer);
     state.statusTimer = setTimeout(() => {
-      if (statusEl) {
-        statusEl.textContent = state.muted
-          ? 'PRONTO · MUDO ATIVO · DEMONSTRAÇÃO'
-          : 'PRONTO · MODO DEMONSTRAÇÃO';
-      }
+      if (statusEl) statusEl.textContent = getIdleStatusMessage();
     }, 2800);
   }
 
