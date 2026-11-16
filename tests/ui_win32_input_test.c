@@ -348,11 +348,63 @@ static void test_no_focusable_slot_is_reported_without_mutation(void) {
     assert(memcmp(&view, &before_view, sizeof(view)) == 0);
 }
 
+static void test_cancel_mode_cancels_mouse_and_keyboard_presses(void) {
+    DeckUiLayout layout;
+    DeckUiWin32Input input;
+    DeckUiViewState view;
+    DeckUiWin32InputResult result;
+
+    prepare(&layout, &input, &view);
+
+    /* A menu/modal transition must release mouse capture and clear pressed. */
+    assert(send_message(&input, &view, &layout, NULL, WM_MOUSEMOVE,
+                        0u, point_for_slot(&layout, 2u, 96u),
+                        96u, 0u, &result) == DECK_UI_WIN32_INPUT_OK);
+    assert(view.hovered_slot == 2u);
+    assert(send_message(&input, &view, &layout, NULL, WM_LBUTTONDOWN,
+                        MK_LBUTTON, point_for_slot(&layout, 2u, 96u),
+                        96u, 0u, &result) == DECK_UI_WIN32_INPUT_OK);
+    assert(input.press_source == DECK_UI_WIN32_PRESS_MOUSE);
+    assert(view.pressed_slot == 2u);
+
+    assert(send_message(&input, &view, &layout, NULL, WM_CANCELMODE,
+                        0u, 0, 96u, 0u, &result) == DECK_UI_WIN32_INPUT_OK);
+    assert(result.handled && result.release_mouse_capture);
+    assert(result.pressed_changed && result.hover_changed);
+    assert(!result.selection_changed);
+    assert(view.pressed_slot == DECK_UI_SLOT_NONE);
+    assert(view.hovered_slot == DECK_UI_SLOT_NONE);
+    assert(view.selected_slot == DECK_UI_SLOT_NONE);
+    assert(input.press_source == DECK_UI_WIN32_PRESS_NONE);
+
+    /* The subsequent WM_CAPTURECHANGED is harmless after the state is cleared. */
+    assert(send_message(&input, &view, &layout, NULL, WM_CAPTURECHANGED,
+                        0u, 0, 96u, 0u, &result) ==
+           DECK_UI_WIN32_INPUT_UNHANDLED);
+
+    /* Space is also cancelled without selecting the focused slot. */
+    assert(deck_ui_view_focus(&view, 6u) == DECK_UI_VIEW_OK);
+    assert(send_message(&input, &view, &layout, NULL, WM_KEYDOWN,
+                        VK_SPACE, 0, 96u, 0u, &result) ==
+           DECK_UI_WIN32_INPUT_OK);
+    assert(input.press_source == DECK_UI_WIN32_PRESS_KEYBOARD);
+    assert(view.pressed_slot == 6u);
+
+    assert(send_message(&input, &view, &layout, NULL, WM_CANCELMODE,
+                        0u, 0, 96u, 0u, &result) == DECK_UI_WIN32_INPUT_OK);
+    assert(result.handled && !result.release_mouse_capture);
+    assert(result.pressed_changed && !result.selection_changed);
+    assert(view.pressed_slot == DECK_UI_SLOT_NONE);
+    assert(view.selected_slot == DECK_UI_SLOT_NONE);
+    assert(input.press_source == DECK_UI_WIN32_PRESS_NONE);
+}
+
 int main(void) {
     test_mouse_drag_feedback_and_click_selection();
     test_mouse_release_elsewhere_cancels_selection();
     test_disabled_slot_ignores_pointer_press();
     test_mouse_leave_capture_loss_and_focus_loss();
+    test_cancel_mode_cancels_mouse_and_keyboard_presses();
     test_keyboard_navigation_skips_disabled_and_uses_boundaries();
     test_enter_and_space_select_without_execution();
     test_gap_negative_coordinates_and_dpi_scaling();

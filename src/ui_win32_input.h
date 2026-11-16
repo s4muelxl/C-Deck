@@ -66,7 +66,7 @@ void deck_ui_win32_input_init(DeckUiWin32Input *input);
  * dpi=0 means 96; otherwise dpi must be in [48, 768].
  *
  * Supported messages: WM_MOUSEMOVE, WM_MOUSELEAVE, WM_LBUTTONDOWN,
- * WM_LBUTTONUP, WM_CAPTURECHANGED, WM_KILLFOCUS, WM_KEYDOWN and WM_KEYUP.
+ * WM_LBUTTONUP, WM_CAPTURECHANGED, WM_CANCELMODE, WM_KILLFOCUS, WM_KEYDOWN and WM_KEYUP.
  * Home/End use the whole grid when Control or Meta is present in modifiers.
  *
  * The adapter never executes an action or persists configuration. Mouse

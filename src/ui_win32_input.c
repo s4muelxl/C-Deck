@@ -320,6 +320,21 @@ DeckUiWin32InputStatus deck_ui_win32_input_handle_message(
             clear_press_source(&next_input);
             break;
 
+        case WM_CANCELMODE:
+            /*
+             * Windows sends WM_CANCELMODE when the current interaction mode
+             * must end (for example, before a menu takes over). Clear both
+             * mouse and keyboard presses; the window procedure performs the
+             * actual ReleaseCapture when requested below.
+             */
+            next_result.handled = 1;
+            if (next_input.press_source == DECK_UI_WIN32_PRESS_MOUSE) {
+                next_result.release_mouse_capture = 1;
+            }
+            deck_ui_view_clear_transient(&next_view);
+            clear_press_source(&next_input);
+            break;
+
         case WM_KEYDOWN: {
             DeckUiDirection direction;
             int is_direction = 1;
