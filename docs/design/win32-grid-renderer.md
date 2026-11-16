@@ -14,6 +14,27 @@ The renderer consumes a validated DeckUiGridFrame and paints the 15 slot surface
 - Accepts optional borrowed HICON and UTF-16 label arrays. It never destroys caller-owned icons or strings.
 - Uses Segoe UI through GDI; no external font package or graphics dependency is required.
 
+## Slot content layout and defensive frame validation
+
+The renderer validates the complete 5×3 row-major geometry again at its boundary:
+all slots must be square and equal-sized, horizontal/vertical gaps must match,
+and the gap must match the selected layout mode (14 DIP for normal modes,
+8 DIP for compact). Each slot's semantic style is also checked against the
+renderer palette and its resolved visual/focus state. A malformed or manually
+modified frame is rejected before the target HDC is touched.
+
+The function deck_ui_win32_grid_renderer_content_layout computes icon and label
+rectangles for each physical-pixel slot. When both are present, the icon is
+reduced to fit above the label with a DPI-scaled gap; it no longer overlaps the
+label at the 44–49 DIP compact key sizes. Icon-only slots keep a centered icon,
+and label-only slots retain the lower caption area. The helper leaves its output
+unchanged for invalid arguments or invalid geometry.
+
+The Windows regression suite checks the content rectangles at 96 DPI and 48
+DPI, paints a 45 DIP compact grid at 150% scaling with both icon and label,
+and rejects overlapping geometry, a style inconsistent with focus state, and
+a frame whose layout mode disagrees with its slot gap.
+
 ## Resource and paint lifecycle
 
 The renderer creates brushes, pens and one label font during initialization and reuses them for every paint. It creates no GDI objects inside the 15-slot loop.
