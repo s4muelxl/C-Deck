@@ -66,19 +66,58 @@ static int rect_to_win32(const DeckUiRect *source, UINT dpi, RECT *target) {
     return target->right > target->left && target->bottom > target->top;
 }
 
+static int grid_geometry_is_valid(const DeckUiGridFrame *frame) {
+    const DeckUiRect *first;
+    int64_t gap_x;
+    int64_t gap_y;
+    uint32_t index;
+
+    if (!frame) return 0;
+    first = &frame->slots[0].bounds;
+    if (first->width <= 0 || first->height != first->width) return 0;
+
+    gap_x = (int64_t)frame->slots[1].bounds.x -
+            ((int64_t)first->x + first->width);
+    gap_y = (int64_t)frame->slots[DECK_UI_GRID_COLUMNS].bounds.y -
+            ((int64_t)first->y + first->height);
+    if (gap_x <= 0 || gap_y <= 0 || gap_x != gap_y) return 0;
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const DeckUiRect *slot = &frame->slots[index].bounds;
+        const int64_t row = index / DECK_UI_GRID_COLUMNS;
+        const int64_t column = index % DECK_UI_GRID_COLUMNS;
+        const int64_t expected_x = (int64_t)first->x +
+            column * ((int64_t)first->width + gap_x);
+        const int64_t expected_y = (int64_t)first->y +
+            row * ((int64_t)first->height + gap_y);
+
+        if (slot->width != first->width || slot->height != first->height ||
+            (int64_t)slot->x != expected_x ||
+            (int64_t)slot->y != expected_y) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 static int frame_is_valid(const DeckUiWin32GridRenderer *renderer,
                           const DeckUiGridFrame *frame) {
+    DeckUiPalette palette;
     uint32_t index;
 
     if (!renderer || !renderer->initialized || !frame ||
         frame->slot_count != DECK_UI_GRID_SLOT_COUNT ||
         frame->layout_mode <= DECK_UI_LAYOUT_MODE_UNSUPPORTED ||
-        frame->layout_mode > DECK_UI_LAYOUT_MODE_COMPACT) {
+        frame->layout_mode > DECK_UI_LAYOUT_MODE_COMPACT ||
+        !grid_geometry_is_valid(frame)) {
         return 0;
     }
 
+    memcpy(palette.colors, renderer->colors, sizeof(palette.colors));
     for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
         const DeckUiGridSlotFrame *slot = &frame->slots[index];
+        DeckUiStyle expected_style;
         RECT bounds;
 
         if (slot->presentation.visual_state < DECK_UI_STATE_NORMAL ||
@@ -91,6 +130,17 @@ static int frame_is_valid(const DeckUiWin32GridRenderer *renderer,
             find_palette_role(renderer, slot->style.border) < 0 ||
             find_palette_role(renderer, slot->style.indicator) < 0 ||
             !rect_to_win32(&slot->bounds, renderer->dpi, &bounds)) {
+            return 0;
+        }
+
+        expected_style = deck_ui_style_for_interaction(
+            &palette, slot->presentation.visual_state,
+            slot->presentation.focused);
+        if (slot->style.fill != expected_style.fill ||
+            slot->style.text != expected_style.text ||
+            slot->style.border != expected_style.border ||
+            slot->style.indicator != expected_style.indicator ||
+            slot->style.flags != expected_style.flags) {
             return 0;
         }
     }
