@@ -172,8 +172,8 @@ ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path
 
 ActionResult action_launch_app(const DeckApp *app) {
     HINSTANCE result;
-    wchar_t wide_path[DECK_TEXT_MAX];
-    ActionResult prepared = action_prepare_launch_target(app, wide_path, DECK_TEXT_MAX);
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+    ActionResult prepared = action_prepare_launch_target(app, wide_path, DECK_PATH_WIDE_MAX);
     if (prepared != ACTION_SUCCESS) return prepared;
     result = ShellExecuteW(NULL, L"open", wide_path, NULL, NULL, SW_SHOWNORMAL);
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
