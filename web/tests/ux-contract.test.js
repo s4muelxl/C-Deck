@@ -81,8 +81,13 @@ test('neutral iconography and high-contrast keyboard states are available', () =
 });
 
 
-test('the neutral accent is the single source of truth without legacy lime remnants', () => {
+test('the neutral base palette reserves the lime signature for the selected state', () => {
   assert.match(css, /--accent:\s*#eef1f5/);
+  assert.match(css, /--signature:\s*#9dff00/i);
+  assert.match(css, /--signature-glow:\s*rgba\(157,\s*255,\s*0,\s*0?\.16\)/i);
+  assert.match(css, /\.deck-key\.key-active-media\s*\{[^}]*border-color:\s*var\(--signature\)[^}]*box-shadow:\s*0 0 0 1px var\(--signature-glow\)/s);
+  assert.match(css, /\.deck-key\.key-active-media \.key-glyph\s*\{\s*color:\s*var\(--signature\);\s*\}/);
+  assert.match(css, /@media\s*\(forced-colors:\s*active\)\s*\{\s*\.deck-key\.key-active-media\s*\{[^}]*border-color:\s*Highlight/s);
   assert.doesNotMatch(css, /#d7ff(?:63|85)|215,\s*255,\s*99|#e4ff91/i);
 });
 
