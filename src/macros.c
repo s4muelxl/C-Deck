@@ -520,6 +520,9 @@ DeckMacroResult macro_execute(const DeckMacro *macro,
         } else {
             return DECK_MACRO_INVALID_DEFINITION;
         }
+
+        /* Cancellation raised by an executor also applies to the final step. */
+        if (cancel_check && cancel_check(context)) return DECK_MACRO_CANCELLED;
     }
     return DECK_MACRO_OK;
 }
