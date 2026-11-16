@@ -62,7 +62,7 @@ static void write_text(const char *path, const char *content) {
 }
 
 static void assert_invalid_store_is_read_only(const char *contents, const char *marker) {
-    DeckMacroStore invalid;
+    static DeckMacroStore invalid;
     write_text("macros.cfg", contents);
     assert(!macro_store_load(&invalid, "macros-test-apps.cfg"));
     assert(invalid.read_only);
@@ -85,8 +85,8 @@ static void build_valid_macro(DeckMacro *macro) {
 int main(void) {
     DeckMacroStep step;
     DeckMacro macro;
-    DeckMacroStore store;
-    DeckMacroStore loaded;
+    static DeckMacroStore store;
+    static DeckMacroStore loaded;
     DeckMacro editing;
 
     assert(macro_step_parse("action:volume_up", &step));
@@ -230,7 +230,7 @@ int main(void) {
     assert(file_contains("macros.cfg.bak", "action:volume_down"));
 
     {
-        DeckMacroStore future;
+        static DeckMacroStore future;
         write_text("macros.cfg", "[meta]\nversion=99\n");
         assert(!macro_store_load(&future, "macros-test-apps.cfg"));
         assert(future.read_only);
@@ -266,16 +266,16 @@ int main(void) {
     {
         const char *unicode_directory = "macro-配置-测试-Δ";
         const char *unicode_config_path = "macro-配置-测试-Δ/apps.cfg";
-        wchar_t wide_directory[DECK_MACRO_PATH_MAX];
-        wchar_t wide_macro_path[DECK_MACRO_PATH_MAX];
-        wchar_t wide_backup_path[DECK_MACRO_PATH_MAX];
-        wchar_t wide_temporary_path[DECK_MACRO_PATH_MAX];
-        DeckMacroStore unicode_store;
-        DeckMacroStore unicode_loaded;
+        wchar_t wide_directory[DECK_PATH_WIDE_MAX];
+        wchar_t wide_macro_path[DECK_PATH_WIDE_MAX];
+        wchar_t wide_backup_path[DECK_PATH_WIDE_MAX];
+        wchar_t wide_temporary_path[DECK_PATH_WIDE_MAX];
+        static DeckMacroStore unicode_store;
+        static DeckMacroStore unicode_loaded;
 
         assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
                                    unicode_directory, -1,
-                                   wide_directory, DECK_MACRO_PATH_MAX) > 0);
+                                   wide_directory, DECK_PATH_WIDE_MAX) > 0);
         assert(CreateDirectoryW(wide_directory, NULL) ||
                GetLastError() == ERROR_ALREADY_EXISTS);
 
