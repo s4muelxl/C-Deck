@@ -65,12 +65,12 @@ DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
     int32_t row;
     int32_t column;
 
-    if (!layout) return DECK_UI_LAYOUT_INVALID_ARGUMENT;
+    if (!layout) return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT;
     memset(layout, 0, sizeof(*layout));
     layout->mode = DECK_UI_LAYOUT_MODE_UNSUPPORTED;
 
     if (!input || input->width_dip <= 0 || input->height_dip <= 0) {
-        return DECK_UI_LAYOUT_INVALID_ARGUMENT;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT;
     }
 
     if (input->compact_mode) {
@@ -421,7 +421,7 @@ DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout)
     int32_t body_height;
     int64_t client_height;
 
-    if (!layout) return DECK_UI_LAYOUT_INVALID_ARGUMENT;
+    if (!layout) return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_ARGUMENT;
 
     switch (layout->mode) {
         case DECK_UI_LAYOUT_MODE_WIDE:
@@ -457,7 +457,7 @@ DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout)
             expected_inspector_visible = 0;
             break;
         default:
-            return DECK_UI_LAYOUT_INVALID_REGIONS;
+            return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (layout->sidebar_visible != expected_sidebar_visible
@@ -465,7 +465,7 @@ DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout)
         || layout->top_bar.x != 0 || layout->top_bar.y != 0
         || layout->top_bar.width <= 0
         || layout->top_bar.height != top_height) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     client_width = layout->top_bar.width;
@@ -477,55 +477,55 @@ DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout)
                 || client_width >= WIDE_BREAKPOINT_DIP))
         || (layout->mode == DECK_UI_LAYOUT_MODE_WIDE
             && client_width < WIDE_BREAKPOINT_DIP)) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (layout->status_bar.x != 0 || layout->status_bar.width != client_width
         || layout->status_bar.height != status_height
         || layout->status_bar.y < top_height) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     client_height = (int64_t)layout->status_bar.y + layout->status_bar.height;
     if (client_height > INT32_MAX || client_height <= top_height) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
     body_height = layout->status_bar.y - top_height;
 
     if (client_width <= sidebar_width + inspector_width) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (expected_sidebar_visible) {
         if (!rect_matches(&layout->sidebar, 0, top_height,
                           sidebar_width, body_height)) {
-            return DECK_UI_LAYOUT_INVALID_REGIONS;
+            return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
         }
     } else if (!rect_is_zero(&layout->sidebar)) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (expected_inspector_visible) {
         if (!rect_matches(&layout->inspector,
                           client_width - inspector_width, top_height,
                           inspector_width, body_height)) {
-            return DECK_UI_LAYOUT_INVALID_REGIONS;
+            return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
         }
     } else if (!rect_is_zero(&layout->inspector)) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (!rect_matches(&layout->workspace, sidebar_width, top_height,
                       client_width - sidebar_width - inspector_width,
                       body_height)) {
-        return DECK_UI_LAYOUT_INVALID_REGIONS;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_REGIONS;
     }
 
     if (!layout_grid_is_ordered_and_centered(layout)) {
-        return DECK_UI_LAYOUT_INVALID_GRID;
+        return DECK_UI_LAYOUT_VALIDATION_OKATION_INVALID_GRID;
     }
 
-    return DECK_UI_LAYOUT_VALID;
+    return DECK_UI_LAYOUT_VALIDATION_OK;
 }
 
 DeckUiHitTestStatus deck_ui_grid_hit_test(const DeckUiLayout *layout,

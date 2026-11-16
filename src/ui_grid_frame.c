@@ -26,7 +26,7 @@ DeckUiGridFrameStatus deck_ui_grid_frame_build(
     if (!layout || !view_state || !palette || !frame) {
         return DECK_UI_GRID_FRAME_INVALID_ARGUMENT;
     }
-    if (deck_ui_layout_validate(layout) != DECK_UI_LAYOUT_VALID) {
+    if (deck_ui_layout_validate(layout) != DECK_UI_LAYOUT_VALIDATION_OK) {
         return DECK_UI_GRID_FRAME_INVALID_LAYOUT;
     }
     if (!view_state_is_valid(view_state)) {
