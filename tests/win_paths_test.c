@@ -75,13 +75,13 @@ static void delete_utf8_file_variants(const char *path) {
 static void test_long_path_profile_io(const char *config_path) {
     static DeckProfileStore store;
     static DeckProfileStore reloaded;
-    DeckConfig fallback;
-    DeckConfig active;
-    DeckConfig next_active;
-    DeckConfig reloaded_active;
+    static DeckConfig fallback;
+    static DeckConfig active;
+    static DeckConfig next_active;
+    static DeckConfig reloaded_active;
     DeckPreferences preferences;
-    char backup_path[DECK_PROFILE_PATH_MAX];
-    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+    static char backup_path[DECK_PROFILE_PATH_MAX];
+    static wchar_t wide_path[DECK_PATH_WIDE_MAX];
 
     config_set_defaults(&fallback);
     strcpy(fallback.apps[14].name, "Café long profile");
@@ -135,14 +135,14 @@ static void test_long_path_profile_io(const char *config_path) {
 }
 
 static void test_long_path_config_io(void) {
-    wchar_t temp_path[DECK_PATH_WIDE_MAX];
-    wchar_t temp_name[MAX_PATH];
-    wchar_t cleanup[DECK_PATH_WIDE_MAX];
+    static wchar_t temp_path[DECK_PATH_WIDE_MAX];
+    static wchar_t temp_name[MAX_PATH];
+    static wchar_t cleanup[DECK_PATH_WIDE_MAX];
     wchar_t *last_separator;
     DWORD temp_length;
     size_t root_length;
-    DeckConfig config;
-    DeckConfig loaded;
+    static DeckConfig config;
+    static DeckConfig loaded;
 
     temp_length = GetTempPathW(DECK_PATH_WIDE_MAX, temp_path);
     assert(temp_length > 0 && temp_length < DECK_PATH_WIDE_MAX);
