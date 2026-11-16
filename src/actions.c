@@ -9,22 +9,45 @@
 #include <wchar.h>
 #include <string.h>
 
+static void release_device_enumerator(void *object) {
+    if (object) IMMDeviceEnumerator_Release((IMMDeviceEnumerator *)object);
+}
+
+static void release_audio_device(void *object) {
+    if (object) IMMDevice_Release((IMMDevice *)object);
+}
+
+static void release_endpoint_volume(void *object) {
+    if (object) IAudioEndpointVolume_Release((IAudioEndpointVolume *)object);
+}
+
 static IAudioEndpointVolume *get_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
     IMMDevice *device = NULL;
     IAudioEndpointVolume *volume = NULL;
     HRESULT hr;
 
-    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (FAILED(hr) || !enumerator) return NULL;
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+                          &IID_IMMDeviceEnumerator, (void **)&enumerator);
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&enumerator,
+                                      release_device_enumerator)) return NULL;
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eRender, eMultimedia, &device);
-    if (SUCCEEDED(hr) && device) {
-        hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void **)&volume);
-        IMMDevice_Release(device);
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&device, release_audio_device)) {
+        goto cleanup;
     }
-    IMMDeviceEnumerator_Release(enumerator);
-    return SUCCEEDED(hr) ? volume : NULL;
+
+    hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
+                            NULL, (void **)&volume);
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&volume,
+                                      release_endpoint_volume)) {
+        goto cleanup;
+    }
+
+cleanup:
+    if (device) IMMDevice_Release(device);
+    if (enumerator) IMMDeviceEnumerator_Release(enumerator);
+    return volume;
 }
 
 typedef struct CaptureEndpointActivation {
@@ -50,21 +73,22 @@ static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(activation->enumerator,
                                                        eCapture, windows_role, &device);
-    if (FAILED(hr) || !device) {
-        if (device) IMMDevice_Release(device);
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&device, release_audio_device)) {
         return 0;
     }
 
     /* A default endpoint is not usable until IAudioEndpointVolume activates.
-       If activation fails, let the policy try the multimedia capture role. */
+       If activation fails, release any partial interface and let the policy
+       try the multimedia capture role. */
     hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
                             NULL, (void **)&volume);
-    IMMDevice_Release(device);
-    if (FAILED(hr) || !volume) {
-        if (volume) IAudioEndpointVolume_Release(volume);
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&volume,
+                                      release_endpoint_volume)) {
+        IMMDevice_Release(device);
         return 0;
     }
 
+    IMMDevice_Release(device);
     activation->volume = volume;
     return 1;
 }
@@ -76,7 +100,8 @@ static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
 
     hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
                           &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (FAILED(hr) || !enumerator) return NULL;
+    if (!deck_audio_com_output_accept((int32_t)hr, (void **)&enumerator,
+                                      release_device_enumerator)) return NULL;
 
     activation.enumerator = enumerator;
     activation.volume = NULL;
