@@ -284,3 +284,12 @@ O teste de contrato usa um contexto Web Audio simulado para provocar rejeições
 O slider de volume da demonstração web mantém um contorno de foco de teclado ao redor de toda a área interativa, em vez de depender apenas do brilho do thumb. Isso torna o foco mais fácil de localizar quando o usuário navega com Tab/Shift+Tab. Em `forced-colors`, a borda usa a cor de sistema `Highlight`; a indicação não depende de sombras, que podem ser removidas pelo modo de alto contraste do navegador/Windows.
 
 O contrato automatizado verifica a regra de foco normal e a substituição para `Highlight`. Trata-se de uma garantia CSS do simulador web, não de validação do controle nativo Win32.
+
+
+## Composição de foco com estado semântico (16/11/2026)
+
+O contrato de tema agora oferece `deck_ui_style_for_interaction`, que combina o estado visual primário (`normal`, `hover`, `pressed`, `selected`, `disabled`, `error` ou `warning`) com um indicador de foco independente. Quando `focused` é verdadeiro, a função adiciona `DECK_UI_STYLE_FOCUS_RING` sem substituir `fill`, `border` ou `indicator` do estado primário. Assim, uma tecla selecionada conserva a borda/indicador verde-lima e pode receber simultaneamente um anel de foco visível.
+
+O renderer Win32 deve desenhar o anel separadamente, usando `DECK_UI_COLOR_FOCUS` e respeitando o inset/outset definido pelo componente. Não deve reutilizar o token de foco como borda principal, pois isso apagaria a semântica de seleção. O chamador deve informar `focused` a partir do estado real de foco; esta função não infere foco nem altera estado de navegação.
+
+Os testes verificam a combinação selected+focused, hover+focused, normal sem foco, fallback de estado inválido e paleta nula. O helper continua sendo um contrato C11 puro: ainda não está ligado ao desenho Win32 nem substitui a inspeção visual de foco na janela real.
