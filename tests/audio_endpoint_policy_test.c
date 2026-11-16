@@ -49,7 +49,8 @@ static void test_com_out_parameter_cleanup(void) {
     /* A failed HRESULT with a non-null out pointer releases the partial object. */
     assert(!deck_audio_com_output_accept((int32_t)0x80004005u, output,
                                          release_fake_com_output));
-    output = NULL; /* The typed caller clears its local out-parameter after rejection. */
+    assert(output == &fake); /* The helper receives by value; caller clears its handle. */
+    output = NULL;
     assert(output == NULL);
     assert(fake.releases == 1);
 

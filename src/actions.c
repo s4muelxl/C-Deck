@@ -26,14 +26,20 @@ static IAudioEndpointVolume *get_endpoint_volume(void) {
     IMMDevice *device = NULL;
     IAudioEndpointVolume *volume = NULL;
     HRESULT hr;
+    void *com_output = NULL;
 
+    /* COM's void** out-parameter is written into a real void* object. Only
+       after HRESULT/interface validation is ownership assigned to the typed
+       interface variable. */
     hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
-                          &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (!deck_audio_com_output_accept((int32_t)hr, enumerator,
+                          &IID_IMMDeviceEnumerator, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
                                       release_device_enumerator)) {
-        enumerator = NULL;
+        com_output = NULL;
         return NULL;
     }
+    enumerator = (IMMDeviceEnumerator *)com_output;
+    com_output = NULL;
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eRender, eMultimedia, &device);
     if (!deck_audio_com_output_accept((int32_t)hr, device, release_audio_device)) {
@@ -41,13 +47,16 @@ static IAudioEndpointVolume *get_endpoint_volume(void) {
         goto cleanup;
     }
 
+    com_output = NULL;
     hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
-                            NULL, (void **)&volume);
-    if (!deck_audio_com_output_accept((int32_t)hr, volume,
+                            NULL, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
                                       release_endpoint_volume)) {
-        volume = NULL;
+        com_output = NULL;
         goto cleanup;
     }
+    volume = (IAudioEndpointVolume *)com_output;
+    com_output = NULL;
 
 cleanup:
     if (device) IMMDevice_Release(device);
@@ -66,6 +75,7 @@ static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context
     IAudioEndpointVolume *volume = NULL;
     ERole windows_role;
     HRESULT hr;
+    void *com_output = NULL;
 
     if (!activation || !activation->enumerator || activation->volume) return 0;
     if (role == DECK_CAPTURE_ENDPOINT_COMMUNICATIONS) {
@@ -87,14 +97,16 @@ static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context
        If activation fails, release any partial interface and let the policy
        try the multimedia capture role. */
     hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
-                            NULL, (void **)&volume);
-    if (!deck_audio_com_output_accept((int32_t)hr, volume,
+                            NULL, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
                                       release_endpoint_volume)) {
-        volume = NULL;
+        com_output = NULL;
         IMMDevice_Release(device);
         return 0;
     }
 
+    volume = (IAudioEndpointVolume *)com_output;
+    com_output = NULL;
     IMMDevice_Release(device);
     activation->volume = volume;
     return 1;
@@ -104,11 +116,17 @@ static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
     CaptureEndpointActivation activation;
     HRESULT hr;
+    void *com_output = NULL;
 
     hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
-                          &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (!deck_audio_com_output_accept((int32_t)hr, enumerator,
-                                      release_device_enumerator)) return NULL;
+                          &IID_IMMDeviceEnumerator, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
+                                      release_device_enumerator)) {
+        com_output = NULL;
+        return NULL;
+    }
+    enumerator = (IMMDeviceEnumerator *)com_output;
+    com_output = NULL;
 
     activation.enumerator = enumerator;
     activation.volume = NULL;
