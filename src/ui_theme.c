@@ -25,6 +25,14 @@ void deck_ui_palette_init(DeckUiPalette *palette) {
     memcpy(palette->colors, defaults, sizeof(defaults));
 }
 
+uint32_t deck_ui_rgb_to_colorref(uint32_t rgb) {
+    const uint32_t red = (rgb >> 16) & 0xFFu;
+    const uint32_t green = (rgb >> 8) & 0xFFu;
+    const uint32_t blue = rgb & 0xFFu;
+
+    return red | (green << 8) | (blue << 16);
+}
+
 uint32_t deck_ui_palette_get(const DeckUiPalette *palette, DeckUiColorRole role) {
     if (!palette || role < 0 || role >= DECK_UI_COLOR_COUNT) return 0u;
     return palette->colors[role];
