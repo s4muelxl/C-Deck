@@ -201,13 +201,16 @@ static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
     wide[max_chars - 1] = L'\0';
 }
 
-static void wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
-    if (!utf8 || max_bytes <= 0) return;
+static int wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
+    if (!utf8 || max_bytes <= 0) return 0;
     utf8[0] = '\0';
-    if (!wide || !WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1, utf8, max_bytes, NULL, NULL)) {
+    if (!wide || !WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1,
+                                      utf8, max_bytes, NULL, NULL)) {
         utf8[0] = '\0';
+        return 0;
     }
     utf8[max_bytes - 1] = '\0';
+    return 1;
 }
 
 static void set_status(const wchar_t *message) {
@@ -628,17 +631,17 @@ static void execute_key_action(int key_index) {
 
 static void browse_file_for_inspector(HWND hwnd) {
     OPENFILENAMEW dialog;
-    wchar_t selected[MAX_PATH];
+    wchar_t selected[DECK_PATH_WIDE_MAX];
     const wchar_t *filter = L"Aplicativos (*.exe;*.com;*.bat;*.cmd)\0*.exe;*.com;*.bat;*.cmd\0Todos os arquivos (*.*)\0*.*\0\0";
     ZeroMemory(&dialog, sizeof(dialog));
     ZeroMemory(selected, sizeof(selected));
-    if (g_insp_path_edit) GetWindowTextW(g_insp_path_edit, selected, MAX_PATH);
+    if (g_insp_path_edit) GetWindowTextW(g_insp_path_edit, selected, DECK_PATH_WIDE_MAX);
 
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = hwnd;
     dialog.lpstrFilter = filter;
     dialog.lpstrFile = selected;
-    dialog.nMaxFile = MAX_PATH;
+    dialog.nMaxFile = DECK_PATH_WIDE_MAX;
     dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     dialog.lpstrTitle = L"Escolher aplicativo (.exe)";
     if (GetOpenFileNameW(&dialog)) {
@@ -648,18 +651,26 @@ static void browse_file_for_inspector(HWND hwnd) {
 
 static void save_inspector_changes(void) {
     DeckApp *app;
+    DeckApp previous;
+    DeckApp updated;
     wchar_t wname[DECK_TEXT_MAX];
-    wchar_t wpath[DECK_TEXT_MAX];
+    wchar_t wpath[DECK_PATH_WIDE_MAX];
     char name[DECK_TEXT_MAX];
-    char path[DECK_TEXT_MAX];
+    char path[DECK_PATH_TEXT_MAX];
     char *start;
     char *end;
 
     if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
     GetWindowTextW(g_insp_title_edit, wname, DECK_TEXT_MAX);
-    GetWindowTextW(g_insp_path_edit, wpath, DECK_TEXT_MAX);
-    wide_to_utf8(wname, name, DECK_TEXT_MAX);
-    wide_to_utf8(wpath, path, DECK_TEXT_MAX);
+    GetWindowTextW(g_insp_path_edit, wpath, DECK_PATH_WIDE_MAX);
+    if (!wide_to_utf8(wname, name, DECK_TEXT_MAX)) {
+        set_status(L"O nome da ação contém caracteres inválidos ou excede o limite.");
+        return;
+    }
+    if (!wide_to_utf8(wpath, path, DECK_PATH_TEXT_MAX)) {
+        set_status(L"O caminho/URL excede 8191 bytes UTF-8 ou contém caracteres inválidos.");
+        return;
+    }
 
     start = name;
     while (*start && isspace((unsigned char)*start)) ++start;
@@ -674,13 +685,17 @@ static void save_inspector_changes(void) {
     while (end > path && isspace((unsigned char)end[-1])) *--end = '\0';
 
     app = &g_config.apps[g_selected_key];
-    strcpy(app->name, name);
-    strcpy(app->path, path);
-    app->configured = (name[0] != '\0' && path[0] != '\0');
+    previous = *app;
+    updated = previous;
+    strcpy(updated.name, name);
+    strcpy(updated.path, path);
+    updated.configured = (name[0] != '\0' && path[0] != '\0');
+    *app = updated;
 
     if (save_active_profile()) {
         set_status(L"Ação salva com sucesso.");
     } else {
+        *app = previous;
         set_status(L"Erro ao salvar configuração. O arquivo anterior foi preservado.");
     }
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
@@ -703,7 +718,7 @@ static void remove_selected_action(void) {
 static void update_inspector_ui(void) {
     const DeckApp *app;
     wchar_t wname[DECK_TEXT_MAX];
-    wchar_t wpath[DECK_TEXT_MAX];
+    wchar_t wpath[DECK_PATH_WIDE_MAX];
 
     if (!g_insp_title_edit) return;
 
@@ -735,7 +750,7 @@ static void update_inspector_ui(void) {
         const DeckMacro *macro = macro_for_app(app);
         utf8_to_wide(macro ? macro->name : app->name, wname, DECK_TEXT_MAX);
     }
-    utf8_to_wide(app->path, wpath, DECK_TEXT_MAX);
+    utf8_to_wide(app->path, wpath, DECK_PATH_WIDE_MAX);
     SetWindowTextW(g_insp_title_edit, wname);
     SetWindowTextW(g_insp_path_edit, wpath);
 
@@ -1423,8 +1438,8 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
     if (idx >= 0 && idx < ID_KEY_COUNT) {
         const DeckApp *app = &g_config.apps[idx];
         if (app->icon_path[0] && strncmp(app->icon_path, "icon:", 5) != 0) {
-            wchar_t wide_icon_path[DECK_TEXT_MAX];
-            utf8_to_wide(app->icon_path, wide_icon_path, DECK_TEXT_MAX);
+            wchar_t wide_icon_path[DECK_PATH_WIDE_MAX];
+            utf8_to_wide(app->icon_path, wide_icon_path, DECK_PATH_WIDE_MAX);
             app_icon = (HICON)LoadImageW(NULL, wide_icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
             owns_icon = (app_icon != NULL);
         }
@@ -2384,10 +2399,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             g_insp_title_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
                 0, 0, 100, 28, hwnd, (HMENU)ID_INSP_TITLE, inst, NULL);
             SendMessageW(g_insp_title_edit, WM_SETFONT, (WPARAM)g_font_btn, TRUE);
+            SendMessageW(g_insp_title_edit, EM_SETLIMITTEXT, DECK_TEXT_MAX - 1, 0);
 
             g_insp_path_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
                 0, 0, 100, 28, hwnd, (HMENU)ID_INSP_PATH, inst, NULL);
             SendMessageW(g_insp_path_edit, WM_SETFONT, (WPARAM)g_font_btn, TRUE);
+            SendMessageW(g_insp_path_edit, EM_SETLIMITTEXT, DECK_PATH_WIDE_MAX - 1, 0);
 
             g_insp_path_browse = CreateWindowW(L"BUTTON", L"...", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
                 0, 0, 32, 28, hwnd, (HMENU)ID_INSP_BROWSE_PATH, inst, NULL);
