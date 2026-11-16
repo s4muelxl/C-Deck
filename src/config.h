@@ -7,6 +7,10 @@
 #define DECK_CONFIG_VERSION 3
 #define DECK_TEXT_MAX 260
 
+/* Windows extended paths are bounded to 32,767 UTF-16 code units. */
+#define DECK_PATH_WIDE_MAX 32768
+#define DECK_PATH_UTF8_MAX (DECK_PATH_WIDE_MAX * 4 + 1)
+
 typedef struct DeckApp {
     char name[DECK_TEXT_MAX];
     char path[DECK_TEXT_MAX];
