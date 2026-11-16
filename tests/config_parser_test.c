@@ -49,9 +49,6 @@ int main(void) {
         "[app2]\n"
         "name=Navegador\n"
         "path=browser.exe\n"
-        "[secao-invalida]\n"
-        "name=Ignorado\n"
-        "path=ignorado.exe\n"
         "[app3]\n"
         "name=Paint\n"
         "path=mspaint.exe\n"
@@ -135,6 +132,36 @@ int main(void) {
 
     write_config("[meta]\nversion=3\n[app1]\nname=First\npath=first.exe\n"
                  "icon=first.ico\nicon=second.ico\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    /* Unknown and misplaced syntax must fail closed instead of being ignored. */
+    write_config("[meta]\nversion=3\n[future]\nmarker=unknown-section\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "marker=unknown-section"));
+
+    write_config("[meta]\nversion=3\nfuture_meta=1\n[app1]\nname=One\npath=one.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "future_meta=1"));
+
+    write_config("[meta]\nversion=3\n[app1]\nname=One\npath=one.exe\nfuture_field=1\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "future_field=1"));
+
+    write_config("[meta]\nversion=3\n[app1]\nname=One\npath=one.exe\nline-without-equals\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "line-without-equals"));
+
+    write_config("orphan=value\n[meta]\nversion=3\n[app1]\nname=One\npath=one.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+    assert(file_contains("test-apps.cfg", "orphan=value"));
+
+    write_config("[app1]\nname=One\npath=one.exe\n[meta]\nversion=3\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    write_config("[app1\nname=One\npath=one.exe\n");
+    assert(config_load("test-apps.cfg", &config) == 0);
+
+    write_config("[app10]\nname=Ten\npath=ten.exe\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
     /* Reject overlong physical lines instead of parsing a truncated prefix. */
