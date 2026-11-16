@@ -31,16 +31,18 @@ jobs:
         run: |
           mkdir -p build/config
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
+          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/audio_endpoint_policy.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
           cp config/apps.cfg build/config/apps.cfg
           cp config/macros.cfg.example build/config/macros.cfg.example
           cp README.md build/README.md
-      - name: Run configuration, profile, library, macro worker lifecycle, hotkey, GDI and Unicode launch tests
+      - name: Run configuration, profile, library, microphone endpoint fallback, macro worker lifecycle, hotkey, GDI and Unicode launch tests
         shell: msys2 {0}
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c src/audio_endpoint_policy.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
           ./build/actions-unicode-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/audio_endpoint_policy_test.c src/audio_endpoint_policy.c -o build/audio-endpoint-policy-test.exe
+          ./build/audio-endpoint-policy-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/win_paths_test.c src/win_paths.c src/config.c src/profiles.c -o build/win-paths-test.exe
           ./build/win-paths-test.exe
           ./build/config-test.exe

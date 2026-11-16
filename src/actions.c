@@ -1,5 +1,6 @@
 #define COBJMACROS
 #include "actions.h"
+#include "audio_endpoint_policy.h"
 #include <windows.h>
 #include <shellapi.h>
 #include <initguid.h>
@@ -26,25 +27,63 @@ static IAudioEndpointVolume *get_endpoint_volume(void) {
     return SUCCEEDED(hr) ? volume : NULL;
 }
 
-static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
-    IMMDeviceEnumerator *enumerator = NULL;
+typedef struct CaptureEndpointActivation {
+    IMMDeviceEnumerator *enumerator;
+    IAudioEndpointVolume *volume;
+} CaptureEndpointActivation;
+
+static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context) {
+    CaptureEndpointActivation *activation = (CaptureEndpointActivation *)context;
     IMMDevice *device = NULL;
     IAudioEndpointVolume *volume = NULL;
+    ERole windows_role;
     HRESULT hr;
 
-    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void **)&enumerator);
+    if (!activation || !activation->enumerator || activation->volume) return 0;
+    if (role == DECK_CAPTURE_ENDPOINT_COMMUNICATIONS) {
+        windows_role = eCommunications;
+    } else if (role == DECK_CAPTURE_ENDPOINT_MULTIMEDIA) {
+        windows_role = eMultimedia;
+    } else {
+        return 0;
+    }
+
+    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(activation->enumerator,
+                                                       eCapture, windows_role, &device);
+    if (FAILED(hr) || !device) {
+        if (device) IMMDevice_Release(device);
+        return 0;
+    }
+
+    /* A default endpoint is not usable until IAudioEndpointVolume activates.
+       If activation fails, let the policy try the multimedia capture role. */
+    hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
+                            NULL, (void **)&volume);
+    IMMDevice_Release(device);
+    if (FAILED(hr) || !volume) {
+        if (volume) IAudioEndpointVolume_Release(volume);
+        return 0;
+    }
+
+    activation->volume = volume;
+    return 1;
+}
+
+static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
+    IMMDeviceEnumerator *enumerator = NULL;
+    CaptureEndpointActivation activation;
+    HRESULT hr;
+
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+                          &IID_IMMDeviceEnumerator, (void **)&enumerator);
     if (FAILED(hr) || !enumerator) return NULL;
 
-    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eCapture, eCommunications, &device);
-    if (FAILED(hr) || !device) {
-        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eCapture, eMultimedia, &device);
-    }
-    if (SUCCEEDED(hr) && device) {
-        hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void **)&volume);
-        IMMDevice_Release(device);
-    }
+    activation.enumerator = enumerator;
+    activation.volume = NULL;
+    (void)deck_capture_endpoint_resolve(activate_capture_endpoint, &activation);
+
     IMMDeviceEnumerator_Release(enumerator);
-    return SUCCEEDED(hr) ? volume : NULL;
+    return activation.volume;
 }
 
 ActionResult action_volume_step(float delta) {

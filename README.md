@@ -152,6 +152,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - `src/win_paths.c` / `src/win_paths.h`: resolução dinâmica do caminho do executável e derivação do diretório de configuração, com suporte a caminhos estendidos Win32.
 - `src/interface.c`: janela principal e editor de atalhos Win32.
 - `src/actions.c`: ações de áudio e abertura de aplicativos.
+- `src/audio_endpoint_policy.c` / `src/audio_endpoint_policy.h`: política testável de fallback entre endpoints de captura de comunicações e multimídia.
 - `src/config.c`: leitura, migração e gravação das 15 ações.
 - `src/profiles.c` / `src/profiles.h`: perfis integrados e preferências persistentes.
 - `src/action_library.c` / `src/action_library.h`: catálogo imutável de modelos de ações por categoria.
@@ -164,7 +165,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - `src/gdi_scope.c` / `src/gdi_scope.h`: restauração de objetos GDI selecionados antes da liberação de brushes/pens temporários.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, resolução de caminhos Win32 longos/Unicode, conversão estrita de destinos UTF-8 para UTF-16 e despacho testável do launcher `ShellExecuteW` sem iniciar processos reais, ciclo de vida e fluxo automatizado do editor modal, registro de hotkeys com mocks, integração real do adaptador Win32 (conflito `ERROR_HOTKEY_ALREADY_REGISTERED` e liberação idempotente) e ciclo de vida GDI.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, resolução de caminhos Win32 longos/Unicode, conversão estrita de destinos UTF-8 para UTF-16 e despacho testável do launcher `ShellExecuteW` sem iniciar processos reais, ciclo de vida e fluxo automatizado do editor modal, política de fallback de endpoints de captura de microfone, registro de hotkeys com mocks, integração real do adaptador Win32 (conflito `ERROR_HOTKEY_ALREADY_REGISTERED` e liberação idempotente) e ciclo de vida GDI.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados, sem publicação automática.
 - `.github/workflows/release.yml`: publicação manual e versionada, condicionada a tag e confirmação humana.
@@ -175,7 +176,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - Os atalhos globais usam combinações padrão fixas nesta versão; a personalização das combinações ainda não está disponível. O registro de cada combinação é conferido separadamente. Conflitos (por exemplo, `ERROR_HOTKEY_ALREADY_REGISTERED`) aparecem na barra de status, sem impedir o registro das outras combinações. A preferência indica que o C-Deck deve tentar ativá-los; ela não garante que todos estejam disponíveis no Windows.
 - O volume pode ser ajustado pelo controle deslizante ou pelos botões em passos de 5%.
 - Os controles de mídia enviam comandos globais do teclado multimídia; o resultado depende do aplicativo de mídia ativo.
-- Se a consulta do estado do microfone falhar, os ícones usam uma cor neutra em vez de indicar incorretamente microfone aberto ou silenciado.
+- A consulta do estado do microfone tenta primeiro o endpoint de captura de comunicações e, se a aquisição ou a ativação de `IAudioEndpointVolume` falhar, tenta o endpoint multimídia. Se ambos falharem, a ação retorna indisponibilidade e a interface mantém os ícones em cor neutra, sem inferir um estado de mute.
 - As 15 teclas da grade 5×3 são configuráveis e persistidas em `config/apps.cfg`.
 - Os quatro perfis integrados são persistentes, mas ainda não há criação/renomeação de perfis personalizados, plugins, controle individual por aplicativo ou integração com hardware Stream Deck.
 
