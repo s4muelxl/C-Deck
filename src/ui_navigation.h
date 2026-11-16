@@ -4,6 +4,10 @@
 #include "ui_layout.h"
 
 #include <stdbool.h>
+#include <stdint.h>
+
+/* Bits 0..14 map to the row-major 5x3 deck slots. */
+#define DECK_UI_GRID_FOCUSABLE_MASK ((uint16_t)0x7FFFu)
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,7 +24,10 @@ typedef enum DeckUiNavigationStatus {
     DECK_UI_NAVIGATION_OK = 0,
     DECK_UI_NAVIGATION_INVALID_ARGUMENT,
     DECK_UI_NAVIGATION_INVALID_SLOT,
-    DECK_UI_NAVIGATION_INVALID_DIRECTION
+    DECK_UI_NAVIGATION_INVALID_DIRECTION,
+    DECK_UI_NAVIGATION_NO_FOCUSABLE_SLOT,
+    DECK_UI_NAVIGATION_CURRENT_SLOT_DISABLED,
+    DECK_UI_NAVIGATION_INVALID_FOCUSABLE_MASK
 } DeckUiNavigationStatus;
 
 /*
@@ -45,6 +52,29 @@ DeckUiNavigationStatus deck_ui_grid_focus_boundary(uint32_t current_slot,
                                                    bool to_end,
                                                    bool entire_grid,
                                                    uint32_t *next_slot);
+
+/*
+ * Reconciles focus after a model change (for example, a slot becomes disabled).
+ * The nearest focusable slot by row-major index is chosen; ties prefer the
+ * following slot. Output is unchanged if no slot is focusable or the mask is
+ * invalid.
+ */
+DeckUiNavigationStatus deck_ui_grid_reconcile_focus(
+    uint32_t current_slot, uint16_t focusable_mask, uint32_t *next_slot);
+
+/*
+ * Moves along the requested row/column and skips disabled slots. Edges clamp
+ * without wrapping. If current_slot is disabled, reconcile first. A zero mask
+ * returns NO_FOCUSABLE_SLOT; bits outside slots 0..14 are invalid.
+ */
+DeckUiNavigationStatus deck_ui_grid_move_focusable(
+    uint32_t current_slot, DeckUiDirection direction,
+    uint16_t focusable_mask, uint32_t *next_slot);
+
+/* Home/End equivalent that skips disabled slots in the row or whole grid. */
+DeckUiNavigationStatus deck_ui_grid_focus_boundary_focusable(
+    uint32_t current_slot, bool to_end, bool entire_grid,
+    uint16_t focusable_mask, uint32_t *next_slot);
 
 #ifdef __cplusplus
 }
