@@ -4,6 +4,8 @@
 #include "action_library.h"
 #include "macros.h"
 #include "macro_editor.h"
+#include "macro_run_state.h"
+#include "macro_completion_gate.h"
 #include "hotkeys.h"
 #include "hotkeys_win32.h"
 #include "gdi_scope.h"
@@ -132,6 +134,8 @@ static DeckMacroStore g_macro_store;
 static int g_macro_store_ready;
 static HANDLE g_macro_thread;
 static volatile LONG g_macro_cancelled;
+static DeckMacroRunState g_macro_run_state;
+static DeckMacroCompletionGate g_macro_completion_gate = DECK_MACRO_COMPLETION_GATE_INITIALIZER;
 static HWND g_main_window;
 static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
@@ -190,7 +194,7 @@ static int apply_profile(const wchar_t *profile);
 static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
 static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category);
-static void start_macro_execution(HWND hwnd, unsigned int macro_id);
+static void start_macro_execution(unsigned int macro_id);
 static const DeckMacro *macro_for_app(const DeckApp *app);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
@@ -229,9 +233,9 @@ static void report_result(ActionResult result, const wchar_t *success_message) {
     }
 }
 typedef struct MacroThreadArgs {
-    HWND hwnd;
     DeckMacro macro;
     volatile LONG *cancelled;
+    uint32_t run_id;
 } MacroThreadArgs;
 
 static int macro_cancel_check(void *context) {
@@ -279,8 +283,10 @@ static DWORD WINAPI macro_worker_thread(LPVOID parameter) {
     MacroThreadArgs *args = (MacroThreadArgs *)parameter;
     HRESULT com_result;
     DeckMacroResult result;
+    uint32_t run_id;
 
     if (!args) return 1;
+    run_id = args->run_id;
     com_result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE) {
         result = DECK_MACRO_EXECUTION_FAILED;
@@ -288,13 +294,14 @@ static DWORD WINAPI macro_worker_thread(LPVOID parameter) {
         result = macro_execute(&args->macro, macro_action_executor, macro_open_executor,
                                macro_delay_executor, macro_cancel_check, (void *)args->cancelled);
     }
-    PostMessageW(args->hwnd, WM_MACRO_COMPLETE, (WPARAM)result, 0);
     if (SUCCEEDED(com_result)) CoUninitialize();
     HeapFree(GetProcessHeap(), 0, args);
+    deck_macro_completion_gate_post(&g_macro_completion_gate, WM_MACRO_COMPLETE,
+                                    (WPARAM)result, (LPARAM)(ULONG_PTR)run_id);
     return 0;
 }
 
-static void start_macro_execution(HWND hwnd, unsigned int macro_id) {
+static void start_macro_execution(unsigned int macro_id) {
     const DeckMacro *macro;
     MacroThreadArgs *args;
     DWORD wait_result;
@@ -315,6 +322,10 @@ static void start_macro_execution(HWND hwnd, unsigned int macro_id) {
             set_status(L"Já existe uma Multi Action em execução.");
             return;
         }
+        if (wait_result != WAIT_OBJECT_0) {
+            set_status(L"Não foi possível verificar o estado da Multi Action; nova execução bloqueada.");
+            return;
+        }
         CloseHandle(g_macro_thread);
         g_macro_thread = NULL;
     }
@@ -325,11 +336,17 @@ static void start_macro_execution(HWND hwnd, unsigned int macro_id) {
         set_status(L"Memória insuficiente para iniciar a macro.");
         return;
     }
-    args->hwnd = hwnd;
     args->macro = *macro;
     args->cancelled = &g_macro_cancelled;
+    args->run_id = deck_macro_run_state_begin(&g_macro_run_state);
+    if (args->run_id == 0) {
+        HeapFree(GetProcessHeap(), 0, args);
+        set_status(L"Não foi possível identificar a execução da Multi Action.");
+        return;
+    }
     g_macro_thread = CreateThread(NULL, 0, macro_worker_thread, args, 0, NULL);
     if (!g_macro_thread) {
+        deck_macro_run_state_complete(&g_macro_run_state, args->run_id);
         HeapFree(GetProcessHeap(), 0, args);
         set_status(L"Não foi possível iniciar a execução da macro.");
         return;
@@ -593,7 +610,7 @@ static void execute_key_action(int key_index) {
         if (!end || *end != '\0' || macro_id == 0 || macro_id > DECK_MACRO_COUNT) {
             set_status(L"Referência de macro inválida.");
         } else {
-            start_macro_execution(g_main_window, (unsigned int)macro_id);
+            start_macro_execution((unsigned int)macro_id);
         }
     } else if (strcmp(app->path, "action:sound_devices") == 0) {
         report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
@@ -2732,6 +2749,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
 
         case WM_MACRO_COMPLETE:
+            if (!deck_macro_run_state_complete(&g_macro_run_state,
+                                               (uint32_t)(ULONG_PTR)lparam)) {
+                return 0; /* Ignore a late completion from an older run. */
+            }
             if (g_macro_thread) {
                 CloseHandle(g_macro_thread);
                 g_macro_thread = NULL;
@@ -2779,9 +2800,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
 
         case WM_DESTROY:
+            /* Stop completion delivery before the HWND can become invalid. */
+            deck_macro_completion_gate_close(&g_macro_completion_gate);
+            deck_macro_run_state_invalidate(&g_macro_run_state);
             InterlockedExchange(&g_macro_cancelled, 1);
             if (g_macro_thread) {
-                WaitForSingleObject(g_macro_thread, 1000);
+                DWORD shutdown_wait = WaitForSingleObject(g_macro_thread, 1000);
+                if (shutdown_wait == WAIT_TIMEOUT) {
+                    OutputDebugStringW(L"C-Deck: macro worker exceeded the 1 s cooperative shutdown wait.\n");
+                } else if (shutdown_wait == WAIT_FAILED) {
+                    OutputDebugStringW(L"C-Deck: failed to wait for macro worker during shutdown.\n");
+                }
                 CloseHandle(g_macro_thread);
                 g_macro_thread = NULL;
             }
@@ -2887,6 +2916,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     );
     if (!hwnd) return 1;
     g_main_window = hwnd;
+    deck_macro_completion_gate_bind(&g_macro_completion_gate, hwnd);
 
     enable_system_backdrop(hwnd);
     apply_window_opacity(hwnd, g_window_opacity);
