@@ -27,7 +27,55 @@ static COLORREF pixel_at(HDC dc, const RECT *rect, int32_t x_offset,
     return color;
 }
 
+static void test_content_layout_avoids_icon_label_overlap(void) {
+    DeckUiWin32SlotContentLayout content;
+    DeckUiWin32SlotContentLayout before;
+    RECT compact_96 = { 0, 0, 44, 44 };
+    RECT compact_48 = { 0, 0, 22, 22 };
+    RECT icon_only = { 0, 0, 44, 44 };
+
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &compact_96, 96u, 1, 1, &content) ==
+           DECK_UI_WIN32_RENDER_OK);
+    assert(content.has_icon == 1 && content.has_label == 1);
+    assert(content.icon_bounds.right - content.icon_bounds.left ==
+           content.icon_bounds.bottom - content.icon_bounds.top);
+    assert(content.icon_bounds.bottom <= content.label_bounds.top - 3);
+    assert(content.icon_bounds.left >= compact_96.left);
+    assert(content.icon_bounds.right <= compact_96.right);
+
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &compact_48, 48u, 1, 1, &content) ==
+           DECK_UI_WIN32_RENDER_OK);
+    assert(content.has_icon == 1 && content.has_label == 1);
+    assert(content.icon_bounds.bottom <= content.label_bounds.top - 2);
+
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &icon_only, 96u, 1, 0, &content) ==
+           DECK_UI_WIN32_RENDER_OK);
+    assert(content.has_icon == 1 && content.has_label == 0);
+    assert(content.icon_bounds.top > icon_only.top);
+    assert(content.icon_bounds.bottom < icon_only.bottom);
+
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &icon_only, 96u, 0, 1, &content) ==
+           DECK_UI_WIN32_RENDER_OK);
+    assert(content.has_icon == 0 && content.has_label == 1);
+
+    before = content;
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &icon_only, 47u, 1, 1, &content) ==
+           DECK_UI_WIN32_RENDER_INVALID_ARGUMENT);
+    assert(memcmp(&content, &before, sizeof(content)) == 0);
+    assert(deck_ui_win32_grid_renderer_content_layout(
+               &icon_only, 96u, 2, 1, &content) ==
+           DECK_UI_WIN32_RENDER_INVALID_ARGUMENT);
+    assert(memcmp(&content, &before, sizeof(content)) == 0);
+}
+
 int main(void) {
+    test_content_layout_avoids_icon_label_overlap();
+
     HDC screen_dc = GetDC(NULL);
     HDC memory_dc;
     HBITMAP bitmap;
@@ -107,6 +155,30 @@ int main(void) {
                DECK_UI_WIN32_RENDER_OK);
     }
 
+    /* A minimum-size compact layout must keep its icon clear of its label. */
+    {
+        DeckUiLayout compact_layout;
+        DeckUiLayoutInput compact_input = { 320, 270, 1 };
+        DeckUiViewState compact_view;
+        DeckUiGridFrame compact_frame;
+        const wchar_t *compact_labels[DECK_UI_GRID_SLOT_COUNT] = { NULL };
+        HICON compact_icons[DECK_UI_GRID_SLOT_COUNT] = { NULL };
+
+        assert(deck_ui_layout_compute(&compact_input, &compact_layout) ==
+               DECK_UI_LAYOUT_OK);
+        assert(compact_layout.slot_size_dip == 45);
+        deck_ui_view_state_init(&compact_view);
+        compact_labels[0] = L"Compact";
+        compact_icons[0] = icons[13];
+        assert(deck_ui_grid_frame_build(&compact_layout, &compact_view,
+                                        &palette, NULL, &compact_frame) ==
+               DECK_UI_GRID_FRAME_OK);
+        assert(deck_ui_win32_grid_renderer_paint(
+                   &renderer, memory_dc, &compact_frame,
+                   compact_labels, compact_icons) ==
+               DECK_UI_WIN32_RENDER_OK);
+    }
+
     resources_after_paint = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     assert(resources_after_paint == resources_after_warmup);
     assert(resources_after_init > resources_before_init);
@@ -139,6 +211,27 @@ int main(void) {
     assert(pixel_at(memory_dc, &slot_zero, 5,
                     (slot_zero.bottom - slot_zero.top) / 2) ==
            (COLORREF)deck_ui_rgb_to_colorref(0xFFFFFFu));
+
+    {
+        DeckUiGridFrame invalid_frame = frame;
+
+        invalid_frame.slots[1].bounds.x = invalid_frame.slots[0].bounds.x;
+        assert(deck_ui_win32_grid_renderer_paint(
+                   &renderer, memory_dc, &invalid_frame, labels, icons) ==
+               DECK_UI_WIN32_RENDER_INVALID_FRAME);
+
+        invalid_frame = frame;
+        invalid_frame.slots[0].style.flags = DECK_UI_STYLE_NONE;
+        assert(deck_ui_win32_grid_renderer_paint(
+                   &renderer, memory_dc, &invalid_frame, labels, icons) ==
+               DECK_UI_WIN32_RENDER_INVALID_FRAME);
+
+        invalid_frame = frame;
+        invalid_frame.layout_mode = DECK_UI_LAYOUT_MODE_COMPACT;
+        assert(deck_ui_win32_grid_renderer_paint(
+                   &renderer, memory_dc, &invalid_frame, labels, icons) ==
+               DECK_UI_WIN32_RENDER_INVALID_FRAME);
+    }
 
     frame.slot_count = DECK_UI_GRID_SLOT_COUNT - 1u;
     assert(deck_ui_win32_grid_renderer_paint(&renderer, memory_dc,
