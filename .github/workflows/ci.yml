@@ -41,7 +41,7 @@ jobs:
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
           ./build/actions-unicode-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/win_paths_test.c src/win_paths.c -o build/win-paths-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/win_paths_test.c src/win_paths.c -o build/win-paths-test.exe
           ./build/win-paths-test.exe
           ./build/config-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/profiles_test.c src/profiles.c src/config.c -o build/profiles-test.exe
