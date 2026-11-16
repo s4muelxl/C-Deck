@@ -277,3 +277,10 @@ Os efeitos sonoros do simulador são opcionais e locais ao navegador; não repre
 - A preferência SOM: ON/OFF continua independente do estado do contexto e é preservada pelo botão de reinicialização da demonstração.
 
 O teste de contrato usa um contexto Web Audio simulado para provocar rejeições assíncronas e verificar suspensão, fechamento e recriação. Isso valida o ciclo de vida do código, não a qualidade acústica ou a disponibilidade de dispositivos em um navegador físico.
+
+
+## Foco do slider de volume em alto contraste (16/11/2026)
+
+O slider de volume da demonstração web mantém um contorno de foco de teclado ao redor de toda a área interativa, em vez de depender apenas do brilho do thumb. Isso torna o foco mais fácil de localizar quando o usuário navega com Tab/Shift+Tab. Em `forced-colors`, a borda usa a cor de sistema `Highlight`; a indicação não depende de sombras, que podem ser removidas pelo modo de alto contraste do navegador/Windows.
+
+O contrato automatizado verifica a regra de foco normal e a substituição para `Highlight`. Trata-se de uma garantia CSS do simulador web, não de validação do controle nativo Win32.

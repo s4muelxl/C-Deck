@@ -581,3 +581,10 @@ test('the simulator keeps its local-preview status visible in the mock titlebar'
   assert.match(css, /\.window-mode-badge\s*\{[^}]*white-space:\s*nowrap/s);
   assert.match(css, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.window-mode-badge/);
 });
+
+
+test('volume slider keeps a visible keyboard focus ring in normal and forced-colors modes', () => {
+  assert.match(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*2px solid #f2f4f7/s);
+  assert.doesNotMatch(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*none/s);
+  assert.match(css, /@media\s*\(forced-colors:\s*active\)[\s\S]*?\.volume-slider:focus-visible\s*\{[^}]*outline-color:\s*Highlight/s);
+});

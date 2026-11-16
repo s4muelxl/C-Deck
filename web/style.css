@@ -1087,7 +1087,11 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   background: #f2f4f7;
   box-shadow: 0 0 0 1px rgba(255,255,255,.32), 0 2px 5px rgba(0,0,0,.35);
 }
-.volume-slider:focus-visible { outline: none; }
+.volume-slider:focus-visible {
+  outline: 2px solid #f2f4f7;
+  outline-offset: 4px;
+  border-radius: 6px;
+}
 .volume-slider:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px rgba(238,241,245,.2), 0 2px 5px rgba(0,0,0,.35);
 }
@@ -1108,6 +1112,9 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
     box-shadow: none;
   }
   .deck-key.key-active-media .key-glyph { color: Highlight; }
+  .volume-slider:focus-visible {
+    outline-color: Highlight;
+  }
 }
 .window-status { color: #dbe1e8; }
 .window-status.flash {
