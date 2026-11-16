@@ -24,6 +24,9 @@ on:
       - 'src/ui_win32_grid_renderer.c'
       - 'src/ui_win32_grid_renderer.h'
       - 'tests/ui_win32_grid_renderer_test.c'
+      - 'src/ui_win32_input.c'
+      - 'src/ui_win32_input.h'
+      - 'tests/ui_win32_input_test.c'
       - 'docs/design/win32-grid-renderer.md'
       - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
@@ -51,6 +54,9 @@ on:
       - 'src/ui_win32_grid_renderer.c'
       - 'src/ui_win32_grid_renderer.h'
       - 'tests/ui_win32_grid_renderer_test.c'
+      - 'src/ui_win32_input.c'
+      - 'src/ui_win32_input.h'
+      - 'tests/ui_win32_input_test.c'
       - 'docs/design/win32-grid-renderer.md'
       - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
@@ -121,3 +127,9 @@ jobs:
         run: |
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c src/ui_win32_grid_renderer.c tests/ui_win32_grid_renderer_test.c -lgdi32 -luser32 -o build/ui-win32-grid-renderer-test.exe
           ./build/ui-win32-grid-renderer-test.exe
+
+      - name: Compile and run Win32 grid input adapter test
+        shell: msys2 {0}
+        run: |
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c src/ui_win32_input.c tests/ui_win32_input_test.c -o build/ui-win32-input-test.exe
+          ./build/ui-win32-input-test.exe
