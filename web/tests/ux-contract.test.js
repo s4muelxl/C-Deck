@@ -573,3 +573,11 @@ test('simulator suspends and closes Web Audio resources across page lifecycle ev
 });
 
 
+
+
+test('the simulator keeps its local-preview status visible in the mock titlebar', () => {
+  assert.match(html, /class="window-mode-badge" aria-hidden="true">SIMULAÇÃO<\/span>/);
+  assert.match(html, /aria-describedby="demo-disclaimer"/);
+  assert.match(css, /\.window-mode-badge\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.window-mode-badge/);
+});
