@@ -17,6 +17,26 @@ typedef enum DeckUiWin32RenderStatus {
     DECK_UI_WIN32_RENDER_GDI_FAILURE
 } DeckUiWin32RenderStatus;
 
+typedef struct DeckUiWin32SlotContentLayout {
+    RECT icon_bounds;
+    RECT label_bounds;
+    int has_icon;
+    int has_label;
+} DeckUiWin32SlotContentLayout;
+
+/*
+ * Computes non-overlapping icon/label bounds inside one physical-pixel slot.
+ * At compact key sizes the icon is reduced before the label is allowed to
+ * overlap it. dpi must be in [48, 768]; has_icon/has_label must be 0 or 1.
+ * The output is unchanged when the arguments or slot geometry are invalid.
+ */
+DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
+    const RECT *slot_bounds,
+    UINT dpi,
+    int has_icon,
+    int has_label,
+    DeckUiWin32SlotContentLayout *content);
+
 /*
  * A UI-thread-confined GDI resource cache for the native 5x3 deck renderer.
  * The context owns every brush, pen and font stored below. It must be zero
