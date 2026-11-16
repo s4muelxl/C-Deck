@@ -434,6 +434,73 @@ static void test_grid_hit_test_round_trip_across_dpi_and_breakpoints(void) {
     }
 }
 
+
+static void test_layout_validation_covers_all_modes_and_breakpoints(void) {
+    static const DeckUiLayoutInput inputs[] = {
+        { 900, 640, 0 },
+        { 1119, 720, 0 },
+        { 1120, 720, 0 },
+        { 1359, 800, 0 },
+        { 1360, 900, 0 },
+        { 440, 320, 1 }
+    };
+    static const DeckUiLayoutMode modes[] = {
+        DECK_UI_LAYOUT_MODE_NARROW,
+        DECK_UI_LAYOUT_MODE_NARROW,
+        DECK_UI_LAYOUT_MODE_MEDIUM,
+        DECK_UI_LAYOUT_MODE_MEDIUM,
+        DECK_UI_LAYOUT_MODE_WIDE,
+        DECK_UI_LAYOUT_MODE_COMPACT
+    };
+    size_t index;
+
+    for (index = 0u; index < sizeof(inputs) / sizeof(inputs[0]); ++index) {
+        DeckUiLayout layout;
+        assert(deck_ui_layout_compute(&inputs[index], &layout) == DECK_UI_LAYOUT_OK);
+        assert(layout.mode == modes[index]);
+        assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_VALID);
+    }
+}
+
+static void test_layout_validation_rejects_corrupt_shell_regions(void) {
+    const DeckUiLayoutInput input = { 1600, 900, 0 };
+    DeckUiLayout layout;
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.top_bar.width -= 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.sidebar.width += 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.workspace.x += 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.inspector.x -= 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.status_bar.y += 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.sidebar_visible = 2;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_REGIONS);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.slots[1].x += 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_GRID);
+
+    assert(deck_ui_layout_compute(&input, &layout) == DECK_UI_LAYOUT_OK);
+    layout.slot_gap_dip += 1;
+    assert(deck_ui_layout_validate(&layout) == DECK_UI_LAYOUT_INVALID_GRID);
+
+    assert(deck_ui_layout_validate(NULL) == DECK_UI_LAYOUT_INVALID_ARGUMENT);
+}
+
 int main(void) {
     test_wide_layout();
     test_medium_and_narrow_layouts();
@@ -451,6 +518,8 @@ int main(void) {
     test_grid_hit_test_uses_half_open_bounds();
     test_grid_hit_test_rejects_invalid_layout();
     test_grid_hit_test_invalid_arguments();
+    test_layout_validation_covers_all_modes_and_breakpoints();
+    test_layout_validation_rejects_corrupt_shell_regions();
     puts("ui_layout_test: all checks passed");
     return 0;
 }

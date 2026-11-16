@@ -308,3 +308,18 @@ O módulo independente `src/ui_presentation.c` / `src/ui_presentation.h` conecta
 A suíte `tests/ui_presentation_test.c` cobre estado normal/hover, selected+hover com foco, pressed+selected, override de disabled/error/warning e preservação da saída em entradas inválidas. Os workflows de UI nativa compilam e executam o novo contrato em Linux e MinGW/Windows, tanto em push quanto em pull request.
 
 **Limite de integração:** este resolver ainda não está ligado ao ciclo de pintura de `src/interface.c`. A integração continua condicionada à coordenação com a PR #16, que altera esse arquivo. Os testes validam a resolução semântica em C11, não a aparência em uma sessão gráfica Windows.
+
+
+## Validação integral do shell antes da renderização (16/11/2026)
+
+O contrato C11 de layout agora expõe `deck_ui_layout_validate`. A validação não se limita às 15 teclas: ela confere também a geometria das regiões da janela antes de um frame de renderização ser aceito.
+
+- Top bar e status bar precisam ocupar a largura cliente completa e manter as alturas definidas para o modo.
+- Sidebar, workspace e inspector precisam formar uma partição contínua do corpo da janela, sem sobreposição, lacuna ou retângulo residual quando um painel está recolhido.
+- A visibilidade e as larguras dos painéis devem corresponder ao modo wide, medium, narrow ou compact; larguras nas bordas dos breakpoints não podem ser rotuladas como outro modo.
+- A grade precisa manter 15 slots quadrados, gap uniforme, ordem row-major e centralização no workspace.
+- Geometria de regiões inválida retorna `DECK_UI_LAYOUT_INVALID_REGIONS`; grade inválida retorna `DECK_UI_LAYOUT_INVALID_GRID`. O validador é somente leitura.
+
+`deck_ui_grid_frame_build` passou a usar esse validador público. Portanto, um shell inconsistente é rejeitado antes de produzir o snapshot para o renderer, mesmo que os 15 retângulos individuais ainda pareçam válidos. Os testes incluem as larguras 900/1119/1120/1359/1360 DIP e mutações isoladas de top bar, sidebar, workspace, inspector, status bar, flags de visibilidade, ordem/gap da grade e preservação da saída do frame.
+
+Isso fortalece o contrato de geometria; não significa que o layout já esteja ligado à janela Win32 nem substitui testes de resize e DPI em uma sessão gráfica real.

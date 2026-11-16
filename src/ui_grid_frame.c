@@ -14,39 +14,6 @@ static int view_state_is_valid(const DeckUiViewState *state) {
            optional_slot_is_valid(state->pressed_slot);
 }
 
-static int layout_is_valid_and_ordered(const DeckUiLayout *layout) {
-    uint32_t index;
-
-    if (!layout) return 0;
-
-    /*
-     * deck_ui_grid_hit_test validates the complete grid (mode, slot count,
-     * bounds, square dimensions and overlap). Checking each slot center also
-     * guarantees that the public slot array is in row-major order.
-     */
-    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
-        const DeckUiRect *slot = &layout->slots[index];
-        const int64_t center_x = (int64_t)slot->x + slot->width / 2;
-        const int64_t center_y = (int64_t)slot->y + slot->height / 2;
-        uint32_t hit = DECK_UI_GRID_SLOT_COUNT;
-
-        if (center_x < INT32_MIN || center_x > INT32_MAX ||
-            center_y < INT32_MIN || center_y > INT32_MAX) {
-            return 0;
-        }
-
-        if (deck_ui_grid_hit_test(layout,
-                                  (int32_t)center_x,
-                                  (int32_t)center_y,
-                                  &hit) != DECK_UI_HIT_TEST_HIT ||
-            hit != index) {
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
 DeckUiGridFrameStatus deck_ui_grid_frame_build(
     const DeckUiLayout *layout,
     const DeckUiViewState *view_state,
@@ -59,7 +26,7 @@ DeckUiGridFrameStatus deck_ui_grid_frame_build(
     if (!layout || !view_state || !palette || !frame) {
         return DECK_UI_GRID_FRAME_INVALID_ARGUMENT;
     }
-    if (!layout_is_valid_and_ordered(layout)) {
+    if (deck_ui_layout_validate(layout) != DECK_UI_LAYOUT_VALID) {
         return DECK_UI_GRID_FRAME_INVALID_LAYOUT;
     }
     if (!view_state_is_valid(view_state)) {

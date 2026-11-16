@@ -354,6 +354,180 @@ static int layout_grid_is_valid(const DeckUiLayout *layout) {
     return 1;
 }
 
+
+static int rect_matches(const DeckUiRect *rect,
+                        int32_t x,
+                        int32_t y,
+                        int32_t width,
+                        int32_t height) {
+    return rect && rect->x == x && rect->y == y
+           && rect->width == width && rect->height == height;
+}
+
+static int rect_is_zero(const DeckUiRect *rect) {
+    return rect && rect->x == 0 && rect->y == 0
+           && rect->width == 0 && rect->height == 0;
+}
+
+static int layout_grid_is_ordered_and_centered(const DeckUiLayout *layout) {
+    const int32_t expected_gap =
+        layout->mode == DECK_UI_LAYOUT_MODE_COMPACT ? COMPACT_GRID_GAP_DIP
+                                                    : GRID_GAP_DIP;
+    const DeckUiRect *first = &layout->slots[0];
+    const DeckUiRect *last = &layout->slots[DECK_UI_GRID_SLOT_COUNT - 1u];
+    int64_t center_delta_x;
+    int64_t center_delta_y;
+    uint32_t index;
+
+    if (!layout_grid_is_valid(layout)
+        || layout->slot_gap_dip != expected_gap) {
+        return 0;
+    }
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const uint32_t row = index / DECK_UI_GRID_COLUMNS;
+        const uint32_t column = index % DECK_UI_GRID_COLUMNS;
+        const int64_t expected_x = (int64_t)first->x
+            + (int64_t)column * (layout->slot_size_dip + expected_gap);
+        const int64_t expected_y = (int64_t)first->y
+            + (int64_t)row * (layout->slot_size_dip + expected_gap);
+
+        if (expected_x > INT32_MAX || expected_x < INT32_MIN
+            || expected_y > INT32_MAX || expected_y < INT32_MIN
+            || layout->slots[index].x != (int32_t)expected_x
+            || layout->slots[index].y != (int32_t)expected_y) {
+            return 0;
+        }
+    }
+
+    center_delta_x = (int64_t)first->x + last->x + last->width
+                     - (2 * (int64_t)layout->workspace.x
+                        + layout->workspace.width);
+    center_delta_y = (int64_t)first->y + last->y + last->height
+                     - (2 * (int64_t)layout->workspace.y
+                        + layout->workspace.height);
+    return center_delta_x >= -1 && center_delta_x <= 1
+           && center_delta_y >= -1 && center_delta_y <= 1;
+}
+
+DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout) {
+    int32_t top_height;
+    int32_t status_height;
+    int32_t sidebar_width;
+    int32_t inspector_width;
+    int32_t expected_sidebar_visible;
+    int32_t expected_inspector_visible;
+    int32_t client_width;
+    int32_t body_height;
+    int64_t client_height;
+
+    if (!layout) return DECK_UI_LAYOUT_INVALID_ARGUMENT;
+
+    switch (layout->mode) {
+        case DECK_UI_LAYOUT_MODE_WIDE:
+            top_height = NORMAL_TOP_BAR_DIP;
+            status_height = NORMAL_STATUS_BAR_DIP;
+            sidebar_width = SIDEBAR_FULL_DIP;
+            inspector_width = INSPECTOR_DIP;
+            expected_sidebar_visible = 1;
+            expected_inspector_visible = 1;
+            break;
+        case DECK_UI_LAYOUT_MODE_MEDIUM:
+            top_height = NORMAL_TOP_BAR_DIP;
+            status_height = NORMAL_STATUS_BAR_DIP;
+            sidebar_width = SIDEBAR_FULL_DIP;
+            inspector_width = 0;
+            expected_sidebar_visible = 1;
+            expected_inspector_visible = 0;
+            break;
+        case DECK_UI_LAYOUT_MODE_NARROW:
+            top_height = NORMAL_TOP_BAR_DIP;
+            status_height = NORMAL_STATUS_BAR_DIP;
+            sidebar_width = SIDEBAR_RAIL_DIP;
+            inspector_width = 0;
+            expected_sidebar_visible = 1;
+            expected_inspector_visible = 0;
+            break;
+        case DECK_UI_LAYOUT_MODE_COMPACT:
+            top_height = COMPACT_TOP_BAR_DIP;
+            status_height = COMPACT_STATUS_BAR_DIP;
+            sidebar_width = 0;
+            inspector_width = 0;
+            expected_sidebar_visible = 0;
+            expected_inspector_visible = 0;
+            break;
+        default:
+            return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (layout->sidebar_visible != expected_sidebar_visible
+        || layout->inspector_visible != expected_inspector_visible
+        || layout->top_bar.x != 0 || layout->top_bar.y != 0
+        || layout->top_bar.width <= 0
+        || layout->top_bar.height != top_height) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    client_width = layout->top_bar.width;
+    if ((layout->mode == DECK_UI_LAYOUT_MODE_NARROW
+         && (client_width < NARROW_BREAKPOINT_DIP
+             || client_width >= MEDIUM_BREAKPOINT_DIP))
+        || (layout->mode == DECK_UI_LAYOUT_MODE_MEDIUM
+            && (client_width < MEDIUM_BREAKPOINT_DIP
+                || client_width >= WIDE_BREAKPOINT_DIP))
+        || (layout->mode == DECK_UI_LAYOUT_MODE_WIDE
+            && client_width < WIDE_BREAKPOINT_DIP)) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (layout->status_bar.x != 0 || layout->status_bar.width != client_width
+        || layout->status_bar.height != status_height
+        || layout->status_bar.y < top_height) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    client_height = (int64_t)layout->status_bar.y + layout->status_bar.height;
+    if (client_height > INT32_MAX || client_height <= top_height) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+    body_height = layout->status_bar.y - top_height;
+
+    if (client_width <= sidebar_width + inspector_width) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (expected_sidebar_visible) {
+        if (!rect_matches(&layout->sidebar, 0, top_height,
+                          sidebar_width, body_height)) {
+            return DECK_UI_LAYOUT_INVALID_REGIONS;
+        }
+    } else if (!rect_is_zero(&layout->sidebar)) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (expected_inspector_visible) {
+        if (!rect_matches(&layout->inspector,
+                          client_width - inspector_width, top_height,
+                          inspector_width, body_height)) {
+            return DECK_UI_LAYOUT_INVALID_REGIONS;
+        }
+    } else if (!rect_is_zero(&layout->inspector)) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (!rect_matches(&layout->workspace, sidebar_width, top_height,
+                      client_width - sidebar_width - inspector_width,
+                      body_height)) {
+        return DECK_UI_LAYOUT_INVALID_REGIONS;
+    }
+
+    if (!layout_grid_is_ordered_and_centered(layout)) {
+        return DECK_UI_LAYOUT_INVALID_GRID;
+    }
+
+    return DECK_UI_LAYOUT_VALID;
+}
+
 DeckUiHitTestStatus deck_ui_grid_hit_test(const DeckUiLayout *layout,
                                           int32_t x_dip,
                                           int32_t y_dip,

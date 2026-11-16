@@ -34,6 +34,13 @@ typedef enum DeckUiLayoutStatus {
     DECK_UI_LAYOUT_INVALID_ARGUMENT
 } DeckUiLayoutStatus;
 
+typedef enum DeckUiLayoutValidationStatus {
+    DECK_UI_LAYOUT_VALID = 0,
+    DECK_UI_LAYOUT_INVALID_ARGUMENT,
+    DECK_UI_LAYOUT_INVALID_REGIONS,
+    DECK_UI_LAYOUT_INVALID_GRID
+} DeckUiLayoutValidationStatus;
+
 typedef enum DeckUiHitTestStatus {
     DECK_UI_HIT_TEST_HIT = 0,
     DECK_UI_HIT_TEST_OUTSIDE,
@@ -79,6 +86,15 @@ typedef struct DeckUiLayout {
  */
 DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
                                           DeckUiLayout *layout);
+
+/*
+ * Validates the complete Command Center shell and its 5x3 grid.
+ * Region rectangles must exactly partition the client body for the selected
+ * mode; the grid must be square, uniformly spaced, centered and row-major.
+ * This is intended as a fail-closed boundary before a renderer consumes the
+ * layout. No output is modified because the function is read-only.
+ */
+DeckUiLayoutValidationStatus deck_ui_layout_validate(const DeckUiLayout *layout);
 
 /*
  * Resolves a pointer position expressed in DIP to one of the 15 grid slots.

@@ -162,12 +162,33 @@ static void test_invalid_arguments(void) {
            == DECK_UI_GRID_FRAME_INVALID_ARGUMENT);
 }
 
+
+static void test_invalid_shell_regions_reject_frame_without_mutation(void) {
+    DeckUiLayout layout;
+    DeckUiViewState view;
+    DeckUiPalette palette;
+    DeckUiGridFrame frame;
+    DeckUiGridFrame before;
+
+    make_wide_layout(&layout);
+    deck_ui_view_state_init(&view);
+    deck_ui_palette_init(&palette);
+    memset(&frame, 0x3C, sizeof(frame));
+    before = frame;
+
+    layout.inspector.x -= 1;
+    assert(deck_ui_grid_frame_build(&layout, &view, &palette, NULL, &frame)
+           == DECK_UI_GRID_FRAME_INVALID_LAYOUT);
+    assert(memcmp(&frame, &before, sizeof(frame)) == 0);
+}
+
 int main(void) {
     test_builds_complete_renderer_frame();
     test_selected_slot_keeps_lime_and_focus_overlay();
     test_model_states_override_pointer_feedback();
     test_invalid_model_state_preserves_output();
     test_invalid_layout_and_view_state_preserve_output();
+    test_invalid_shell_regions_reject_frame_without_mutation();
     test_invalid_arguments();
     puts("ui_grid_frame_test: all checks passed");
     return 0;
