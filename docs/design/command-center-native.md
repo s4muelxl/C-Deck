@@ -244,3 +244,7 @@ A suíte de layout combina agora os contratos de geometria e entrada em um percu
 O percurso é executado para os 15 slots em quatro composições (wide, medium, narrow e compact mínimo) e quatro escalas (96, 120, 144 e 192 DPI), totalizando 240 verificações. Isso detecta regressões em que o arredondamento de bordas, a escala do retângulo ou a conversão das coordenadas mudem a identidade da tecla.
 
 O teste valida os contratos matemáticos independentes. Ele não simula `WM_DPICHANGED`, não substitui o tratamento de coordenadas da janela Win32 e não equivale a um teste interativo com mouse em monitores físicos.
+
+## Conversão explícita da paleta para GDI / COLORREF (16/11/2026)
+
+A paleta semântica continua armazenando cores como `0xRRGGBB`, independente de Win32. Antes de passar um token para APIs GDI que recebem `COLORREF` (por exemplo, criação de brushes/pens), a camada de apresentação deve chamar `deck_ui_rgb_to_colorref`. O helper converte a ordem dos canais para `0x00BBGGRR`, não inclui `windows.h` e mantém os contratos de tema compiláveis em C11 portátil. O teste cobre vermelho, verde, azul e o acento oficial `#9DFF00`, prevenindo troca acidental dos canais vermelho/azul durante a futura integração Win32. O helper não cria nem libera objetos GDI.
