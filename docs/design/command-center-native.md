@@ -221,8 +221,9 @@ A demonstração web 3×3 usa roving tabindex para evitar nove paradas consecuti
 
 - Tab entra na grade por uma única tecla; o foco atual passa a ser a única tecla com `tabindex="0"`.
 - As setas movem o foco horizontal ou verticalmente dentro das três linhas/colunas.
-- As bordas usam clamp (sem wrap); o navegador não rola a página quando uma seta é tratada pela grade.
+- Home/End levam ao primeiro/último slot da linha atual; Ctrl+Home/Ctrl+End levam ao primeiro/último slot da grade. Meta+Home/End oferece o mesmo atalho em navegadores/plataformas que usam Command.
+- As bordas usam clamp (sem wrap); o navegador não rola a página quando uma tecla é tratada pela grade.
 - Mover o foco não ativa comandos demonstrativos. Enter/Space continuam com a semântica nativa do botão e executam apenas a simulação local.
 - As instruções são fornecidas por texto visualmente oculto e associado ao grupo via `aria-describedby`.
 
-Este comportamento pertence somente ao simulador web. O contrato nativo C11 de navegação 5×3 continua independente e ainda depende de integração Win32 coordenada com a PR #16.
+O contrato nativo C11 espelha o mesmo modelo com `deck_ui_grid_focus_boundary`: sem modificador, calcula o início/fim da linha; com `entire_grid=true`, calcula o primeiro/último slot global. O helper só calcula o destino de foco e nunca seleciona ou executa uma ação. A integração desses comandos às mensagens de teclado Win32 ainda depende de coordenação com a PR #16.
