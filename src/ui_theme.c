@@ -94,3 +94,16 @@ DeckUiStyle deck_ui_style_for_state(const DeckUiPalette *palette, DeckUiVisualSt
                               DECK_UI_COLOR_SURFACE_2, DECK_UI_STYLE_NONE);
     }
 }
+
+
+DeckUiStyle deck_ui_style_for_interaction(const DeckUiPalette *palette,
+                                          DeckUiVisualState state,
+                                          int focused) {
+    DeckUiStyle style = deck_ui_style_for_state(palette, state);
+
+    /* Focus is an overlay, not a replacement for selected/hover/pressed color. */
+    if (palette && focused != 0) {
+        style.flags |= DECK_UI_STYLE_FOCUS_RING;
+    }
+    return style;
+}
