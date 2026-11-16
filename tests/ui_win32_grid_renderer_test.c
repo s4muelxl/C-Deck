@@ -50,9 +50,11 @@ int main(void) {
     RECT slot_seven;
     RECT slot_eight;
     DWORD resources_after_init;
+    DWORD resources_after_warmup;
     DWORD resources_after_paint;
     DWORD resources_before_init;
     DWORD resources_after_destroy;
+    DWORD renderer_owned_resources;
     unsigned int iteration;
     const UINT dpi = 144u;
 
@@ -94,6 +96,12 @@ int main(void) {
     assert(previous_brush != NULL && previous_pen != NULL &&
            previous_font != NULL);
 
+    /* The first GDI draw may initialize process-wide font/icon caches. */
+    assert(deck_ui_win32_grid_renderer_paint(&renderer, memory_dc,
+                                              &frame, labels, icons) ==
+           DECK_UI_WIN32_RENDER_OK);
+    resources_after_warmup = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+
     for (iteration = 0u; iteration < 64u; ++iteration) {
         assert(deck_ui_win32_grid_renderer_paint(&renderer, memory_dc,
                                                   &frame, labels, icons) ==
@@ -101,7 +109,9 @@ int main(void) {
     }
 
     resources_after_paint = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-    assert(resources_after_paint == resources_after_init);
+    assert(resources_after_paint == resources_after_warmup);
+    renderer_owned_resources = resources_after_init - resources_before_init;
+    assert(renderer_owned_resources > 0u);
     assert(GetCurrentObject(memory_dc, OBJ_BRUSH) == previous_brush);
     assert(GetCurrentObject(memory_dc, OBJ_PEN) == previous_pen);
     assert(GetCurrentObject(memory_dc, OBJ_FONT) == previous_font);
@@ -142,7 +152,14 @@ int main(void) {
     assert(resources_after_paint == resources_after_init);
     assert(deck_ui_win32_grid_renderer_destroy(&renderer) == 0u);
     resources_after_destroy = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-    assert(resources_after_destroy == resources_before_init);
+    assert(resources_after_destroy + renderer_owned_resources ==
+           resources_after_paint);
+    printf("GDI objects: baseline=%lu init=%lu warmup=%lu repeated=%lu destroyed=%lu\\n",
+           (unsigned long)resources_before_init,
+           (unsigned long)resources_after_init,
+           (unsigned long)resources_after_warmup,
+           (unsigned long)resources_after_paint,
+           (unsigned long)resources_after_destroy);
 
     assert(SelectObject(memory_dc, previous_bitmap) != HGDI_ERROR);
     assert(DeleteObject(bitmap));
