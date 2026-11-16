@@ -12,16 +12,12 @@ DeckCaptureEndpointRole deck_capture_endpoint_resolve(DeckCaptureEndpointAttempt
     return DECK_CAPTURE_ENDPOINT_NONE;
 }
 
-int deck_audio_com_output_accept(int32_t hresult, void **output,
+int deck_audio_com_output_accept(int32_t hresult, void *output,
                                  DeckAudioComRelease release) {
-    if (!output) return 0;
-    if (hresult >= 0 && *output) return 1;
+    if (hresult >= 0 && output) return 1;
 
     /* COM normally clears failed out-parameters, but callers must not leak a
        partially returned interface if an implementation violates that rule. */
-    if (*output && release) {
-        release(*output);
-        *output = NULL;
-    }
+    if (output && release) release(output);
     return 0;
 }
