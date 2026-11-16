@@ -2,6 +2,7 @@
 #define CDECK_ACTIONS_H
 #include "config.h"
 #include <wchar.h>
+#include <stdint.h>
 
 typedef enum ActionResult {
     ACTION_SUCCESS = 0,
@@ -11,6 +12,11 @@ typedef enum ActionResult {
     ACTION_LAUNCH_FAILED,
     ACTION_NOT_CONFIGURED
 } ActionResult;
+
+/* The target buffer is temporary and remains valid only for the callback call. */
+typedef intptr_t (*ActionShellExecuteExecutor)(const wchar_t *verb,
+                                               const wchar_t *target,
+                                               void *context);
 
 ActionResult action_volume_step(float delta);
 ActionResult action_get_volume(float *level, int *muted);
@@ -25,6 +31,10 @@ ActionResult action_media_previous(void);
 /* Strict UTF-8 -> UTF-16 conversion used by the native ShellExecuteW launcher.
    Exposed so Windows CI can verify the exact target without launching it. */
 ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path, int max_chars);
+/* Testable dispatch seam; production still delegates to ShellExecuteW. */
+ActionResult action_launch_app_with_executor(const DeckApp *app,
+                                             ActionShellExecuteExecutor executor,
+                                             void *context);
 ActionResult action_launch_app(const DeckApp *app);
 
 #endif

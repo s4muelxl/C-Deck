@@ -170,13 +170,30 @@ ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path
     return ACTION_SUCCESS;
 }
 
-ActionResult action_launch_app(const DeckApp *app) {
-    HINSTANCE result;
+static intptr_t shell_execute_launch_target(const wchar_t *verb,
+                                               const wchar_t *target,
+                                               void *context) {
+    (void)context;
+    return (intptr_t)ShellExecuteW(NULL, verb, target, NULL, NULL, SW_SHOWNORMAL);
+}
+
+ActionResult action_launch_app_with_executor(const DeckApp *app,
+                                             ActionShellExecuteExecutor executor,
+                                             void *context) {
     wchar_t wide_path[DECK_PATH_WIDE_MAX];
-    ActionResult prepared = action_prepare_launch_target(app, wide_path, DECK_PATH_WIDE_MAX);
+    ActionResult prepared;
+    intptr_t result;
+
+    if (!executor) return ACTION_INVALID_ARGUMENT;
+    prepared = action_prepare_launch_target(app, wide_path, DECK_PATH_WIDE_MAX);
     if (prepared != ACTION_SUCCESS) return prepared;
-    result = ShellExecuteW(NULL, L"open", wide_path, NULL, NULL, SW_SHOWNORMAL);
-    return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
+
+    result = executor(L"open", wide_path, context);
+    return result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
+}
+
+ActionResult action_launch_app(const DeckApp *app) {
+    return action_launch_app_with_executor(app, shell_execute_launch_target, NULL);
 }
 
 static ActionResult send_media_key(WORD virtual_key) {

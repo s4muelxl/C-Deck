@@ -161,7 +161,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - `src/gdi_scope.c` / `src/gdi_scope.h`: restauração de objetos GDI selecionados antes da liberação de brushes/pens temporários.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
-- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, resolução de caminhos Win32 longos/Unicode, conversão estrita de destinos UTF-8 para UTF-16 do launcher, ciclo de vida do editor modal, fluxo Win32 automatizado de criação, atualização, remoção, reordenação, troca de slots, salvamento/reabertura/cancelamento de macros, registro de hotkeys e ciclo de vida GDI.
+- `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, resolução de caminhos Win32 longos/Unicode, conversão estrita de destinos UTF-8 para UTF-16 e despacho testável do launcher `ShellExecuteW` (verbo, alvo Unicode e códigos de retorno) sem iniciar processos reais, ciclo de vida do editor modal, fluxo Win32 automatizado de criação, atualização, remoção, reordenação, troca de slots, salvamento/reabertura/cancelamento de macros, registro de hotkeys e ciclo de vida GDI.
 - `web/`: landing page estática.
 - `.github/workflows/ci.yml`: compilação, testes e empacotamento automatizados, sem publicação automática.
 - `.github/workflows/release.yml`: publicação manual e versionada, condicionada a tag e confirmação humana.
