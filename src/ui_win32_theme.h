@@ -45,15 +45,44 @@ DeckUiWin32ThemeStatus deck_ui_win32_theme_palette_from_system_colors(
     DeckUiPalette *palette);
 
 /*
- * Queries SPI_GETHIGHCONTRAST. Returns OK and replaces palette only when
- * HCF_HIGHCONTRASTON is enabled. NOT_ACTIVE leaves palette unchanged so the
- * caller can keep the normal C-Deck palette. API failures also preserve it.
+ * Resolves a complete palette from a stable normal palette and an explicit
+ * High Contrast state. When disabled, the normal palette is copied to the
+ * output (including when it previously held High Contrast colors). When
+ * enabled, system_colors is required and supplies the system palette.
  *
- * Call at startup and after WM_SETTINGCHANGE. If the palette changes, destroy
- * and recreate the GDI renderer cache before painting with the new colors.
+ * The operation is transactional: invalid arguments leave the output intact.
+ * The output may alias normal_palette.
+ */
+DeckUiWin32ThemeStatus deck_ui_win32_theme_palette_resolve(
+    const DeckUiPalette *normal_palette,
+    const DeckUiWin32SystemColors *system_colors,
+    int high_contrast_enabled,
+    DeckUiPalette *resolved_palette);
+
+/*
+ * Low-level query of SPI_GETHIGHCONTRAST. Returns OK and replaces palette only
+ * when HCF_HIGHCONTRASTON is enabled. NOT_ACTIVE leaves palette unchanged.
+ * Prefer refresh_palette for WM_SETTINGCHANGE handling because it restores
+ * the supplied normal palette when High Contrast has been turned off.
  */
 DeckUiWin32ThemeStatus deck_ui_win32_theme_query_palette(
     DeckUiPalette *palette);
+
+/*
+ * Resolves the current system mode against the stable normal palette.
+ * Returns OK with system colors when High Contrast is active; returns
+ * NOT_ACTIVE and copies normal_palette when it is inactive. System API
+ * failures preserve resolved_palette. normal_palette and resolved_palette
+ * may alias.
+ *
+ * Call at startup and after WM_SETTINGCHANGE. If the resolved palette differs
+ * from the active renderer palette, build a replacement GDI cache before
+ * switching the UI-thread-owned renderer. This function does not mutate
+ * system settings or create GDI objects.
+ */
+DeckUiWin32ThemeStatus deck_ui_win32_theme_refresh_palette(
+    const DeckUiPalette *normal_palette,
+    DeckUiPalette *resolved_palette);
 
 #ifdef __cplusplus
 }
