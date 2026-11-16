@@ -5,12 +5,12 @@ if (-not (Get-Command windres -ErrorAction SilentlyContinue)) { throw "windres n
 
 & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
 if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar o icone oficial." }
-$resource = '#define IDI_APP_ICON 101' + "`r`n" + 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n"
+$resource = '#define IDI_APP_ICON 101' + "`r`n" + 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n" + '1 24 "installer/C-Deck.manifest"' + "`r`n"
 Set-Content -Path "build/cdeck.rc" -Value $resource -Encoding Ascii
 windres build/cdeck.rc build/cdeck-res.o
 if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar o recurso de icone." }
 
-gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/actions.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/gdi_scope.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
+gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/gdi_scope.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
 if ($LASTEXITCODE -ne 0) { throw "Compilacao falhou." }
 New-Item -ItemType Directory -Force -Path "build/config" | Out-Null
 Copy-Item config/apps.cfg build/config/apps.cfg -Force
