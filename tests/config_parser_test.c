@@ -171,7 +171,7 @@ int main(void) {
         for (int i = 0; i < 350; ++i) strcat(long_icon, "アイ");
         strcat(long_icon, ".ico");
         written = snprintf(contents, sizeof(contents),
-                           "[meta]\\nversion=3\\n[app1]\\nname=Long path\\npath=%s\\nicon=%s\\n",
+                           "[meta]\nversion=3\n[app1]\nname=Long path\npath=%s\nicon=%s\n",
                            long_path, long_icon);
         assert(written > 0 && (size_t)written < sizeof(contents));
         write_config(contents);
@@ -191,17 +191,27 @@ int main(void) {
     /* Reject path and icon fields above their new UTF-8 byte capacity. */
     {
         char too_long[DECK_CONFIG_LINE_MAX + 64];
-        const char *prefix = "[meta]\\nversion=4\\n[app1]\\nname=Too long\\npath=";
-        size_t offset = strlen(prefix);
-        memcpy(too_long, prefix, offset);
+        const char *path_prefix = "[meta]\nversion=4\n[app1]\nname=Too long\npath=";
+        size_t offset = strlen(path_prefix);
+        memcpy(too_long, path_prefix, offset);
         memset(too_long + offset, 'P', DECK_PATH_TEXT_MAX);
-        strcpy(too_long + offset + DECK_PATH_TEXT_MAX, "\\n");
+        strcpy(too_long + offset + DECK_PATH_TEXT_MAX, "\n");
         write_config(too_long);
         assert(config_load("test-apps.cfg", &config) == 0);
+
+        {
+            const char *icon_prefix = "[meta]\nversion=4\n[app1]\nname=Too long\npath=valid.exe\nicon=";
+            offset = strlen(icon_prefix);
+            memcpy(too_long, icon_prefix, offset);
+            memset(too_long + offset, 'I', DECK_PATH_TEXT_MAX);
+            strcpy(too_long + offset + DECK_PATH_TEXT_MAX, "\n");
+            write_config(too_long);
+            assert(config_load("test-apps.cfg", &config) == 0);
+        }
     }
 
     /* Invalid UTF-8 must not enter the in-memory configuration. */
-    write_config("[meta]\\nversion=3\\n[app1]\\nname=Invalid \\xC3\\x28\\npath=bad.exe\\n");
+    write_config("[meta]\nversion=3\n[app1]\nname=Invalid \xC3\x28\npath=bad.exe\n");
     assert(config_load("test-apps.cfg", &config) == 0);
 
     memset(&config, 0, sizeof(config));
