@@ -73,6 +73,16 @@ DeckUiViewStatus deck_ui_view_set_hover(DeckUiViewState *state, uint32_t slot);
 /* Pointer press/release models click selection without executing the slot. */
 DeckUiViewStatus deck_ui_view_pointer_press(DeckUiViewState *state,
                                             uint32_t slot);
+
+/*
+ * Updates hover while a captured pointer is dragging. The pressed visual is
+ * shown only while the pointer is over the original pressed slot; moving away
+ * clears the visual without losing the captured slot in the input adapter.
+ */
+DeckUiViewStatus deck_ui_view_pointer_drag(DeckUiViewState *state,
+                                           uint32_t pressed_slot,
+                                           uint32_t hovered_slot);
+
 DeckUiViewStatus deck_ui_view_pointer_release(DeckUiViewState *state,
                                               uint32_t slot);
 
