@@ -77,9 +77,9 @@ static void remove_profile_files(const char *prefix) {
 }
 
 int main(void) {
-    DeckConfig initial;
-    DeckConfig active;
-    DeckConfig reloaded_active;
+    static DeckConfig initial;
+    static DeckConfig active;
+    static DeckConfig reloaded_active;
     static DeckProfileStore store;
     static DeckProfileStore reloaded;
     DeckPreferences next;
