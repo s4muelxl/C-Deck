@@ -248,3 +248,19 @@ O teste valida os contratos matemáticos independentes. Ele não simula `WM_DPIC
 ## Conversão explícita da paleta para GDI / COLORREF (16/11/2026)
 
 A paleta semântica continua armazenando cores como `0xRRGGBB`, independente de Win32. Antes de passar um token para APIs GDI que recebem `COLORREF` (por exemplo, criação de brushes/pens), a camada de apresentação deve chamar `deck_ui_rgb_to_colorref`. O helper converte a ordem dos canais para `0x00BBGGRR`, não inclui `windows.h` e mantém os contratos de tema compiláveis em C11 portátil. O teste cobre vermelho, verde, azul e o acento oficial `#9DFF00`, prevenindo troca acidental dos canais vermelho/azul durante a futura integração Win32. O helper não cria nem libera objetos GDI.
+
+
+## Estado de apresentação da grade (16/11/2026)
+
+O módulo independente `src/ui_state.c` / `src/ui_state.h` mantém o estado transitório e de contexto das 15 teclas sem acoplar apresentação, execução ou Win32:
+
+- **Foco** e **seleção** são campos independentes. Mover foco com setas/Home/End não muda a seleção nem executa uma ação.
+- **Hover** e **pressed** são estados de ponteiro transitórios. Um pressionamento só vira seleção quando a liberação ocorre sobre a mesma tecla; liberar em outra tecla ou fora da grade cancela o pressionamento sem alterar a seleção anterior.
+- Os flags de cada slot podem ser combinados. Assim, uma tecla pode estar selecionada e focada ao mesmo tempo; a camada de renderização decide como combinar contorno de seleção e anel de foco.
+- Mudanças de foco por teclado cancelam um pressed antigo para evitar estado visual preso. Limpar estados transitórios preserva foco e seleção.
+- Índices inválidos e ponteiros nulos são rejeitados sem modificar o estado. `DECK_UI_SLOT_NONE` representa ausência de hover/seleção/pressed.
+- A seleção representa contexto de edição/Inspector, não uma solicitação de execução. O módulo não chama o Action Engine, não persiste dados, não aloca memória e não depende de APIs Win32.
+
+A disponibilidade/desabilitação de uma ação continua vindo do modelo funcional do slot; este contrato não inventa nem infere se uma ação pode ser executada.
+
+**Limite de integração:** o contrato C11 é testado em Linux e Windows/MinGW, mas ainda não está ligado aos eventos `WM_MOUSEMOVE`, `WM_LBUTTONDOWN`, `WM_LBUTTONUP` ou `WM_KEYDOWN` do executável. Essa integração permanece coordenada com a PR #16, que altera `src/interface.c`; nenhum arquivo compartilhado foi modificado nesta rodada.

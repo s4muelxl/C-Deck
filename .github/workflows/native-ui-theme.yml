@@ -12,6 +12,9 @@ on:
       - 'src/ui_navigation.c'
       - 'src/ui_navigation.h'
       - 'tests/ui_navigation_test.c'
+      - 'src/ui_state.c'
+      - 'src/ui_state.h'
+      - 'tests/ui_state_test.c'
       - '.github/workflows/native-ui-theme.yml'
   pull_request:
     branches: [main]
@@ -49,6 +52,10 @@ jobs:
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o /tmp/ui-navigation-test
       - name: Run native C11 keyboard navigation contract
         run: /tmp/ui-navigation-test
+      - name: Compile native C11 view-state contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c src/ui_state.c tests/ui_state_test.c -o /tmp/ui-state-test
+      - name: Run native C11 view-state contract
+        run: /tmp/ui-state-test
 
   windows-native-ui-contracts:
     runs-on: windows-latest
@@ -70,3 +77,5 @@ jobs:
           ./build/ui-layout-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o build/ui-navigation-test.exe
           ./build/ui-navigation-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c src/ui_state.c tests/ui_state_test.c -o build/ui-state-test.exe
+          ./build/ui-state-test.exe
