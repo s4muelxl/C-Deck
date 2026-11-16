@@ -90,8 +90,6 @@ DeckUiViewStatus deck_ui_view_focus_boundary_focusable(
     return DECK_UI_VIEW_OK;
 }
 
-#include "ui_state.h"
-
 static int valid_slot_or_none(uint32_t slot) {
     return slot == DECK_UI_SLOT_NONE || slot < DECK_UI_GRID_SLOT_COUNT;
 }
