@@ -5,6 +5,7 @@
 #include "macros.h"
 #include "macro_editor.h"
 #include "hotkeys.h"
+#include "hotkeys_win32.h"
 #include "gdi_scope.h"
 #include "win_paths.h"
 #include <windows.h>
@@ -419,32 +420,6 @@ static const DeckHotkeySpec g_hotkey_specs[] = {
     { ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M' }
 };
 
-static int win_register_hotkey(void *context, unsigned int id, unsigned int modifiers,
-                               unsigned int virtual_key, unsigned long *error_code) {
-    if (RegisterHotKey((HWND)context, (int)id, modifiers, virtual_key)) {
-        if (error_code) *error_code = 0;
-        return 1;
-    }
-    if (error_code) *error_code = (unsigned long)GetLastError();
-    return 0;
-}
-
-static int win_unregister_hotkey(void *context, unsigned int id, unsigned long *error_code) {
-    if (UnregisterHotKey((HWND)context, (int)id)) {
-        if (error_code) *error_code = 0;
-        return 1;
-    }
-    {
-        DWORD last_error = GetLastError();
-        if (last_error == 1419ul) { /* ERROR_HOTKEY_NOT_REGISTERED: state already released. */
-            if (error_code) *error_code = 0;
-            return 1;
-        }
-        if (error_code) *error_code = (unsigned long)last_error;
-    }
-    return 0;
-}
-
 static const wchar_t *hotkey_label(unsigned int index) {
     static const wchar_t *labels[] = {
         L"Ctrl+Alt+↑", L"Ctrl+Alt+↓", L"Ctrl+Alt+M"
@@ -478,7 +453,7 @@ static DeckHotkeyReport apply_hotkeys(HWND hwnd, int enable) {
     DeckHotkeyReport report = deck_hotkeys_apply(
         &g_hotkey_state, g_hotkey_specs,
         (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
-        enable, win_register_hotkey, win_unregister_hotkey, hwnd);
+        enable, deck_hotkey_win32_register, deck_hotkey_win32_unregister, hwnd);
     g_enable_hotkeys = enable ? 1 : 0;
 
     if (report.invalid_request) {
@@ -515,7 +490,7 @@ static void release_hotkeys(HWND hwnd) {
     (void)deck_hotkeys_apply(
         &g_hotkey_state, g_hotkey_specs,
         (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
-        0, win_register_hotkey, win_unregister_hotkey, hwnd);
+        0, deck_hotkey_win32_register, deck_hotkey_win32_unregister, hwnd);
 }
 
 static int add_tray_icon(HWND hwnd) {
