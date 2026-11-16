@@ -325,8 +325,8 @@ test('simulator keeps every key tabbable and exposes keyboard guidance without d
   assert.match(html, /id="demo-grid"[^>]*aria-describedby="demo-grid-help"/);
   assert.match(html, /class="demo-grid-hint" aria-hidden="true"[^>]*><span>TECLADO<\/span> Setas movem o foco · Enter\/Espaço ativa/);
   assert.match(html, /class="sr-only" id="demo-grid-help"/);
-  assert.match(css, /\.demo-grid-hint\\s*\\{[^}]*display:\\s*flex/s);
-  assert.match(css, /@media\\s*\\(max-width:\\s*360px\\)[\\s\\S]*?\\.demo-grid-hint/);
+  assert.match(css, /\.demo-grid-hint\s*\{[^}]*display:\s*flex/s);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)[\s\S]*?\.demo-grid-hint/);
   assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="0"/g) || []).length, 9);
   assert.equal((html.match(/class="deck-key" id="[^"]+" tabindex="-1"/g) || []).length, 0);
   assert.match(css, /\.sr-only\s*\{/);
