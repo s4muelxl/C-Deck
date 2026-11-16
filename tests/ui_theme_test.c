@@ -94,6 +94,47 @@ static void test_component_states(void) {
     assert(warning.text == 0xE6B85Cu && warning.border == 0xE6B85Cu);
 }
 
+static void test_focus_overlay_preserves_semantic_state(void) {
+    DeckUiPalette palette;
+    DeckUiStyle selected;
+    DeckUiStyle selected_focused;
+    DeckUiStyle hover_focused;
+    DeckUiStyle normal_unfocused;
+    DeckUiStyle invalid_focused;
+    DeckUiStyle empty;
+
+    deck_ui_palette_init(&palette);
+    selected = deck_ui_style_for_state(&palette, DECK_UI_STATE_SELECTED);
+    selected_focused = deck_ui_style_for_interaction(
+        &palette, DECK_UI_STATE_SELECTED, 1);
+    hover_focused = deck_ui_style_for_interaction(
+        &palette, DECK_UI_STATE_HOVER, 1);
+    normal_unfocused = deck_ui_style_for_interaction(
+        &palette, DECK_UI_STATE_NORMAL, 0);
+    invalid_focused = deck_ui_style_for_interaction(
+        &palette, (DeckUiVisualState)999, 1);
+    empty = deck_ui_style_for_interaction(NULL, DECK_UI_STATE_SELECTED, 1);
+
+    /* Focus must not erase the lime selection border or selected fill. */
+    assert(selected_focused.fill == selected.fill);
+    assert(selected_focused.border == 0x9DFF00u);
+    assert(selected_focused.indicator == 0x9DFF00u);
+    assert((selected_focused.flags & DECK_UI_STYLE_FOCUS_RING) != 0u);
+
+    /* Hover keeps its own surface/border while gaining an independent ring. */
+    assert(hover_focused.fill == 0x222A33u);
+    assert(hover_focused.border == 0x46515Eu);
+    assert((hover_focused.flags & DECK_UI_STYLE_FOCUS_RING) != 0u);
+
+    assert(normal_unfocused.fill == 0x191F26u);
+    assert(normal_unfocused.flags == DECK_UI_STYLE_NONE);
+
+    /* Invalid primary states still fall back to normal without losing focus. */
+    assert(invalid_focused.fill == normal_unfocused.fill);
+    assert((invalid_focused.flags & DECK_UI_STYLE_FOCUS_RING) != 0u);
+    assert(empty.fill == 0u && empty.flags == DECK_UI_STYLE_NONE);
+}
+
 static void test_invalid_state_falls_back_safely(void) {
     DeckUiPalette palette;
     DeckUiStyle normal;
@@ -167,6 +208,7 @@ int main(void) {
     test_palette_tokens();
     test_win32_colorref_channel_order();
     test_component_states();
+    test_focus_overlay_preserves_semantic_state();
     test_invalid_state_falls_back_safely();
     test_wcag_palette_contrast();
     puts("ui_theme_test: all checks passed");
