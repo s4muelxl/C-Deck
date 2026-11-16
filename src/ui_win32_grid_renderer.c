@@ -205,6 +205,114 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_init(
     return DECK_UI_WIN32_RENDER_OK;
 }
 
+DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_content_layout(
+    const RECT *slot_bounds,
+    UINT dpi,
+    int has_icon,
+    int has_label,
+    DeckUiWin32SlotContentLayout *content) {
+    DeckUiWin32SlotContentLayout candidate;
+    int64_t width64;
+    int64_t height64;
+    int32_t width;
+    int32_t height;
+    int32_t bottom_pad = 0;
+    int32_t label_height = 0;
+    int32_t label_top = 0;
+
+    if (!slot_bounds || !content || dpi < 48u || dpi > 768u ||
+        (has_icon != 0 && has_icon != 1) ||
+        (has_label != 0 && has_label != 1)) {
+        return DECK_UI_WIN32_RENDER_INVALID_ARGUMENT;
+    }
+
+    width64 = (int64_t)slot_bounds->right - slot_bounds->left;
+    height64 = (int64_t)slot_bounds->bottom - slot_bounds->top;
+    if (width64 <= 0 || height64 <= 0 ||
+        width64 > INT32_MAX || height64 > INT32_MAX) {
+        return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+    }
+    width = (int32_t)width64;
+    height = (int32_t)height64;
+    memset(&candidate, 0, sizeof(candidate));
+
+    if (has_label) {
+        int32_t horizontal_pad = scaled_dip(6, dpi);
+        int32_t max_pad = (width - 1) / 2;
+
+        if (horizontal_pad > max_pad) horizontal_pad = max_pad;
+        label_height = scaled_dip(18, dpi);
+        bottom_pad = scaled_dip(5, dpi);
+        if (bottom_pad >= height) bottom_pad = height - 1;
+        if (label_height > height - bottom_pad) {
+            label_height = height - bottom_pad;
+        }
+        if (label_height <= 0 || horizontal_pad < 0) {
+            return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+        }
+
+        label_top = slot_bounds->bottom - bottom_pad - label_height;
+        candidate.label_bounds.left = slot_bounds->left + horizontal_pad;
+        candidate.label_bounds.top = label_top;
+        candidate.label_bounds.right = slot_bounds->right - horizontal_pad;
+        candidate.label_bounds.bottom = slot_bounds->bottom - bottom_pad;
+        if (candidate.label_bounds.right <= candidate.label_bounds.left ||
+            candidate.label_bounds.bottom <= candidate.label_bounds.top) {
+            return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+        }
+        candidate.has_label = 1;
+    }
+
+    if (has_icon) {
+        int32_t desired_size = scaled_dip(24, dpi);
+        int32_t icon_size;
+        int32_t icon_top;
+
+        if (has_label) {
+            const int32_t gap = scaled_dip(3, dpi);
+            int32_t top_pad = scaled_dip(8, dpi);
+            int32_t available = label_top - gap -
+                (slot_bounds->top + top_pad);
+
+            if (available < desired_size) {
+                top_pad = scaled_dip(4, dpi);
+                available = label_top - gap -
+                    (slot_bounds->top + top_pad);
+            }
+            if (available <= 0) {
+                return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+            }
+            icon_size = available < desired_size ? available : desired_size;
+            icon_top = slot_bounds->top + top_pad;
+            if (icon_top + icon_size > label_top - gap) {
+                return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+            }
+        } else {
+            const int32_t inset = scaled_dip(6, dpi);
+            int32_t max_width = width - 2 * inset;
+            int32_t max_height = height - 2 * inset;
+
+            if (max_width <= 0 || max_height <= 0) {
+                return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+            }
+            icon_size = max_width < max_height ? max_width : max_height;
+            if (icon_size > desired_size) icon_size = desired_size;
+            icon_top = slot_bounds->top + (height - icon_size) / 2;
+        }
+
+        if (icon_size <= 0) return DECK_UI_WIN32_RENDER_INVALID_FRAME;
+        candidate.icon_bounds.left =
+            slot_bounds->left + (width - icon_size) / 2;
+        candidate.icon_bounds.top = icon_top;
+        candidate.icon_bounds.right = candidate.icon_bounds.left + icon_size;
+        candidate.icon_bounds.bottom = icon_top + icon_size;
+        candidate.has_icon = 1;
+    }
+
+    *content = candidate;
+    return DECK_UI_WIN32_RENDER_OK;
+}
+
 DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_paint(
     DeckUiWin32GridRenderer *renderer,
     HDC target,
@@ -238,18 +346,23 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_paint(
         int fill_role = find_palette_role(renderer, slot->style.fill);
         int border_role = find_palette_role(renderer, slot->style.border);
         int indicator_role = find_palette_role(renderer, slot->style.indicator);
+        DeckUiWin32SlotContentLayout content;
+        const int has_label = labels && labels[index] &&
+                              labels[index][0] != L'\\0';
+        const int has_icon = icons && icons[index] != NULL;
         int32_t radius;
-        int32_t pad;
         int32_t indicator_width;
         int32_t indicator_half_height;
 
-        if (!rect_to_win32(&slot->bounds, renderer->dpi, &bounds)) {
+        if (!rect_to_win32(&slot->bounds, renderer->dpi, &bounds) ||
+            deck_ui_win32_grid_renderer_content_layout(
+                &bounds, renderer->dpi, has_icon, has_label, &content) !=
+                DECK_UI_WIN32_RENDER_OK) {
             failed = 1;
             break;
         }
 
         radius = scaled_dip(8, renderer->dpi) * 2;
-        pad = scaled_dip(6, renderer->dpi);
         indicator_width = scaled_dip(3, renderer->dpi);
         indicator_half_height = scaled_dip(9, renderer->dpi);
 
@@ -281,34 +394,24 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_paint(
             }
         }
 
-        if (icons && icons[index]) {
-            int32_t icon_size = scaled_dip(24, renderer->dpi);
-            int32_t icon_x = bounds.left +
-                ((bounds.right - bounds.left) - icon_size) / 2;
-            int32_t icon_y = bounds.top + scaled_dip(8, renderer->dpi);
+        if (content.has_icon) {
+            const int32_t icon_width =
+                content.icon_bounds.right - content.icon_bounds.left;
+            const int32_t icon_height =
+                content.icon_bounds.bottom - content.icon_bounds.top;
 
-            if (!DrawIconEx(target, icon_x, icon_y, icons[index],
-                            icon_size, icon_size, 0u, NULL, DI_NORMAL)) {
+            if (!DrawIconEx(target, content.icon_bounds.left,
+                            content.icon_bounds.top, icons[index],
+                            icon_width, icon_height, 0u, NULL, DI_NORMAL)) {
                 failed = 1;
                 break;
             }
         }
 
-        if (labels && labels[index] && labels[index][0] != L'\0') {
-            RECT label_bounds;
-            int32_t label_height = scaled_dip(18, renderer->dpi);
-            int32_t bottom_pad = scaled_dip(5, renderer->dpi);
-
-            label_bounds.left = bounds.left + pad;
-            label_bounds.right = bounds.right - pad;
-            label_bounds.bottom = bounds.bottom - bottom_pad;
-            label_bounds.top = label_bounds.bottom - label_height;
-
-            if (label_bounds.right <= label_bounds.left ||
-                label_bounds.bottom <= label_bounds.top ||
-                SetTextColor(target, (COLORREF)deck_ui_rgb_to_colorref(
+        if (content.has_label) {
+            if (SetTextColor(target, (COLORREF)deck_ui_rgb_to_colorref(
                     slot->style.text)) == CLR_INVALID ||
-                DrawTextW(target, labels[index], -1, &label_bounds,
+                DrawTextW(target, labels[index], -1, &content.label_bounds,
                           DT_CENTER | DT_VCENTER | DT_SINGLELINE |
                           DT_END_ELLIPSIS | DT_NOPREFIX) == 0) {
                 failed = 1;
