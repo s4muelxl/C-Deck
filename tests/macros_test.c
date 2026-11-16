@@ -252,6 +252,14 @@ int main(void) {
                              test_cancel, NULL) == DECK_MACRO_OK);
         assert(open_calls == 1 && strcmp(last_open_target, max_target) == 0);
 
+        /* The maximum-size value must also survive the v1 file round trip. */
+        assert(macro_store_load(&store, "macros-test-apps.cfg"));
+        store.macros[0] = boundary_macro;
+        assert(macro_store_save(&store));
+        assert(macro_store_load(&loaded, "macros-test-apps.cfg"));
+        assert(macro_store_count(&loaded) == 1);
+        assert(strcmp(macro_store_get(&loaded, 1)->steps[0].value, max_target) == 0);
+
         memcpy(oversized_target, prefix, prefix_length);
         memset(oversized_target + prefix_length, 'x',
                DECK_MACRO_VALUE_MAX - prefix_length);
