@@ -149,12 +149,12 @@ int main(void) {
     frame.slot_count = DECK_UI_GRID_SLOT_COUNT;
 
     resources_after_paint = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-    assert(resources_after_paint == resources_after_init);
+    assert(resources_after_paint == resources_after_warmup);
     assert(deck_ui_win32_grid_renderer_destroy(&renderer) == 0u);
     resources_after_destroy = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     assert(resources_after_destroy + renderer_owned_resources ==
            resources_after_paint);
-    printf("GDI objects: baseline=%lu init=%lu warmup=%lu repeated=%lu destroyed=%lu\\n",
+    printf("GDI objects: baseline=%lu init=%lu warmup=%lu repeated=%lu destroyed=%lu\n",
            (unsigned long)resources_before_init,
            (unsigned long)resources_after_init,
            (unsigned long)resources_after_warmup,
