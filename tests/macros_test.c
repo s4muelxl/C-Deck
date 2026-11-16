@@ -43,7 +43,7 @@ static int test_cancel(void *context) {
 
 static int file_contains(const char *path, const char *needle) {
     FILE *file = fopen(path, "rb");
-    char buffer[4096];
+    char buffer[DECK_MACRO_LINE_MAX + 1];
     size_t length;
     int found;
     if (!file) return 0;
@@ -188,6 +188,32 @@ int main(void) {
         assert(strcmp(last_open_target, unicode_url) == 0);
     }
 
+    /* Long international URLs must survive parsing and execution unchanged. */
+    {
+        const char *prefix = "https://例え.テスト/";
+        char long_url[DECK_MACRO_VALUE_MAX];
+        char expression[DECK_MACRO_VALUE_MAX + 16];
+        size_t prefix_length = strlen(prefix);
+        DeckMacro long_url_macro;
+        assert(prefix_length + 500 + 1 < sizeof(long_url));
+        memcpy(long_url, prefix, prefix_length);
+        memset(long_url + prefix_length, 'u', 500);
+        long_url[prefix_length + 500] = '\\0';
+        assert(strlen(long_url) > 260);
+        assert(snprintf(expression, sizeof(expression), "open:%s", long_url) > 0);
+        assert(macro_step_parse(expression, &step));
+        memset(&long_url_macro, 0, sizeof(long_url_macro));
+        strcpy(long_url_macro.name, "URL internacional longa");
+        long_url_macro.configured = 1;
+        long_url_macro.step_count = 1;
+        long_url_macro.steps[0] = step;
+        assert(macro_validate(&long_url_macro));
+        open_calls = 0;
+        assert(macro_execute(&long_url_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_OK);
+        assert(open_calls == 1 && strcmp(last_open_target, long_url) == 0);
+    }
+
     fail_action = 1;
     action_calls = open_calls = delay_calls = 0;
     assert(macro_execute(&macro, test_action, test_open, test_delay, test_cancel, NULL) == DECK_MACRO_EXECUTION_FAILED);
@@ -228,6 +254,42 @@ int main(void) {
     strcpy(loaded.macros[0].name, "Macro atualizada");
     assert(macro_store_save(&loaded));
     assert(file_contains("macros.cfg.bak", "action:volume_down"));
+
+    /* A long Unicode executable target is serialized, reloaded and executed intact. */
+    {
+        const char *prefix = "C:\\Aplicações\\Δ\\";
+        char long_target[DECK_MACRO_VALUE_MAX];
+        char expression[DECK_MACRO_VALUE_MAX + 16];
+        size_t prefix_length = strlen(prefix);
+        DeckMacro long_path_macro;
+        assert(prefix_length + 500 + sizeof(".exe") < sizeof(long_target));
+        memcpy(long_target, prefix, prefix_length);
+        memset(long_target + prefix_length, 'p', 500);
+        memcpy(long_target + prefix_length + 500, ".exe", sizeof(".exe"));
+        assert(strlen(long_target) > 260);
+        assert(snprintf(expression, sizeof(expression), "open:%s", long_target) > 0);
+        assert(macro_step_parse(expression, &step));
+
+        memset(&long_path_macro, 0, sizeof(long_path_macro));
+        strcpy(long_path_macro.name, "Destino Unicode longo");
+        long_path_macro.configured = 1;
+        long_path_macro.step_count = 1;
+        long_path_macro.steps[0] = step;
+        assert(macro_validate(&long_path_macro));
+        open_calls = 0;
+        assert(macro_execute(&long_path_macro, test_action, test_open, test_delay,
+                             test_cancel, NULL) == DECK_MACRO_OK);
+        assert(open_calls == 1 && strcmp(last_open_target, long_target) == 0);
+
+        loaded.macros[0].step_count = 1;
+        loaded.macros[0].steps[0] = step;
+        memset(&loaded.macros[0].steps[1], 0, sizeof(loaded.macros[0].steps) -
+               sizeof(loaded.macros[0].steps[0]));
+        assert(macro_validate(&loaded.macros[0]));
+        assert(macro_store_save(&loaded));
+        assert(macro_store_load(&store, "macros-test-apps.cfg"));
+        assert(strcmp(store.macros[0].steps[0].value, long_target) == 0);
+    }
 
     {
         static DeckMacroStore future;

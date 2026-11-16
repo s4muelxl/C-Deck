@@ -37,7 +37,7 @@ static DWORD WINAPI post_editor_quit(LPVOID parameter) {
 }
 
 int main(void) {
-    DeckMacroStore store;
+    static DeckMacroStore store;
     QuitRequest request;
     HWND parent;
     HANDLE quit_thread;

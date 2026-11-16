@@ -94,7 +94,7 @@ static void editor_refresh_macro_slots(MacroEditorContext *context) {
 
 static void editor_format_step(const DeckMacroStep *step, unsigned int index,
                                wchar_t *buffer, size_t capacity) {
-    wchar_t value[DECK_MACRO_VALUE_MAX * 2];
+    wchar_t value[DECK_MACRO_VALUE_MAX + 1];
     if (!step || !buffer || capacity == 0) return;
     value[0] = L'\0';
     if (step->type == DECK_MACRO_STEP_ACTION) {
@@ -112,8 +112,9 @@ static void editor_format_step(const DeckMacroStep *step, unsigned int index,
 
 static void editor_refresh_steps(MacroEditorContext *context, int selected_index) {
     SendMessageW(context->steps_list, LB_RESETCONTENT, 0, 0);
+    SendMessageW(context->steps_list, LB_SETHORIZONTALEXTENT, 32767, 0);
     for (unsigned int i = 0; i < context->step_count; ++i) {
-        wchar_t label[DECK_MACRO_VALUE_MAX * 2 + 48];
+        wchar_t label[DECK_MACRO_VALUE_MAX + 64];
         editor_format_step(&context->steps[i], i, label, sizeof(label) / sizeof(label[0]));
         SendMessageW(context->steps_list, LB_ADDSTRING, 0, (LPARAM)label);
     }
@@ -187,7 +188,7 @@ static int editor_capture_current(MacroEditorContext *context) {
 static void editor_load_selected_step(MacroEditorContext *context) {
     LRESULT selected = SendMessageW(context->steps_list, LB_GETCURSEL, 0, 0);
     const DeckMacroStep *step;
-    wchar_t value[DECK_MACRO_VALUE_MAX * 2];
+    wchar_t value[DECK_MACRO_VALUE_MAX + 1];
     if (selected == LB_ERR || (unsigned long)selected >= context->step_count) return;
     step = &context->steps[selected];
     value[0] = L'\0';
@@ -205,7 +206,7 @@ static void editor_load_selected_step(MacroEditorContext *context) {
 }
 
 static int editor_parse_step(MacroEditorContext *context, DeckMacroStep *step) {
-    wchar_t wide_value[DECK_MACRO_VALUE_MAX * 2];
+    wchar_t wide_value[DECK_MACRO_VALUE_MAX + 1];
     char value[DECK_MACRO_VALUE_MAX];
     char expression[DECK_MACRO_VALUE_MAX + 16];
     int type;
@@ -562,7 +563,7 @@ static int editor_register_class(HINSTANCE instance) {
 }
 
 int macro_editor_show(HWND parent, DeckMacroStore *store) {
-    MacroEditorContext context;
+    MacroEditorContext *context = NULL;
     HINSTANCE instance = GetModuleHandleW(NULL);
     HWND window;
     RECT parent_rect;
@@ -570,25 +571,30 @@ int macro_editor_show(HWND parent, DeckMacroStore *store) {
     int y = CW_USEDEFAULT;
     MSG message;
 
+    int result;
+
     if (!store || !store->loaded || store->read_only) return -1;
     if (!editor_register_class(instance)) return -1;
 
-    ZeroMemory(&context, sizeof(context));
-    context.working = *store;
-    context.destination = store;
-    context.result = 0;
-    context.slot = 0;
+    context = (MacroEditorContext *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                              sizeof(*context));
+    if (!context) return -1;
+    ZeroMemory(context, sizeof(*context));
+    context->working = *store;
+    context->destination = store;
+    context->result = 0;
+    context->slot = 0;
     for (unsigned int i = 0; i < DECK_MACRO_COUNT; ++i) {
-        if (context.working.macros[i].configured) {
-            context.slot = i;
+        if (context->working.macros[i].configured) {
+            context->slot = i;
             break;
         }
     }
-    context.font = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    context->font = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    context.background = CreateSolidBrush(RGB(20, 23, 28));
-    context.input_background = CreateSolidBrush(RGB(25, 28, 34));
+    context->background = CreateSolidBrush(RGB(20, 23, 28));
+    context->input_background = CreateSolidBrush(RGB(25, 28, 34));
 
     if (parent && GetWindowRect(parent, &parent_rect)) {
         x = parent_rect.left + ((parent_rect.right - parent_rect.left) - EDITOR_WIDTH) / 2;
@@ -600,11 +606,12 @@ int macro_editor_show(HWND parent, DeckMacroStore *store) {
         EDITOR_CLASS_NAME, L"C-Deck — Editor de Multi Action",
         WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN,
         x, y, EDITOR_WIDTH, EDITOR_HEIGHT,
-        parent, NULL, instance, &context);
+        parent, NULL, instance, context);
     if (!window) {
-        if (context.font) DeleteObject(context.font);
-        if (context.background) DeleteObject(context.background);
-        if (context.input_background) DeleteObject(context.input_background);
+        if (context->font) DeleteObject(context->font);
+        if (context->background) DeleteObject(context->background);
+        if (context->input_background) DeleteObject(context->input_background);
+        HeapFree(GetProcessHeap(), 0, context);
         return -1;
     }
 
@@ -626,7 +633,7 @@ int macro_editor_show(HWND parent, DeckMacroStore *store) {
     }
 
     /* WM_QUIT and GetMessageW failures can end the modal loop without WM_CLOSE.
-       Destroy the window while its stack-backed context and GDI resources are
+       Destroy the window while its heap-backed context and GDI resources are
        still alive; otherwise the editor becomes an orphan with dangling state. */
     if (IsWindow(window)) {
         DestroyWindow(window);
@@ -636,8 +643,10 @@ int macro_editor_show(HWND parent, DeckMacroStore *store) {
         EnableWindow(parent, TRUE);
         SetForegroundWindow(parent);
     }
-    if (context.font) DeleteObject(context.font);
-    if (context.background) DeleteObject(context.background);
-    if (context.input_background) DeleteObject(context.input_background);
-    return context.result;
+    if (context->font) DeleteObject(context->font);
+    if (context->background) DeleteObject(context->background);
+    if (context->input_background) DeleteObject(context->input_background);
+    result = context->result;
+    HeapFree(GetProcessHeap(), 0, context);
+    return result;
 }

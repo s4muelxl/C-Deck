@@ -248,9 +248,9 @@ static int parse_macro_section(const char *section_name) {
 
 int macro_store_load(DeckMacroStore *store, const char *config_path) {
     wchar_t wide_path[DECK_PATH_WIDE_MAX];
-    FILE *file;
-    char line[1024];
-    DeckMacro parsed[DECK_MACRO_COUNT];
+    FILE *file = NULL;
+    char line[DECK_MACRO_LINE_MAX];
+    DeckMacro *parsed = NULL;
     unsigned int seen_steps[DECK_MACRO_COUNT];
     unsigned int declared_steps[DECK_MACRO_COUNT];
     unsigned int seen_names[DECK_MACRO_COUNT];
@@ -264,7 +264,12 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     if (!store || !build_macro_path(store->path, sizeof(store->path), config_path) ||
         !utf8_path_to_wide(store->path, wide_path, DECK_PATH_WIDE_MAX)) return 0;
 
-    ZeroMemory(parsed, sizeof(parsed));
+    parsed = (DeckMacro *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                    sizeof(*parsed) * DECK_MACRO_COUNT);
+    if (!parsed) {
+        return macro_load_fail(file, parsed, store);
+    }
+    ZeroMemory(parsed, sizeof(*parsed) * DECK_MACRO_COUNT);
     ZeroMemory(seen_steps, sizeof(seen_steps));
     ZeroMemory(declared_steps, sizeof(declared_steps));
     ZeroMemory(seen_names, sizeof(seen_names));
@@ -277,16 +282,15 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
         DWORD error = GetLastError();
         if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
             store->loaded = 1;
+            HeapFree(GetProcessHeap(), 0, parsed);
             return 1;
         }
-        store->read_only = 1;
-        return 0;
+        return macro_load_fail(NULL, parsed, store);
     }
 
     file = _wfopen(wide_path, L"r");
     if (!file) {
-        store->read_only = 1;
-        return 0;
+        return macro_load_fail(NULL, parsed, store);
     }
 
     while (fgets(line, sizeof(line), file)) {
@@ -294,18 +298,14 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
         char *entry = trim_text(line);
         char *equals;
         if (!has_newline && !feof(file)) {
-            fclose(file);
-            store->read_only = 1;
-            return 0;
+            return macro_load_fail(file, parsed, store);
         }
         if (!entry[0] || entry[0] == '#' || entry[0] == ';') continue;
 
         if (entry[0] == '[') {
             if (_stricmp(entry, "[meta]") == 0) {
                 if (meta_seen) {
-                    fclose(file);
-                    store->read_only = 1;
-                    return 0;
+                    return macro_load_fail(file, parsed, store);
                 }
                 meta_seen = 1;
                 section = -2;
@@ -313,9 +313,7 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
                 section = parse_macro_section(entry);
                 if (section == -2 ||
                     (section >= 0 && (seen_macro_sections & (1u << section)) != 0)) {
-                    fclose(file);
-                    store->read_only = 1;
-                    return 0;
+                    return macro_load_fail(file, parsed, store);
                 }
                 if (section >= 0) seen_macro_sections |= 1u << section;
             }
@@ -343,18 +341,14 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
             if (_stricmp(entry, "name") == 0) {
                 if (seen_names[section] ||
                     !copy_text(macro->name, sizeof(macro->name), equals)) {
-                    fclose(file);
-                    store->read_only = 1;
-                    return 0;
+                    return macro_load_fail(file, parsed, store);
                 }
                 seen_names[section] = 1;
             } else if (_stricmp(entry, "step_count") == 0) {
                 if (seen_step_counts[section] ||
                     !parse_unsigned(equals, &declared_steps[section]) ||
                     declared_steps[section] > DECK_MACRO_STEP_COUNT) {
-                    fclose(file);
-                    store->read_only = 1;
-                    return 0;
+                    return macro_load_fail(file, parsed, store);
                 }
                 seen_step_counts[section] = 1;
             } else if (starts_with_ascii_case(entry, "step")) {
@@ -364,9 +358,7 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
                     step_id > DECK_MACRO_STEP_COUNT ||
                     (seen_steps[section] & (1u << (step_id - 1))) != 0 ||
                     !macro_step_parse(equals, &step)) {
-                    fclose(file);
-                    store->read_only = 1;
-                    return 0;
+                    return macro_load_fail(file, parsed, store);
                 }
                 macro->steps[step_id - 1] = step;
                 seen_steps[section] |= 1u << (step_id - 1);
@@ -375,15 +367,13 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     }
 
     if (ferror(file)) {
-        fclose(file);
-        store->read_only = 1;
-        return 0;
+        return macro_load_fail(file, parsed, store);
     }
     fclose(file);
+    file = NULL;
 
     if (!meta_seen || !version_seen || version != 1) {
-        store->read_only = 1;
-        return 0;
+        return macro_load_fail(file, parsed, store);
     }
 
     for (int i = 0; i < DECK_MACRO_COUNT; ++i) {
@@ -391,16 +381,25 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
         if ((seen_macro_sections & (1u << i)) == 0) continue;
         if (!seen_names[i] || !seen_step_counts[i] ||
             !parsed[i].name[0] || declared_steps[i] == 0) {
-            store->read_only = 1;
-            return 0;
+            return macro_load_fail(file, parsed, store);
         }
         expected = (1u << declared_steps[i]) - 1u;
         if (seen_steps[i] != expected) {
-            store->read_only = 1;
-            return 0;
+            return macro_load_fail(file, parsed, store);
         }
         parsed[i].step_count = declared_steps[i];
         parsed[i].configured = 1;
+        if (!macro_validate(&parsed[i])) {
+            return macro_load_fail(file, parsed, store);
+        }
+    }
+
+    memcpy(store->macros, parsed, sizeof(*parsed) * DECK_MACRO_COUNT);
+    HeapFree(GetProcessHeap(), 0, parsed);
+    store->loaded = 1;
+    return 1;
+}
+nfigured = 1;
         if (!macro_validate(&parsed[i])) {
             store->read_only = 1;
             return 0;

@@ -9,6 +9,7 @@
 #define EDITOR_CLASS_NAME L"CDeckMacroEditorWindow"
 #define ID_EDITOR_NAME 6102
 #define ID_EDITOR_STEPS 6103
+#define ID_EDITOR_STEP_TYPE 6104
 #define ID_EDITOR_STEP_VALUE 6105
 #define ID_EDITOR_ADD_STEP 6106
 #define ID_EDITOR_NEW_MACRO 6111
@@ -17,6 +18,7 @@
 
 typedef enum EditorScenario {
     EDITOR_SCENARIO_CREATE_AND_SAVE,
+    EDITOR_SCENARIO_CREATE_LONG_OPEN_AND_SAVE,
     EDITOR_SCENARIO_EDIT_AND_CANCEL
 } EditorScenario;
 
@@ -102,6 +104,38 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
         }
+    } else if (driver->scenario == EDITOR_SCENARIO_CREATE_LONG_OPEN_AND_SAVE) {
+        wchar_t long_target[512];
+        const wchar_t prefix[] = L"C:\\Aplicações\\Δ\\";
+        size_t prefix_length = wcslen(prefix);
+        HWND step_type = GetDlgItem(editor, ID_EDITOR_STEP_TYPE);
+
+        if (!step_type || !click_control(editor, ID_EDITOR_NEW_MACRO)) {
+            InterlockedExchange(&driver->failure_stage, 7);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+        memcpy(long_target, prefix, sizeof(prefix));
+        for (size_t i = 0; i < 400; ++i) long_target[prefix_length + i] = L'a';
+        wcscpy(long_target + prefix_length + 400, L".exe");
+        SetWindowTextW(name_edit, L"Macro destino longo");
+        SendMessageW(step_type, CB_SETCURSEL, 1, 0);
+        SetWindowTextW(step_value, long_target);
+        if (!click_control(editor, ID_EDITOR_ADD_STEP) ||
+            SendMessageW(steps_list, LB_GETCOUNT, 0, 0) != 1) {
+            InterlockedExchange(&driver->failure_stage, 8);
+            InterlockedExchange(&driver->failed, 1);
+            click_control(editor, ID_EDITOR_CANCEL);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+        if (!click_control(editor, ID_EDITOR_SAVE)) {
+            InterlockedExchange(&driver->failure_stage, 9);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+        }
     } else {
         SetWindowTextW(name_edit, L"Alteração que deve ser descartada");
         if (!click_control(editor, ID_EDITOR_CANCEL)) {
@@ -161,9 +195,9 @@ int main(void) {
     const char *directory_utf8 = "macro-editor-workflow-Δ";
     wchar_t directory[DECK_MACRO_PATH_MAX];
     wchar_t persisted_path[DECK_MACRO_PATH_MAX];
-    DeckMacroStore store;
-    DeckMacroStore reloaded;
-    DeckMacroStore before_cancel;
+    static DeckMacroStore store;
+    static DeckMacroStore reloaded;
+    static DeckMacroStore before_cancel;
     HWND parent;
 
     assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
@@ -191,7 +225,21 @@ int main(void) {
     assert(strcmp(macro_store_get(&store, 1)->steps[0].value,
                   "volume_up") == 0);
 
+    run_editor_scenario(parent, &store,
+                        EDITOR_SCENARIO_CREATE_LONG_OPEN_AND_SAVE, 1);
+    assert(macro_store_count(&store) == 2);
+    {
+        const DeckMacro *long_macro = macro_store_get(&store, 2);
+        assert(long_macro != NULL && long_macro->step_count == 1);
+        assert(long_macro->steps[0].type == DECK_MACRO_STEP_OPEN);
+        assert(strlen(long_macro->steps[0].value) > 260);
+        assert(strstr(long_macro->steps[0].value, "Aplicações") != NULL);
+        assert(strstr(long_macro->steps[0].value, ".exe") != NULL);
+    }
+
     assert(macro_store_load(&reloaded, config_path));
+    assert(macro_store_count(&reloaded) == 2);
+    assert(strlen(macro_store_get(&reloaded, 2)->steps[0].value) > 260);
     assert(macro_store_count(&reloaded) == 1);
     assert(strcmp(macro_store_get(&reloaded, 1)->name,
                   "Macro criada pelo teste") == 0);
