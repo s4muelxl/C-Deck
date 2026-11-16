@@ -110,105 +110,92 @@ int config_load(const char *path, DeckConfig *out_config) {
 
         if (!strchr(line, '\n') &&
             (strlen(line) == sizeof(line) - 1 || !feof(file))) {
-            fclose(file);
-            return 0;
+            goto invalid;
         }
         entry = trim(line);
-
         if (*entry == '\0' || *entry == '#' || *entry == ';') continue;
+
         if (*entry == '[') {
-            char *section_end = NULL;
-            long app_number = -1;
             current = -1;
-            in_meta = (_stricmp(entry, "[meta]") == 0);
-            if (in_meta) {
-                if (meta_seen) {
-                    fclose(file);
-                    return 0;
-                }
+            in_meta = 0;
+
+            if (_stricmp(entry, "[meta]") == 0) {
+                if (meta_seen || seen_app_sections != 0) goto invalid;
                 meta_seen = 1;
-            }
-            if (!in_meta && _strnicmp(entry, "[app", 4) == 0) {
+                in_meta = 1;
+            } else if (_strnicmp(entry, "[app", 4) == 0) {
+                char *section_end = NULL;
+                long app_number;
+
+                if (!isdigit((unsigned char)entry[4])) goto invalid;
                 app_number = strtol(entry + 4, &section_end, 10);
-                if (section_end != entry + 4 && section_end && section_end[0] == ']' &&
-                    section_end[1] == '\0' && app_number >= 1 && app_number <= DECK_KEY_COUNT) {
+                if (!section_end || section_end == entry + 4 ||
+                    section_end[0] != ']' || section_end[1] != '\0' ||
+                    app_number < 1 || app_number > DECK_KEY_COUNT) {
+                    goto invalid;
+                }
+                if (meta_seen && !version_seen) goto invalid;
+                if (schema_version < 3 && app_number > 9) goto invalid;
+
+                {
                     unsigned int app_bit;
                     current = (int)app_number - 1;
                     app_bit = 1u << current;
-                    if (seen_app_sections & app_bit) {
-                        fclose(file);
-                        return 0;
-                    }
+                    if (seen_app_sections & app_bit) goto invalid;
                     seen_app_sections |= app_bit;
                     if (current < 3) has_legacy_apps = 1;
                     else has_extended_apps = 1;
                 }
+            } else {
+                goto invalid;
             }
             continue;
         }
 
-        if (!(equals = strchr(entry, '='))) continue;
+        equals = strchr(entry, '=');
+        if (!equals || (!in_meta && current < 0)) goto invalid;
         *equals++ = '\0';
         entry = trim(entry);
         equals = trim(equals);
+        if (!entry[0]) goto invalid;
 
-        if (in_meta && _stricmp(entry, "version") == 0) {
+        if (in_meta) {
             char *end = NULL;
             long parsed;
-            if (version_seen) {
-                fclose(file);
-                return 0;
-            }
-            version_seen = 1;
+            if (_stricmp(entry, "version") != 0 || version_seen) goto invalid;
             parsed = strtol(equals, &end, 10);
-            if (end == equals || *trim(end) != '\0' || parsed < 1 || parsed > INT_MAX) {
-                schema_version = 0;
-            } else {
-                schema_version = (int)parsed;
+            if (end == equals || *trim(end) != '\0' ||
+                parsed < 1 || parsed > INT_MAX) {
+                goto invalid;
             }
+            schema_version = (int)parsed;
+            version_seen = 1;
             continue;
         }
-        if (current < 0) continue;
 
         if (_stricmp(entry, "name") == 0) {
-            if (seen_app_fields[current] & 1u) {
-                fclose(file);
-                return 0;
-            }
+            if (seen_app_fields[current] & 1u) goto invalid;
             seen_app_fields[current] |= 1u;
-            if (!copy_utf8_value(parsed_apps[current].name, sizeof(parsed_apps[current].name), equals)) {
-                fclose(file);
-                return 0;
-            }
+            if (!copy_utf8_value(parsed_apps[current].name,
+                                 sizeof(parsed_apps[current].name), equals)) goto invalid;
         } else if (_stricmp(entry, "path") == 0) {
-            if (seen_app_fields[current] & 2u) {
-                fclose(file);
-                return 0;
-            }
+            if (seen_app_fields[current] & 2u) goto invalid;
             seen_app_fields[current] |= 2u;
-            if (!copy_utf8_value(parsed_apps[current].path, sizeof(parsed_apps[current].path), equals)) {
-                fclose(file);
-                return 0;
-            }
+            if (!copy_utf8_value(parsed_apps[current].path,
+                                 sizeof(parsed_apps[current].path), equals)) goto invalid;
         } else if (_stricmp(entry, "icon") == 0) {
-            if (seen_app_fields[current] & 4u) {
-                fclose(file);
-                return 0;
-            }
+            if (seen_app_fields[current] & 4u) goto invalid;
             seen_app_fields[current] |= 4u;
-            if (!copy_utf8_value(parsed_apps[current].icon_path, sizeof(parsed_apps[current].icon_path), equals)) {
-                fclose(file);
-                return 0;
-            }
+            if (!copy_utf8_value(parsed_apps[current].icon_path,
+                                 sizeof(parsed_apps[current].icon_path), equals)) goto invalid;
+        } else {
+            goto invalid;
         }
     }
 
-    if (ferror(file)) {
-        fclose(file);
-        return 0;
-    }
+    if (ferror(file) || (meta_seen && !version_seen)) goto invalid;
     fclose(file);
-    if (schema_version == 0 || schema_version > DECK_CONFIG_VERSION) return 0;
+    if (schema_version > DECK_CONFIG_VERSION) return 0;
 
     if (schema_version >= 3) {
         memcpy(out_config->apps, parsed_apps, sizeof(parsed_apps));
@@ -245,6 +232,11 @@ int config_load(const char *path, DeckConfig *out_config) {
         app->configured = app->name[0] != '\0' && app->path[0] != '\0';
     }
     return 1;
+
+invalid:
+    fclose(file);
+    memset(out_config, 0, sizeof(*out_config));
+    return 0;
 }
 
 int config_save(const char *path, const DeckConfig *config) {
