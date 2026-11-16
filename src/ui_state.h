@@ -33,7 +33,10 @@ typedef enum DeckUiViewStatus {
     DECK_UI_VIEW_POINTER_CANCELLED,
     DECK_UI_VIEW_INVALID_ARGUMENT,
     DECK_UI_VIEW_INVALID_SLOT,
-    DECK_UI_VIEW_INVALID_DIRECTION
+    DECK_UI_VIEW_INVALID_DIRECTION,
+    DECK_UI_VIEW_NO_FOCUSABLE_SLOT,
+    DECK_UI_VIEW_CURRENT_SLOT_DISABLED,
+    DECK_UI_VIEW_INVALID_FOCUSABLE_MASK
 } DeckUiViewStatus;
 
 /* Initializes keyboard focus at slot 0; no slot is selected or hovered. */
@@ -46,6 +49,20 @@ DeckUiViewStatus deck_ui_view_move_focus(DeckUiViewState *state,
 DeckUiViewStatus deck_ui_view_focus_boundary(DeckUiViewState *state,
                                              int to_end,
                                              int entire_grid);
+
+/*
+ * Mask-aware keyboard navigation. Disabled slots are skipped; reconcile after
+ * a focused slot becomes disabled. Reconciliation clears stale pressed state
+ * but preserves the independent inspector selection.
+ */
+DeckUiViewStatus deck_ui_view_reconcile_focus(DeckUiViewState *state,
+                                              uint16_t focusable_mask);
+DeckUiViewStatus deck_ui_view_move_focusable(DeckUiViewState *state,
+                                             DeckUiDirection direction,
+                                             uint16_t focusable_mask);
+DeckUiViewStatus deck_ui_view_focus_boundary_focusable(
+    DeckUiViewState *state, int to_end, int entire_grid,
+    uint16_t focusable_mask);
 
 /* Selection is an editing/inspector context, never an execution request. */
 DeckUiViewStatus deck_ui_view_select(DeckUiViewState *state, uint32_t slot);
