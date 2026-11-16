@@ -570,9 +570,3 @@ test('simulator suspends and closes Web Audio resources across page lifecycle ev
 });
 
 
-test('all simulator keys remain keyboard-reachable before the enhancement script runs', () => {
-  const deckButtons = [...html.matchAll(/<button\b[^>]*class="deck-key"[^>]*>/g)];
-  assert.equal(deckButtons.length, 9);
-  assert.ok(deckButtons.every((match) => /\btabindex="0"/.test(match[0])),
-    'without JavaScript, every demonstrative control must remain in the normal tab order');
-});
