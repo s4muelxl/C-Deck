@@ -41,6 +41,29 @@ int main(void) {
         assert(actual[prefix_length] == L'A');
     }
 
+    /* The largest storable UTF-8 destination is exactly 8,191 bytes.
+       Use complete two-byte characters so the boundary also checks UTF-8 decoding. */
+    memset(&app, 0, sizeof(app));
+    app.configured = 1;
+    {
+        const char prefix[] = "C:\\\\";
+        const char suffix[] = ".exe";
+        size_t prefix_length = sizeof(prefix) - 1;
+        size_t suffix_length = sizeof(suffix) - 1;
+        size_t payload_length = DECK_PATH_TEXT_MAX - 1 - prefix_length - suffix_length;
+        assert((payload_length % 2) == 0);
+        memcpy(app.path, prefix, prefix_length);
+        for (size_t offset = 0; offset < payload_length; offset += 2) {
+            app.path[prefix_length + offset] = (char)0xC3;
+            app.path[prefix_length + offset + 1] = (char)0xA9;
+        }
+        memcpy(app.path + prefix_length + payload_length, suffix, sizeof(suffix));
+        assert(strlen(app.path) == DECK_PATH_TEXT_MAX - 1);
+        assert(action_prepare_launch_target(&app, actual, DECK_PATH_WIDE_MAX) == ACTION_SUCCESS);
+        assert(wcslen(actual) == prefix_length + payload_length / 2 + suffix_length);
+        assert(actual[prefix_length] == L'\\u00e9');
+    }
+
     memset(&app, 0, sizeof(app));
     app.configured = 1;
     strcpy(app.path, invalid_utf8);
