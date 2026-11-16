@@ -162,10 +162,10 @@ static void test_refresh_palette_uses_current_system_mode(void) {
         assert(palettes_equal(&resolved, &before));
     }
 
+    before = resolved;
     assert(deck_ui_win32_theme_refresh_palette(NULL, &resolved) ==
            DECK_UI_WIN32_THEME_INVALID_ARGUMENT);
-    assert(palettes_equal(&resolved, status == DECK_UI_WIN32_THEME_SYSTEM_ERROR
-        ? &before : &resolved));
+    assert(palettes_equal(&resolved, &before));
 }
 
 static void test_query_preserves_palette_when_not_active_or_unavailable(void) {
