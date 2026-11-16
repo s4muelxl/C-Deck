@@ -68,6 +68,14 @@ uint32_t deck_ui_rgb_to_colorref(uint32_t rgb);
 /* Resolves semantic component states. Invalid states safely fall back to NORMAL. */
 DeckUiStyle deck_ui_style_for_state(const DeckUiPalette *palette, DeckUiVisualState state);
 
+/* Adds a focus-ring overlay without replacing the primary semantic state.
+ * The renderer draws the ring using DECK_UI_COLOR_FOCUS; fill, border and
+ * indicator remain those of state (for example, selected lime remains lime).
+ */
+DeckUiStyle deck_ui_style_for_interaction(const DeckUiPalette *palette,
+                                          DeckUiVisualState state,
+                                          int focused);
+
 #ifdef __cplusplus
 }
 #endif
