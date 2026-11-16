@@ -30,6 +30,15 @@ typedef enum DeckUiGridFrameStatus {
 } DeckUiGridFrameStatus;
 
 /*
+ * Derives a row-major keyboard-focus mask from the model states used by the
+ * renderer. Only DISABLED is excluded; ERROR and WARNING remain inspectable.
+ * NULL means all 15 slots are focusable. Output is unchanged on failure.
+ */
+DeckUiGridFrameStatus deck_ui_grid_focusable_mask_from_states(
+    const DeckUiVisualState model_states[DECK_UI_GRID_SLOT_COUNT],
+    uint16_t *focusable_mask);
+
+/*
  * Builds a renderer-ready snapshot for all 15 slots.
  *
  * model_states may be NULL, in which case all slots are treated as NORMAL.
