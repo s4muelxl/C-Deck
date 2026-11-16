@@ -25,7 +25,7 @@ static HWND create_test_window(HINSTANCE instance) {
 int main(void) {
     const unsigned int first_id = 0x4D01u;
     const unsigned int second_id = 0x4D02u;
-    const unsigned int modifiers = MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
+    const unsigned int modifiers = MOD_CONTROL | MOD_ALT | MOD_SHIFT;
     const unsigned int virtual_key = VK_F24;
     HINSTANCE instance = GetModuleHandleW(NULL);
     HWND first = create_test_window(instance);
