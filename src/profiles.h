@@ -5,7 +5,7 @@
 #include <wchar.h>
 
 #define DECK_PROFILE_COUNT 4
-#define DECK_PROFILE_PATH_MAX 1040
+#define DECK_PROFILE_PATH_MAX DECK_PATH_UTF8_MAX
 
 typedef enum DeckProfileId {
     DECK_PROFILE_DEFAULT = 0,
