@@ -96,10 +96,15 @@ static void test_palette_resolve_restores_normal_palette_when_disabled(void) {
                &normal, &colors, 1, &resolved) == DECK_UI_WIN32_THEME_OK);
     assert(palettes_equal(&resolved, &high_contrast));
 
-    /* Aliasing is supported when a caller resolves in place. */
-    resolved = high_contrast;
+    /* The resolver also supports true in-place operation. */
+    resolved = normal;
     assert(deck_ui_win32_theme_palette_resolve(
-               &normal, NULL, 0, &resolved) == DECK_UI_WIN32_THEME_NOT_ACTIVE);
+               &resolved, &colors, 1, &resolved) == DECK_UI_WIN32_THEME_OK);
+    assert(palettes_equal(&resolved, &high_contrast));
+
+    resolved = normal;
+    assert(deck_ui_win32_theme_palette_resolve(
+               &resolved, NULL, 0, &resolved) == DECK_UI_WIN32_THEME_NOT_ACTIVE);
     assert(palettes_equal(&resolved, &normal));
 }
 
