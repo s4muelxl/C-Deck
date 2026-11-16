@@ -642,7 +642,7 @@ static void browse_file_for_inspector(HWND hwnd) {
     dialog.lpstrFilter = filter;
     dialog.lpstrFile = selected;
     dialog.nMaxFile = DECK_PATH_WIDE_MAX;
-    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     dialog.lpstrTitle = L"Escolher aplicativo (.exe)";
     if (GetOpenFileNameW(&dialog)) {
         if (g_insp_path_edit) SetWindowTextW(g_insp_path_edit, selected);
