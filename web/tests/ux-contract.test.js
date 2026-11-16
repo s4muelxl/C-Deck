@@ -440,3 +440,125 @@ test('simulator keyboard navigation moves focus without wrapping or activating k
     'navigation keys never activate a simulator command');
   assert.equal(keys.filter((button) => button.attributes.tabindex === '0').length, 1);
 });
+
+test('simulator suspends and closes Web Audio resources across page lifecycle events', async () => {
+  const vm = require('node:vm');
+  const ids = [
+    'demo-volume-value','demo-volume-track','demo-volume-slider','demo-status-text',
+    'key-mute','key-play','play-glyph','play-label','demo-sound-toggle','demo-reset',
+    'key-vol-down','key-vol-up','key-prev','key-next','key-app-1','key-app-2','key-app-3'
+  ];
+
+  class FakeElement {
+    constructor(id) {
+      this.id = id;
+      this.listeners = {};
+      this.attributes = {};
+      this.style = {};
+      this.textContent = '';
+      this.innerHTML = '';
+      this.value = '72';
+      const classes = new Set();
+      this.classList = {
+        add: (...names) => names.forEach((name) => classes.add(name)),
+        remove: (...names) => names.forEach((name) => classes.delete(name)),
+        contains: (name) => classes.has(name),
+        toggle: (name, force) => {
+          const enabled = force === undefined ? !classes.has(name) : Boolean(force);
+          if (enabled) classes.add(name);
+          else classes.delete(name);
+          return enabled;
+        }
+      };
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    dispatch(name, event = {}) {
+      if (this.listeners[name]) this.listeners[name]({ ...event, target: this });
+    }
+  }
+
+  const contexts = [];
+  class FakeAudioContext {
+    constructor() {
+      this.state = 'suspended';
+      this.currentTime = 0;
+      this.destination = {};
+      this.resumeCalls = 0;
+      this.suspendCalls = 0;
+      this.closeCalls = 0;
+      contexts.push(this);
+    }
+    resume() {
+      this.resumeCalls += 1;
+      this.state = 'running';
+      return Promise.reject(new Error('simulated resume rejection'));
+    }
+    suspend() {
+      this.suspendCalls += 1;
+      this.state = 'suspended';
+      return Promise.reject(new Error('simulated suspend rejection'));
+    }
+    close() {
+      this.closeCalls += 1;
+      this.state = 'closed';
+      return Promise.reject(new Error('simulated close rejection'));
+    }
+    createOscillator() {
+      return {
+        frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+        connect() {}, start() {}, stop() {}
+      };
+    }
+    createGain() {
+      return {
+        gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+        connect() {}
+      };
+    }
+  }
+
+  const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement(id)]));
+  const documentListeners = {};
+  const windowListeners = {};
+  const document = {
+    readyState: 'complete',
+    hidden: false,
+    activeElement: null,
+    addEventListener(name, callback) { documentListeners[name] = callback; },
+    getElementById: (id) => elements[id] || null,
+    querySelectorAll: () => [],
+    querySelector: () => null
+  };
+  const window = {
+    AudioContext: FakeAudioContext,
+    addEventListener(name, callback) { windowListeners[name] = callback; }
+  };
+
+  vm.runInNewContext(script, {
+    document,
+    window,
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    parseInt,
+    Math,
+    Promise
+  });
+
+  elements['key-vol-up'].dispatch('click');
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].resumeCalls, 1);
+
+  document.hidden = true;
+  documentListeners.visibilitychange();
+  assert.equal(contexts[0].suspendCalls, 1);
+
+  windowListeners.pagehide();
+  assert.equal(contexts[0].closeCalls, 1);
+  assert.equal(contexts[0].state, 'closed');
+
+  elements['key-vol-up'].dispatch('click');
+  assert.equal(contexts.length, 2, 'a restored page creates a fresh context after pagehide');
+
+  await new Promise((resolve) => setImmediate(resolve));
+});

@@ -17,6 +17,42 @@
   // --- Web Audio Context for Subtle Haptic Sound ---
   let audioCtx = null;
   let soundEnabled = true;
+  let audioLifecycleInitialized = false;
+
+  function ignoreAudioPromise(promise) {
+    if (promise && typeof promise.catch === 'function') {
+      promise.catch(() => {});
+    }
+  }
+
+  function initAudioLifecycle() {
+    if (audioLifecycleInitialized) return;
+    audioLifecycleInitialized = true;
+
+    if (document && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden || !audioCtx || audioCtx.state === 'closed') return;
+        try {
+          ignoreAudioPromise(audioCtx.suspend());
+        } catch (e) {
+          // Audio suspension is best-effort; simulator controls remain usable.
+        }
+      });
+    }
+
+    if (window && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', () => {
+        const context = audioCtx;
+        audioCtx = null;
+        if (!context || context.state === 'closed') return;
+        try {
+          ignoreAudioPromise(context.close());
+        } catch (e) {
+          // The browser may already have closed the audio device.
+        }
+      });
+    }
+  }
 
   function playKeySound(type = 'click') {
     if (!soundEnabled) return;
@@ -24,7 +60,13 @@
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       if (!audioCtx) audioCtx = new AudioContextClass();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state === 'suspended') {
+        try {
+          ignoreAudioPromise(audioCtx.resume());
+        } catch (e) {
+          // A blocked audio device must not break simulator interactions.
+        }
+      }
 
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
@@ -305,6 +347,8 @@
 
   // --- Setup Simulator Listeners ---
   function initSimulator() {
+    initAudioLifecycle();
+
     const volDownBtn = document.getElementById('key-vol-down');
     const volUpBtn = document.getElementById('key-vol-up');
     const prevBtn = document.getElementById('key-prev');

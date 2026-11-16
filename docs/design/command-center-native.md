@@ -264,3 +264,16 @@ O módulo independente `src/ui_state.c` / `src/ui_state.h` mantém o estado tran
 A disponibilidade/desabilitação de uma ação continua vindo do modelo funcional do slot; este contrato não inventa nem infere se uma ação pode ser executada.
 
 **Limite de integração:** o contrato C11 é testado em Linux e Windows/MinGW, mas ainda não está ligado aos eventos `WM_MOUSEMOVE`, `WM_LBUTTONDOWN`, `WM_LBUTTONUP` ou `WM_KEYDOWN` do executável. Essa integração permanece coordenada com a PR #16, que altera `src/interface.c`; nenhum arquivo compartilhado foi modificado nesta rodada.
+
+
+## Simulador web — ciclo de vida dos efeitos sonoros (16/11/2026)
+
+Os efeitos sonoros do simulador são opcionais e locais ao navegador; não representam áudio do Windows nem fazem parte do runtime desktop.
+
+- O contexto Web Audio é criado sob demanda, somente quando uma interação solicita um efeito.
+- Ao ocultar a página, o contexto é suspenso para evitar processamento de áudio em segundo plano.
+- Ao sair da página (`pagehide`), o contexto é fechado e a referência é liberada. Se a página retornar pelo cache de navegação, um novo contexto será criado apenas na próxima interação.
+- Falhas síncronas ou rejeições de `resume`, `suspend` e `close` são tratadas sem interromper os controles demonstrativos.
+- A preferência SOM: ON/OFF continua independente do estado do contexto e é preservada pelo botão de reinicialização da demonstração.
+
+O teste de contrato usa um contexto Web Audio simulado para provocar rejeições assíncronas e verificar suspensão, fechamento e recriação. Isso valida o ciclo de vida do código, não a qualidade acústica ou a disponibilidade de dispositivos em um navegador físico.
