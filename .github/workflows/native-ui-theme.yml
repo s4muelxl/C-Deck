@@ -28,6 +28,9 @@ on:
       - 'src/ui_navigation.c'
       - 'src/ui_navigation.h'
       - 'tests/ui_navigation_test.c'
+      - 'src/ui_state.c'
+      - 'src/ui_state.h'
+      - 'tests/ui_state_test.c'
       - '.github/workflows/native-ui-theme.yml'
 permissions:
   contents: read
