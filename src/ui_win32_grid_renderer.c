@@ -80,7 +80,10 @@ static int grid_geometry_is_valid(const DeckUiGridFrame *frame) {
             ((int64_t)first->x + first->width);
     gap_y = (int64_t)frame->slots[DECK_UI_GRID_COLUMNS].bounds.y -
             ((int64_t)first->y + first->height);
-    if (gap_x <= 0 || gap_y <= 0 || gap_x != gap_y) return 0;
+    if (gap_x <= 0 || gap_y <= 0 || gap_x != gap_y ||
+        gap_x != (frame->layout_mode == DECK_UI_LAYOUT_MODE_COMPACT ? 8 : 14)) {
+        return 0;
+    }
 
     for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
         const DeckUiRect *slot = &frame->slots[index].bounds;
@@ -348,7 +351,7 @@ DeckUiWin32RenderStatus deck_ui_win32_grid_renderer_paint(
         int indicator_role = find_palette_role(renderer, slot->style.indicator);
         DeckUiWin32SlotContentLayout content;
         const int has_label = labels && labels[index] &&
-                              labels[index][0] != L'\\0';
+                              labels[index][0] != L'\0';
         const int has_icon = icons && icons[index] != NULL;
         int32_t radius;
         int32_t indicator_width;
