@@ -15,6 +15,9 @@ on:
       - 'src/ui_state.c'
       - 'src/ui_state.h'
       - 'tests/ui_state_test.c'
+      - 'src/ui_presentation.c'
+      - 'src/ui_presentation.h'
+      - 'tests/ui_presentation_test.c'
       - '.github/workflows/native-ui-theme.yml'
   pull_request:
     branches: [main]
@@ -31,6 +34,9 @@ on:
       - 'src/ui_state.c'
       - 'src/ui_state.h'
       - 'tests/ui_state_test.c'
+      - 'src/ui_presentation.c'
+      - 'src/ui_presentation.h'
+      - 'tests/ui_presentation_test.c'
       - '.github/workflows/native-ui-theme.yml'
 permissions:
   contents: read

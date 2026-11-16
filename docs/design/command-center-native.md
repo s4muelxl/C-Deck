@@ -293,3 +293,18 @@ O contrato de tema agora oferece `deck_ui_style_for_interaction`, que combina o 
 O renderer Win32 deve desenhar o anel separadamente, usando `DECK_UI_COLOR_FOCUS` e respeitando o inset/outset definido pelo componente. Não deve reutilizar o token de foco como borda principal, pois isso apagaria a semântica de seleção. O chamador deve informar `focused` a partir do estado real de foco; esta função não infere foco nem altera estado de navegação.
 
 Os testes verificam a combinação selected+focused, hover+focused, normal sem foco, fallback de estado inválido e paleta nula. O helper continua sendo um contrato C11 puro: ainda não está ligado ao desenho Win32 nem substitui a inspeção visual de foco na janela real.
+
+
+## Resolver de apresentação por slot (16/11/2026)
+
+O módulo independente `src/ui_presentation.c` / `src/ui_presentation.h` conecta o estado transitório da grade ao contrato de tema, sem acoplar a camada de desenho ao modelo de ações:
+
+- O estado semântico fornecido pelo modelo (`disabled`, `error` ou `warning`) prevalece sobre hover/pressed/selected. O chamador continua responsável por fornecer o estado real da ação; o resolver não inventa disponibilidade.
+- Quando o modelo informa `normal`, a precedência de feedback é pressed → selected → hover → normal. Assim, o hover não remove o acento de uma tecla selecionada e o pressed continua oferecendo resposta imediata durante o clique.
+- O foco é retornado separadamente para que `deck_ui_style_for_interaction` adicione o anel sem substituir a borda semântica. O foco é suprimido para controles disabled.
+- Estados de modelo inválidos, slots fora de 0–14 e argumentos nulos são rejeitados sem alterar a saída.
+- O módulo não desenha, não executa ações, não persiste configuração e não depende de Win32. A futura camada Win32 deverá resolver o estado a partir do modelo real do slot e entregar o resultado ao renderer.
+
+A suíte `tests/ui_presentation_test.c` cobre estado normal/hover, selected+hover com foco, pressed+selected, override de disabled/error/warning e preservação da saída em entradas inválidas. Os workflows de UI nativa compilam e executam o novo contrato em Linux e MinGW/Windows, tanto em push quanto em pull request.
+
+**Limite de integração:** este resolver ainda não está ligado ao ciclo de pintura de `src/interface.c`. A integração continua condicionada à coordenação com a PR #16, que altera esse arquivo. Os testes validam a resolução semântica em C11, não a aparência em uma sessão gráfica Windows.
