@@ -259,6 +259,9 @@ int main(void) {
         assert(macro_store_load(&loaded, "macros-test-apps.cfg"));
         assert(macro_store_count(&loaded) == 1);
         assert(strcmp(macro_store_get(&loaded, 1)->steps[0].value, max_target) == 0);
+        remove("macros.cfg");
+        remove("macros.cfg.bak");
+        remove("macros.cfg.tmp");
 
         memcpy(oversized_target, prefix, prefix_length);
         memset(oversized_target + prefix_length, 'x',
