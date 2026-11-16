@@ -55,29 +55,40 @@ jobs:
         run: |
           mkdir -p build/config
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/gdi_scope.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
+          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
           cp config/apps.cfg build/config/apps.cfg
           cp config/macros.cfg.example build/config/macros.cfg.example
           cp README.md build/README.md
 
-      - name: Run configuration, profile, library, macro, hotkey and GDI tests
+      - name: Run configuration, profile, library, macro worker lifecycle, hotkey, GDI and Unicode launch tests
         shell: msys2 {0}
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
-          ./build/config-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/win_paths_test.c src/win_paths.c src/config.c -o build/win-paths-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
+          ./build/actions-unicode-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/win_paths_test.c src/win_paths.c src/config.c src/profiles.c -o build/win-paths-test.exe
           ./build/win-paths-test.exe
+          ./build/config-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/profiles_test.c src/profiles.c src/config.c -o build/profiles-test.exe
           ./build/profiles-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/action_library_test.c src/action_library.c -o build/action-library-test.exe
           ./build/action-library-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/macros_test.c src/macros.c -o build/macros-test.exe
           ./build/macros-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_run_state_test.c src/macro_run_state.c -o build/macro-run-state-test.exe
+          ./build/macro-run-state-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -D_WIN32_WINNT=0x0601 -Isrc tests/macro_completion_gate_test.c src/macro_completion_gate.c -o build/macro-completion-gate-test.exe -luser32
+          ./build/macro-completion-gate-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_lifecycle_test.c src/macro_editor.c src/macros.c -o build/macro-editor-lifecycle-test.exe -luser32 -lgdi32
+          ./build/macro-editor-lifecycle-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_workflow_test.c src/macro_editor.c src/macros.c -o build/macro-editor-workflow-test.exe -luser32 -lgdi32
+          ./build/macro-editor-workflow-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_test.c src/hotkeys.c -o build/hotkeys-test.exe
           ./build/hotkeys-test.exe
+          gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_win32_test.c src/hotkeys_win32.c -o build/hotkeys-win32-test.exe -luser32
+          ./build/hotkeys-win32-test.exe
           gcc -Wall -Wextra -Wpedantic -std=c11 tests/gdi_scope_test.c src/gdi_scope.c -lgdi32 -luser32 -o build/gdi-scope-test.exe
           ./build/gdi-scope-test.exe
-
       - name: Create portable package
         shell: pwsh
         run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
