@@ -182,6 +182,41 @@ static void test_invalid_shell_regions_reject_frame_without_mutation(void) {
     assert(memcmp(&frame, &before, sizeof(frame)) == 0);
 }
 
+static void test_focusable_mask_uses_renderer_model_states(void) {
+    DeckUiVisualState states[DECK_UI_GRID_SLOT_COUNT] = {
+        DECK_UI_STATE_NORMAL
+    };
+    uint16_t mask = 0u;
+    uint16_t expected = (uint16_t)(DECK_UI_GRID_FOCUSABLE_MASK &
+                                   (uint16_t)~(uint16_t)(1u << 1u));
+    uint16_t before;
+    uint32_t index;
+
+    states[1] = DECK_UI_STATE_DISABLED;
+    states[2] = DECK_UI_STATE_ERROR;
+    states[3] = DECK_UI_STATE_WARNING;
+    assert(deck_ui_grid_focusable_mask_from_states(states, &mask)
+           == DECK_UI_GRID_FRAME_OK);
+    assert(mask == expected);
+    assert(deck_ui_grid_focusable_mask_from_states(NULL, &mask)
+           == DECK_UI_GRID_FRAME_OK);
+    assert(mask == DECK_UI_GRID_FOCUSABLE_MASK);
+
+    states[4] = (DeckUiVisualState)99;
+    before = mask;
+    assert(deck_ui_grid_focusable_mask_from_states(states, &mask)
+           == DECK_UI_GRID_FRAME_INVALID_MODEL_STATE);
+    assert(mask == before);
+    assert(deck_ui_grid_focusable_mask_from_states(states, NULL)
+           == DECK_UI_GRID_FRAME_INVALID_ARGUMENT);
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        states[index] = DECK_UI_STATE_DISABLED;
+    }
+    assert(deck_ui_grid_focusable_mask_from_states(states, &mask)
+           == DECK_UI_GRID_FRAME_OK);
+    assert(mask == 0u);
+}
 int main(void) {
     test_builds_complete_renderer_frame();
     test_selected_slot_keeps_lime_and_focus_overlay();
@@ -190,6 +225,7 @@ int main(void) {
     test_invalid_layout_and_view_state_preserve_output();
     test_invalid_shell_regions_reject_frame_without_mutation();
     test_invalid_arguments();
+    test_focusable_mask_uses_renderer_model_states();
     puts("ui_grid_frame_test: all checks passed");
     return 0;
 }
