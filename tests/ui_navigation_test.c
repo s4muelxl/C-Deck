@@ -10,6 +10,14 @@ static uint32_t move(uint32_t slot, DeckUiDirection direction) {
     return next;
 }
 
+static uint32_t boundary(uint32_t slot, bool to_end, bool entire_grid) {
+    uint32_t next = DECK_UI_GRID_SLOT_COUNT;
+    assert(deck_ui_grid_focus_boundary(slot, to_end, entire_grid, &next)
+           == DECK_UI_NAVIGATION_OK);
+    assert(next < DECK_UI_GRID_SLOT_COUNT);
+    return next;
+}
+
 static void test_every_slot_and_direction(void) {
     uint32_t slot;
 
@@ -40,6 +48,21 @@ static void test_edges_do_not_wrap(void) {
     assert(move(14u, DECK_UI_DIRECTION_DOWN) == 14u);
 }
 
+static void test_home_end_boundaries(void) {
+    uint32_t slot;
+
+    for (slot = 0u; slot < DECK_UI_GRID_SLOT_COUNT; ++slot) {
+        const uint32_t row_start =
+            (slot / DECK_UI_GRID_COLUMNS) * DECK_UI_GRID_COLUMNS;
+        const uint32_t row_end = row_start + DECK_UI_GRID_COLUMNS - 1u;
+
+        assert(boundary(slot, false, false) == row_start);
+        assert(boundary(slot, true, false) == row_end);
+        assert(boundary(slot, false, true) == 0u);
+        assert(boundary(slot, true, true) == DECK_UI_GRID_SLOT_COUNT - 1u);
+    }
+}
+
 static void test_invalid_inputs_preserve_output(void) {
     uint32_t next = 77u;
 
@@ -53,11 +76,18 @@ static void test_invalid_inputs_preserve_output(void) {
 
     assert(deck_ui_grid_move_focus(0u, DECK_UI_DIRECTION_LEFT, NULL)
            == DECK_UI_NAVIGATION_INVALID_ARGUMENT);
+
+    assert(deck_ui_grid_focus_boundary(15u, false, false, &next)
+           == DECK_UI_NAVIGATION_INVALID_SLOT);
+    assert(next == 77u);
+    assert(deck_ui_grid_focus_boundary(0u, false, false, NULL)
+           == DECK_UI_NAVIGATION_INVALID_ARGUMENT);
 }
 
 int main(void) {
     test_every_slot_and_direction();
     test_edges_do_not_wrap();
+    test_home_end_boundaries();
     test_invalid_inputs_preserve_output();
     puts("ui_navigation_test: all checks passed");
     return 0;
