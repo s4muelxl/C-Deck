@@ -60,6 +60,11 @@ void deck_ui_palette_init(DeckUiPalette *palette);
 /* Returns 0 for a null palette or an invalid role. */
 uint32_t deck_ui_palette_get(const DeckUiPalette *palette, DeckUiColorRole role);
 
+/* Converts palette RGB (0xRRGGBB) to Win32 COLORREF (0x00BBGGRR).
+ * Kept free of windows.h so the semantic theme remains portable C11.
+ */
+uint32_t deck_ui_rgb_to_colorref(uint32_t rgb);
+
 /* Resolves semantic component states. Invalid states safely fall back to NORMAL. */
 DeckUiStyle deck_ui_style_for_state(const DeckUiPalette *palette, DeckUiVisualState state);
 
