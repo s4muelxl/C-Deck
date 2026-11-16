@@ -1,4 +1,5 @@
 #include "win_paths.h"
+#include "profiles.h"
 #include <windows.h>
 #include <assert.h>
 #include <stdio.h>
@@ -17,6 +18,8 @@ static wchar_t config_directory[DECK_PATH_WIDE_MAX];
 static wchar_t fake_module[DECK_PATH_WIDE_MAX];
 static wchar_t config_path_wide[DECK_PATH_WIDE_MAX];
 static wchar_t backup_path_wide[DECK_PATH_WIDE_MAX];
+static char path_variant_utf8[DECK_PATH_UTF8_MAX];
+static wchar_t path_variant_wide[DECK_PATH_WIDE_MAX];
 
 static int make_extended_absolute(const wchar_t *source, wchar_t *out, size_t capacity) {
     static const wchar_t drive_prefix[] = L"\\\\?\\";
@@ -49,6 +52,88 @@ static int make_extended_absolute(const wchar_t *source, wchar_t *out, size_t ca
     return 0;
 }
 
+
+static void assert_utf8_file_exists(const char *path) {
+    assert(path != NULL && path[0] != '\0');
+    assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1,
+                               path_variant_wide, DECK_PATH_WIDE_MAX) > 0);
+    assert(GetFileAttributesW(path_variant_wide) != INVALID_FILE_ATTRIBUTES);
+}
+
+static void delete_utf8_file_variants(const char *path) {
+    static const char *suffixes[] = { "", ".bak", ".tmp" };
+    for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i) {
+        int written = snprintf(path_variant_utf8, sizeof(path_variant_utf8),
+                               "%s%s", path, suffixes[i]);
+        assert(written >= 0 && (size_t)written < sizeof(path_variant_utf8));
+        assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path_variant_utf8, -1,
+                                   path_variant_wide, DECK_PATH_WIDE_MAX) > 0);
+        (void)DeleteFileW(path_variant_wide);
+    }
+}
+
+static void test_long_path_profile_io(const char *config_path) {
+    static DeckProfileStore store;
+    static DeckProfileStore reloaded;
+    DeckConfig fallback;
+    DeckConfig active;
+    DeckConfig next_active;
+    DeckConfig reloaded_active;
+    DeckPreferences preferences;
+    char backup_path[DECK_PROFILE_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+
+    config_set_defaults(&fallback);
+    strcpy(fallback.apps[14].name, "Café long profile");
+    strcpy(fallback.apps[14].path, "action:volume_up");
+    assert(config_save(config_path, &fallback));
+    assert(config_save(config_path, &fallback));
+
+    assert(profiles_load(&store, config_path, &fallback, &active));
+    assert(store.preferences.active_profile == DECK_PROFILE_DEFAULT);
+    assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                               store.profile_paths[DECK_PROFILE_DEFAULT], -1,
+                               wide_path, DECK_PATH_WIDE_MAX) > 0);
+    assert(wcslen(wide_path) > MAX_PATH);
+
+    preferences = store.preferences;
+    preferences.active_profile = DECK_PROFILE_STREAMING;
+    preferences.window_opacity = 88;
+    assert(profiles_apply_preferences(&store, &preferences, &active, &next_active));
+
+    strcpy(next_active.apps[14].name, "Perfil ação 🎧");
+    strcpy(next_active.apps[14].path, "C:\\Apps\\音楽\\ação.exe");
+    assert(profiles_save_active(&store, &next_active));
+    assert(profiles_save_active(&store, &next_active));
+
+    preferences = store.preferences;
+    preferences.window_opacity = 91;
+    assert(profiles_save_preferences(&store, &preferences));
+    assert(profiles_save_preferences(&store, &preferences));
+
+    assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                               store.profile_paths[DECK_PROFILE_STREAMING], -1,
+                               wide_path, DECK_PATH_WIDE_MAX) > 0);
+    assert(wcslen(wide_path) > MAX_PATH);
+    assert(snprintf(backup_path, sizeof(backup_path), "%s.bak",
+                    store.profile_paths[DECK_PROFILE_STREAMING]) > 0);
+    assert_utf8_file_exists(backup_path);
+    assert(snprintf(backup_path, sizeof(backup_path), "%s.bak",
+                    store.preferences_path) > 0);
+    assert_utf8_file_exists(backup_path);
+
+    assert(profiles_load(&reloaded, config_path, &fallback, &reloaded_active));
+    assert(reloaded.preferences.active_profile == DECK_PROFILE_STREAMING);
+    assert(reloaded.preferences.window_opacity == 91);
+    assert(strcmp(reloaded_active.apps[14].name, "Perfil ação 🎧") == 0);
+    assert(strcmp(reloaded_active.apps[14].path, "C:\\Apps\\音楽\\ação.exe") == 0);
+
+    for (int i = 0; i < DECK_PROFILE_COUNT; ++i) {
+        delete_utf8_file_variants(store.profile_paths[i]);
+    }
+    delete_utf8_file_variants(store.preferences_path);
+}
+
 static void test_long_path_config_io(void) {
     wchar_t temp_path[DECK_PATH_WIDE_MAX];
     wchar_t temp_name[MAX_PATH];
@@ -70,13 +155,16 @@ static void test_long_path_config_io(void) {
     wcscpy(long_directory, extended_root);
     root_length = wcslen(extended_root);
     for (int i = 0; i < 24; ++i) {
-        const wchar_t segment[] = L"segment0123456789";
+        const wchar_t segment[] = L"segment-ação-音楽-🎧-0123456789";
         assert(wcslen(long_directory) + wcslen(segment) + 2 < DECK_PATH_WIDE_MAX);
         wcscat(long_directory, L"\\");
         wcscat(long_directory, segment);
         assert(CreateDirectoryW(long_directory, NULL));
     }
     assert(wcslen(long_directory) > MAX_PATH);
+    assert(wcsstr(long_directory, L"ação") != NULL);
+    assert(wcsstr(long_directory, L"音楽") != NULL);
+    assert(wcsstr(long_directory, L"🎧") != NULL);
 
     wcscpy(config_directory, long_directory);
     wcscat(config_directory, L"\\config");
@@ -100,8 +188,8 @@ static void test_long_path_config_io(void) {
     assert(config_load(actual_utf8, &loaded));
     assert(strcmp(loaded.apps[14].name, "Café long path") == 0);
 
-    assert(DeleteFileW(config_path_wide));
-    assert(DeleteFileW(backup_path_wide));
+    /* Exercise profile and preference I/O beside a long Unicode executable path. */
+    test_long_path_profile_io(actual_utf8);
     assert(RemoveDirectoryW(config_directory));
 
     wcscpy(cleanup, long_directory);
@@ -170,6 +258,6 @@ int main(void) {
     assert(wcsstr(actual_wide, L"config\\apps.cfg") != NULL);
 
     test_long_path_config_io();
-    puts("Win32 dynamic module path, long-path config persistence and Unicode paths: OK");
+    puts("Win32 dynamic module path, long Unicode config/profile/preference persistence: OK");
     return 0;
 }
