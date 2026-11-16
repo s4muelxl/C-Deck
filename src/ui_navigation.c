@@ -46,3 +46,26 @@ DeckUiNavigationStatus deck_ui_grid_move_focus(uint32_t current_slot,
     *next_slot = target;
     return DECK_UI_NAVIGATION_OK;
 }
+
+DeckUiNavigationStatus deck_ui_grid_focus_boundary(uint32_t current_slot,
+                                                   bool to_end,
+                                                   bool entire_grid,
+                                                   uint32_t *next_slot) {
+    uint32_t target;
+
+    if (!next_slot) return DECK_UI_NAVIGATION_INVALID_ARGUMENT;
+    if (current_slot >= DECK_UI_GRID_SLOT_COUNT) {
+        return DECK_UI_NAVIGATION_INVALID_SLOT;
+    }
+
+    if (entire_grid) {
+        target = to_end ? DECK_UI_GRID_SLOT_COUNT - 1u : 0u;
+    } else {
+        const uint32_t row = current_slot / DECK_UI_GRID_COLUMNS;
+        const uint32_t row_start = row * DECK_UI_GRID_COLUMNS;
+        target = to_end ? row_start + DECK_UI_GRID_COLUMNS - 1u : row_start;
+    }
+
+    *next_slot = target;
+    return DECK_UI_NAVIGATION_OK;
+}
