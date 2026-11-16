@@ -89,8 +89,55 @@ static void build_valid_macro(DeckMacro *macro) {
     macro->steps[2].delay_ms = 500;
 }
 
+
+static void test_missing_macro_parent_is_not_treated_as_empty(void) {
+    wchar_t temp_directory[MAX_PATH];
+    wchar_t temporary_file[MAX_PATH];
+    wchar_t missing_parent[DECK_PATH_WIDE_MAX];
+    wchar_t missing_config[DECK_PATH_WIDE_MAX];
+    wchar_t missing_macro[DECK_PATH_WIDE_MAX];
+    char config_path[DECK_MACRO_PATH_MAX];
+    static DeckMacroStore missing_store;
+    DWORD temp_length;
+    int required;
+
+    temp_length = GetTempPathW(MAX_PATH, temp_directory);
+    assert(temp_length > 0 && temp_length < MAX_PATH);
+    assert(GetTempFileNameW(temp_directory, L"cdk", 0, temporary_file) != 0);
+    assert(DeleteFileW(temporary_file));
+
+    assert(swprintf(missing_parent, DECK_PATH_WIDE_MAX,
+                    L"%ls-missing-parent-配置-Δ", temporary_file) > 0);
+    SetLastError(ERROR_SUCCESS);
+    assert(GetFileAttributesW(missing_parent) == INVALID_FILE_ATTRIBUTES);
+    assert(GetLastError() == ERROR_FILE_NOT_FOUND);
+
+    assert(swprintf(missing_config, DECK_PATH_WIDE_MAX,
+                    L"%ls\\apps.cfg", missing_parent) > 0);
+    required = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+                                   missing_config, -1, NULL, 0, NULL, NULL);
+    assert(required > 0 && (size_t)required <= sizeof(config_path));
+    assert(WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+                               missing_config, -1, config_path, required,
+                               NULL, NULL) == required);
+
+    /* A missing file in an existing directory is a valid empty macro store.
+       A missing parent directory is a storage error and must fail closed. */
+    assert(!macro_store_load(&missing_store, config_path));
+    assert(!missing_store.loaded);
+    assert(missing_store.read_only);
+    assert(!macro_store_save(&missing_store));
+
+    assert(swprintf(missing_macro, DECK_PATH_WIDE_MAX,
+                    L"%ls\\macros.cfg", missing_parent) > 0);
+    SetLastError(ERROR_SUCCESS);
+    assert(GetFileAttributesW(missing_macro) == INVALID_FILE_ATTRIBUTES);
+    assert(GetLastError() == ERROR_PATH_NOT_FOUND);
+}
+
 int main(void) {
     DeckMacroStep step;
+    test_missing_macro_parent_is_not_treated_as_empty();
     DeckMacro macro;
     static DeckMacroStore store;
     static DeckMacroStore loaded;

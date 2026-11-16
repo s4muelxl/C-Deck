@@ -290,7 +290,7 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
 
     if (GetFileAttributesW(wide_path) == INVALID_FILE_ATTRIBUTES) {
         DWORD error = GetLastError();
-        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
+        if (error == ERROR_FILE_NOT_FOUND) {
             store->loaded = 1;
             HeapFree(GetProcessHeap(), 0, parsed);
             return 1;
