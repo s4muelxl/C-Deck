@@ -382,6 +382,58 @@ static void test_grid_hit_test_invalid_arguments(void) {
     assert(hit == 77u);
 }
 
+
+static void test_grid_hit_test_round_trip_across_dpi_and_breakpoints(void) {
+    static const DeckUiLayoutInput inputs[] = {
+        { 1600, 900, 0 }, /* wide */
+        { 1200, 800, 0 }, /* medium */
+        { 1000, 720, 0 }, /* narrow */
+        { 440, 320, 1 }   /* compact minimum */
+    };
+    static const uint32_t dpis[] = { 96u, 120u, 144u, 192u };
+    size_t input_index;
+
+    for (input_index = 0u;
+         input_index < sizeof(inputs) / sizeof(inputs[0]);
+         ++input_index) {
+        DeckUiLayout layout;
+        size_t dpi_index;
+
+        assert(deck_ui_layout_compute(&inputs[input_index], &layout)
+               == DECK_UI_LAYOUT_OK);
+
+        for (dpi_index = 0u;
+             dpi_index < sizeof(dpis) / sizeof(dpis[0]);
+             ++dpi_index) {
+            uint32_t slot_index;
+
+            for (slot_index = 0u;
+                 slot_index < DECK_UI_GRID_SLOT_COUNT;
+                 ++slot_index) {
+                DeckUiRect pixel_rect;
+                int32_t pixel_center_x;
+                int32_t pixel_center_y;
+                uint32_t hit = DECK_UI_GRID_SLOT_COUNT;
+
+                assert(deck_ui_rect_dip_to_px(&layout.slots[slot_index],
+                                               dpis[dpi_index],
+                                               &pixel_rect)
+                       == DECK_UI_RECT_SCALE_OK);
+
+                pixel_center_x = pixel_rect.x + pixel_rect.width / 2;
+                pixel_center_y = pixel_rect.y + pixel_rect.height / 2;
+
+                assert(deck_ui_grid_hit_test(
+                           &layout,
+                           deck_ui_px_to_dip(pixel_center_x, dpis[dpi_index]),
+                           deck_ui_px_to_dip(pixel_center_y, dpis[dpi_index]),
+                           &hit) == DECK_UI_HIT_TEST_HIT);
+                assert(hit == slot_index);
+            }
+        }
+    }
+}
+
 int main(void) {
     test_wide_layout();
     test_medium_and_narrow_layouts();
@@ -395,6 +447,7 @@ int main(void) {
     test_rect_scaling_negative_origins_and_zero_area();
     test_rect_scaling_rejects_invalid_and_overflow_without_mutation();
     test_grid_hit_test_all_slots();
+    test_grid_hit_test_round_trip_across_dpi_and_breakpoints();
     test_grid_hit_test_uses_half_open_bounds();
     test_grid_hit_test_rejects_invalid_layout();
     test_grid_hit_test_invalid_arguments();
