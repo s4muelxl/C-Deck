@@ -247,7 +247,7 @@ static int parse_macro_section(const char *section_name) {
 }
 
 int macro_store_load(DeckMacroStore *store, const char *config_path) {
-    wchar_t wide_path[DECK_MACRO_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
     FILE *file;
     char line[1024];
     DeckMacro parsed[DECK_MACRO_COUNT];
@@ -262,7 +262,7 @@ int macro_store_load(DeckMacroStore *store, const char *config_path) {
     int version_seen = 0;
 
     if (!store || !build_macro_path(store->path, sizeof(store->path), config_path) ||
-        !utf8_path_to_wide(store->path, wide_path, DECK_MACRO_PATH_MAX)) return 0;
+        !utf8_path_to_wide(store->path, wide_path, DECK_PATH_WIDE_MAX)) return 0;
 
     ZeroMemory(parsed, sizeof(parsed));
     ZeroMemory(seen_steps, sizeof(seen_steps));
@@ -426,21 +426,21 @@ static int write_macro_step(FILE *file, unsigned int step_id, const DeckMacroSte
 }
 
 int macro_store_save(DeckMacroStore *store) {
-    wchar_t wide_path[DECK_MACRO_PATH_MAX];
-    wchar_t temporary[DECK_MACRO_PATH_MAX];
-    wchar_t backup[DECK_MACRO_PATH_MAX];
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+    wchar_t temporary[DECK_PATH_WIDE_MAX];
+    wchar_t backup[DECK_PATH_WIDE_MAX];
     FILE *file;
     size_t path_length;
     int written = 1;
 
     if (!store || !store->loaded || store->read_only ||
-        !utf8_path_to_wide(store->path, wide_path, DECK_MACRO_PATH_MAX)) return 0;
+        !utf8_path_to_wide(store->path, wide_path, DECK_PATH_WIDE_MAX)) return 0;
     for (int i = 0; i < DECK_MACRO_COUNT; ++i) {
         if (store->macros[i].configured && !macro_validate(&store->macros[i])) return 0;
     }
 
     path_length = wcslen(wide_path);
-    if (path_length + 5 >= DECK_MACRO_PATH_MAX) return 0;
+    if (path_length + 5 >= DECK_PATH_WIDE_MAX) return 0;
     wcscpy(temporary, wide_path);
     wcscat(temporary, L".tmp");
     wcscpy(backup, wide_path);
