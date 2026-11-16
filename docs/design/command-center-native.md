@@ -327,19 +327,19 @@ Isso fortalece o contrato de geometria; não significa que o layout já esteja l
 
 ## Adaptador de mensagens Win32 para a grade 5×3 (16/11/2026)
 
-O módulo isolado \`src/ui_win32_input.c\` / \`src/ui_win32_input.h\` traduz mensagens Win32 para os contratos C11 de estado, navegação e hit-testing. Ele é uma ponte de entrada, não uma camada de execução:
+O módulo isolado `src/ui_win32_input.c` / `src/ui_win32_input.h` traduz mensagens Win32 para os contratos C11 de estado, navegação e hit-testing. Ele é uma ponte de entrada, não uma camada de execução:
 
-- \`WM_MOUSEMOVE\` converte coordenadas cliente em pixels para DIP, atualiza hover e solicita ao chamador o rastreamento de \`WM_MOUSELEAVE\`.
-- \`WM_LBUTTONDOWN\` inicia o estado pressed apenas em um slot habilitado e sinaliza que o procedimento da janela deve capturar o mouse.
+- `WM_MOUSEMOVE` converte coordenadas cliente em pixels para DIP, atualiza hover e solicita ao chamador o rastreamento de `WM_MOUSELEAVE`.
+- `WM_LBUTTONDOWN` inicia o estado pressed apenas em um slot habilitado e sinaliza que o procedimento da janela deve capturar o mouse.
 - Durante o arraste, o estado pressed só permanece visível quando o ponteiro está sobre a tecla originalmente pressionada. Sair da tecla remove o feedback; retornar restaura-o sem perder a captura lógica.
-- \`WM_LBUTTONUP\` seleciona somente quando a liberação ocorre na mesma tecla habilitada. Soltar em outra tecla, no gap ou fora da grade cancela a seleção pendente.
-- \`WM_CAPTURECHANGED\` e \`WM_KILLFOCUS\` limpam estados transitórios e evitam pressed preso.
+- `WM_LBUTTONUP` seleciona somente quando a liberação ocorre na mesma tecla habilitada. Soltar em outra tecla, no gap ou fora da grade cancela a seleção pendente.
+- `WM_CAPTURECHANGED` e `WM_KILLFOCUS` limpam estados transitórios e evitam pressed preso.
 - Setas, Home e End movem foco sem alterar seleção. Control+Home/End ou Meta+Home/End navegam para os limites da grade inteira.
 - Enter seleciona imediatamente; Space mostra pressed no key-down e seleciona no key-up. Repetições automáticas de key-down não geram seleção duplicada.
 - Slots disabled não recebem foco nem iniciam pressionamento; error/warning permanecem inspecionáveis, conforme a máscara derivada do modelo.
 
-O resultado informa ao procedimento da janela se a mensagem foi tratada, se é necessário invalidar a região, se deve capturar/liberar o mouse e qual seleção mudou. O chamador continua responsável por chamar \`TrackMouseEvent\`, \`SetCapture\` e \`ReleaseCapture\`, fornecer o DPI atual e encaminhar a seleção ao Inspector. O adaptador não executa ações, não salva configuração e não chama o Action Engine.
+O resultado informa ao procedimento da janela se a mensagem foi tratada, se é necessário invalidar a região, se deve capturar/liberar o mouse e qual seleção mudou. O chamador continua responsável por chamar `TrackMouseEvent`, `SetCapture` e `ReleaseCapture`, fornecer o DPI atual e encaminhar a seleção ao Inspector. O adaptador não executa ações, não salva configuração e não chama o Action Engine.
 
-A suíte \`tests/ui_win32_input_test.c\` exercita mensagens Win32 reais no runner MinGW, sem criar janela ou depender de sessão gráfica: clique, arraste para fora e retorno, cancelamento em outra tecla, captura perdida, foco perdido, navegação com slots desabilitados, Enter/Space, gaps, coordenadas negativas, DPI 96/144/192 e preservação transacional em layout/modelo inválido.
+A suíte `tests/ui_win32_input_test.c` foi adicionada ao workflow Windows/MinGW para exercitar mensagens Win32 sem criar janela ou depender de sessão gráfica: clique, arraste para fora e retorno, cancelamento em outra tecla, captura perdida, foco perdido, navegação com slots desabilitados, Enter/Space, gaps, coordenadas negativas, DPI 96/144/192 e preservação transacional em layout/modelo inválido.
 
-**Limite de integração:** o adaptador e seus testes estão compilados em workflow separado, mas ainda não estão conectados ao WndProc do executável. Essa ligação permanece coordenada com a PR #16, que modifica \`src/interface.c\`. Não há alteração nessa frente compartilhada; o contrato não deve ser descrito como comportamento já disponível na aplicação publicada.
+**Limite de integração:** o adaptador e seus testes estão incluídos no workflow nativo e aguardam a primeira execução deste HEAD; ainda não estão conectados ao WndProc do executável. Essa ligação permanece coordenada com a PR #16, que modifica `src/interface.c`. Não há alteração nessa frente compartilhada; o contrato não deve ser descrito como comportamento já disponível na aplicação publicada.
