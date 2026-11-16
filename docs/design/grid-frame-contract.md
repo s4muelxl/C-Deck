@@ -37,3 +37,26 @@ This module is intentionally independent of `src/interface.c`. The engineering P
 ## Tests
 
 `tests/ui_grid_frame_test.c` covers all 15 slots, row-major geometry, neutral defaults, selected-plus-focused styling, disabled/error/warning precedence, malformed layout, invalid view/model states and output preservation on failure. The native UI workflow compiles and runs both the presentation resolver and grid-frame builder with strict C11 warnings on Linux and MinGW/Windows.
+
+
+## Disabled-slot keyboard navigation
+
+The grid model exposes one authoritative focusability mask through
+`deck_ui_grid_focusable_mask_from_states`. It derives the mask from the same
+15 model states used to build the rendered frame: only `DISABLED` slots are
+excluded. `ERROR` and `WARNING` remain focusable so the user can inspect the
+slot and correct its configuration.
+
+The mask is a 15-bit value in row-major order. Directional navigation skips
+disabled slots along the current row or column and remains clamped at grid
+edges; it never wraps. Home/End selects the first/last focusable slot in the
+current row, while Ctrl+Home/Ctrl+End-style callers can request the whole grid.
+A range with no focusable slot returns an explicit status and leaves the
+caller’s focus unchanged.
+
+When a slot becomes disabled while it owns keyboard focus, the caller must
+invoke `deck_ui_view_reconcile_focus` after updating the model. Reconciliation
+chooses the nearest enabled slot by row-major distance, preferring the following
+slot on ties, and clears stale pressed feedback. Selection remains independent
+from focus, and none of these helpers invokes an action. The original
+all-slots-enabled navigation functions remain available for compatibility.
