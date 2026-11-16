@@ -562,3 +562,120 @@ test('simulator suspends and closes Web Audio resources across page lifecycle ev
 
   await new Promise((resolve) => setImmediate(resolve));
 });
+
+
+test('all simulator keys remain keyboard-reachable before the enhancement script runs', () => {
+  const deckButtons = [...html.matchAll(/<button\b[^>]*class="deck-key"[^>]*>/g)];
+  assert.equal(deckButtons.length, 9);
+  assert.ok(deckButtons.every((match) => /\btabindex="0"/.test(match[0])),
+    'without JavaScript, every demonstrative control must remain in the normal tab order');
+});
+
+test('the simulator applies roving focus and supports arrows, Home and End', () => {
+  const vm = require('node:vm');
+
+  class FakeElement {
+    constructor(id) {
+      this.id = id;
+      this.listeners = {};
+      this.attributes = {};
+      this.style = {};
+      this.value = 72;
+      this.textContent = '';
+      this.innerHTML = '';
+      const classes = new Set();
+      this.classList = {
+        add: (...names) => names.forEach((name) => classes.add(name)),
+        remove: (...names) => names.forEach((name) => classes.delete(name)),
+        contains: (name) => classes.has(name),
+        toggle: (name, force) => {
+          const enabled = force === undefined ? !classes.has(name) : Boolean(force);
+          if (enabled) classes.add(name);
+          else classes.delete(name);
+          return enabled;
+        }
+      };
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, value) { this.attributes[name] = String(value); }
+    focus() {
+      document.activeElement = this;
+      this.dispatch('focus');
+    }
+    dispatch(name, event = {}) {
+      if (this.listeners[name]) this.listeners[name]({ ...event, target: this });
+    }
+  }
+
+  const ids = [
+    'demo-volume-value', 'demo-volume-track', 'demo-volume-slider', 'demo-status-text',
+    'key-mute', 'key-play', 'play-glyph', 'play-label', 'demo-sound-toggle', 'demo-reset',
+    'key-vol-down', 'key-vol-up', 'key-prev', 'key-next', 'key-app-1', 'key-app-2', 'key-app-3'
+  ];
+  const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement(id)]));
+  const document = {
+    readyState: 'complete',
+    hidden: false,
+    activeElement: null,
+    addEventListener() {},
+    getElementById: (id) => elements[id] || null,
+    querySelectorAll: () => [],
+    querySelector: () => null
+  };
+  const window = { addEventListener() {} };
+
+  vm.runInNewContext(script, {
+    document,
+    window,
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    parseInt,
+    Math
+  });
+
+  const idsInGrid = [
+    'key-vol-down', 'key-mute', 'key-vol-up',
+    'key-prev', 'key-play', 'key-next',
+    'key-app-1', 'key-app-2', 'key-app-3'
+  ];
+  const buttons = idsInGrid.map((id) => elements[id]);
+  const assertActive = (index) => {
+    assert.equal(document.activeElement, buttons[index]);
+    buttons.forEach((button, buttonIndex) => {
+      assert.equal(button.attributes.tabindex, buttonIndex === index ? '0' : '-1');
+    });
+  };
+  const press = (index, key, modifiers = {}) => {
+    let prevented = false;
+    buttons[index].dispatch('keydown', {
+      key,
+      ...modifiers,
+      preventDefault() { prevented = true; }
+    });
+    return prevented;
+  };
+
+  assert.equal(buttons[0].attributes.tabindex, '0');
+  assert.ok(buttons.slice(1).every((button) => button.attributes.tabindex === '-1'));
+
+  assert.equal(press(0, 'ArrowRight'), true);
+  assertActive(1);
+  assert.equal(press(1, 'ArrowDown'), true);
+  assertActive(4);
+  assert.equal(press(4, 'Home'), true);
+  assertActive(3);
+  assert.equal(press(3, 'End'), true);
+  assertActive(5);
+  assert.equal(press(5, 'Home', { ctrlKey: true }), true);
+  assertActive(0);
+  assert.equal(press(0, 'End', { ctrlKey: true }), true);
+  assertActive(8);
+
+  assert.equal(press(8, 'ArrowDown'), true, 'an edge arrow is consumed without leaving the grid');
+  assertActive(8);
+  assert.equal(press(8, 'Enter'), false, 'activation keys are not intercepted by navigation');
+  assertActive(8);
+
+  buttons[2].focus();
+  assertActive(2);
+});
