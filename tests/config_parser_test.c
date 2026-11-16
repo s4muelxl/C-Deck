@@ -139,7 +139,7 @@ int main(void) {
 
     /* Reject overlong physical lines instead of parsing a truncated prefix. */
     {
-        char long_line[1200];
+        char long_line[DECK_CONFIG_LINE_MAX + 100];
         memset(long_line, 'x', sizeof(long_line));
         long_line[sizeof(long_line) - 1] = '\0';
         write_config(long_line);
