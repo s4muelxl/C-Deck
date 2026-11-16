@@ -18,6 +18,10 @@ on:
       - 'src/ui_presentation.c'
       - 'src/ui_presentation.h'
       - 'tests/ui_presentation_test.c'
+      - 'src/ui_grid_frame.c'
+      - 'src/ui_grid_frame.h'
+      - 'tests/ui_grid_frame_test.c'
+      - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
   pull_request:
     branches: [main]
@@ -37,6 +41,10 @@ on:
       - 'src/ui_presentation.c'
       - 'src/ui_presentation.h'
       - 'tests/ui_presentation_test.c'
+      - 'src/ui_grid_frame.c'
+      - 'src/ui_grid_frame.h'
+      - 'tests/ui_grid_frame_test.c'
+      - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
 permissions:
   contents: read
@@ -65,6 +73,14 @@ jobs:
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c src/ui_state.c tests/ui_state_test.c -o /tmp/ui-state-test
       - name: Run native C11 view-state contract
         run: /tmp/ui-state-test
+      - name: Compile native C11 presentation contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c tests/ui_presentation_test.c -o /tmp/ui-presentation-test
+      - name: Run native C11 presentation contract
+        run: /tmp/ui-presentation-test
+      - name: Compile native C11 grid-frame contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c tests/ui_grid_frame_test.c -o /tmp/ui-grid-frame-test
+      - name: Run native C11 grid-frame contract
+        run: /tmp/ui-grid-frame-test
 
   windows-native-ui-contracts:
     runs-on: windows-latest
@@ -88,3 +104,7 @@ jobs:
           ./build/ui-navigation-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c src/ui_state.c tests/ui_state_test.c -o build/ui-state-test.exe
           ./build/ui-state-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c tests/ui_presentation_test.c -o build/ui-presentation-test.exe
+          ./build/ui-presentation-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c tests/ui_grid_frame_test.c -o build/ui-grid-frame-test.exe
+          ./build/ui-grid-frame-test.exe
