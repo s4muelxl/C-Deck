@@ -313,7 +313,7 @@ test('simulator grid uses one tab stop and documents arrow-key navigation', () =
   assert.match(css, /\.sr-only\s*\{/);
 });
 
-test('simulator arrow navigation moves focus without wrapping or activating keys', () => {
+test('simulator keyboard navigation moves focus without wrapping or activating keys', () => {
   const vm = require('node:vm');
   const ids = [
     'key-vol-down','key-mute','key-vol-up',
@@ -333,6 +333,7 @@ test('simulator arrow navigation moves focus without wrapping or activating keys
       this.textContent = '';
       this.innerHTML = '';
       this.value = '';
+      this.clickCount = 0;
       const classes = new Set();
       this.classList = {
         add: (...names) => names.forEach((name) => classes.add(name)),
@@ -354,6 +355,7 @@ test('simulator arrow navigation moves focus without wrapping or activating keys
       if (this.listeners.focus) this.listeners.focus({ target: this });
     }
     dispatch(name, event = {}) {
+      if (name === 'click') this.clickCount += 1;
       const dispatched = { ...event, target: event.target || this };
       if (this.listeners[name]) this.listeners[name](dispatched);
       return dispatched;
@@ -402,5 +404,23 @@ test('simulator arrow navigation moves focus without wrapping or activating keys
   keys[5].focus();
   keys[5].dispatch('keydown', { key: 'ArrowRight', preventDefault: () => {} });
   assert.equal(activeElement, keys[5], 'right edge is clamped without wrapping');
+
+  keys[4].focus();
+  keys[4].dispatch('keydown', { key: 'Home', preventDefault: () => {} });
+  assert.equal(activeElement, keys[3], 'Home moves to the first key in the current row');
+
+  keys[4].focus();
+  keys[4].dispatch('keydown', { key: 'End', preventDefault: () => {} });
+  assert.equal(activeElement, keys[5], 'End moves to the last key in the current row');
+
+  keys[4].focus();
+  keys[4].dispatch('keydown', { key: 'Home', ctrlKey: true, preventDefault: () => {} });
+  assert.equal(activeElement, keys[0], 'Ctrl+Home moves to the first key in the grid');
+
+  keys[4].focus();
+  keys[4].dispatch('keydown', { key: 'End', ctrlKey: true, preventDefault: () => {} });
+  assert.equal(activeElement, keys[8], 'Ctrl+End moves to the last key in the grid');
+  assert.equal(keys.reduce((total, button) => total + button.clickCount, 0), 0,
+    'navigation keys never activate a simulator command');
   assert.equal(keys.filter((button) => button.attributes.tabindex === '0').length, 1);
 });
