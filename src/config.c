@@ -60,7 +60,7 @@ static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
 /* Configuration values are stored as UTF-8. Reject malformed or truncated
    fields instead of silently cutting a multibyte sequence at the buffer edge. */
 static int utf8_value_valid(const char *value, size_t capacity, int allow_empty) {
-    wchar_t wide[DECK_TEXT_MAX];
+    wchar_t wide[DECK_PATH_TEXT_MAX];
     size_t length = 0;
 
     if (!value || capacity == 0 || capacity > INT_MAX) return 0;
@@ -70,13 +70,13 @@ static int utf8_value_valid(const char *value, size_t capacity, int allow_empty)
     if (length == 0) return 1;
 
     return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value,
-                               (int)(length + 1), wide, DECK_TEXT_MAX) > 0;
+                               (int)(length + 1), wide, DECK_PATH_TEXT_MAX) > 0;
 }
 
 static int copy_utf8_value(char *destination, size_t capacity, const char *source) {
     size_t length;
 
-    if (!destination || !source || capacity == 0 || capacity > DECK_TEXT_MAX) return 0;
+    if (!destination || !source || capacity == 0 || capacity > DECK_PATH_TEXT_MAX) return 0;
     length = strlen(source);
     if (length >= capacity || !utf8_value_valid(source, length + 1, 1)) return 0;
     memcpy(destination, source, length + 1);
@@ -85,7 +85,7 @@ static int copy_utf8_value(char *destination, size_t capacity, const char *sourc
 
 int config_load(const char *path, DeckConfig *out_config) {
     FILE *file;
-    char line[1024];
+    char line[DECK_CONFIG_LINE_MAX];
     DeckApp parsed_apps[DECK_KEY_COUNT];
     int current = -1;
     int has_legacy_apps = 0;
@@ -249,8 +249,8 @@ int config_load(const char *path, DeckConfig *out_config) {
 
 int config_save(const char *path, const DeckConfig *config) {
     wchar_t wide_path[DECK_PATH_WIDE_MAX];
-    wchar_t temporary[MAX_PATH * 4];
-    wchar_t backup[MAX_PATH * 4];
+    wchar_t temporary[DECK_PATH_WIDE_MAX];
+    wchar_t backup[DECK_PATH_WIDE_MAX];
     FILE *file;
     int written = 1;
     size_t path_length;
