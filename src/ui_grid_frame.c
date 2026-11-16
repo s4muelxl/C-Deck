@@ -6,6 +6,38 @@ static int optional_slot_is_valid(uint32_t slot) {
     return slot == DECK_UI_SLOT_NONE || slot < DECK_UI_GRID_SLOT_COUNT;
 }
 
+static int model_state_is_valid(DeckUiVisualState state) {
+    return state == DECK_UI_STATE_NORMAL ||
+           state == DECK_UI_STATE_DISABLED ||
+           state == DECK_UI_STATE_ERROR ||
+           state == DECK_UI_STATE_WARNING;
+}
+
+DeckUiGridFrameStatus deck_ui_grid_focusable_mask_from_states(
+    const DeckUiVisualState model_states[DECK_UI_GRID_SLOT_COUNT],
+    uint16_t *focusable_mask) {
+    uint16_t resolved_mask = 0u;
+    uint32_t index;
+
+    if (!focusable_mask) return DECK_UI_GRID_FRAME_INVALID_ARGUMENT;
+
+    for (index = 0u; index < DECK_UI_GRID_SLOT_COUNT; ++index) {
+        const DeckUiVisualState state = model_states
+            ? model_states[index] : DECK_UI_STATE_NORMAL;
+
+        if (!model_state_is_valid(state)) {
+            return DECK_UI_GRID_FRAME_INVALID_MODEL_STATE;
+        }
+        if (state != DECK_UI_STATE_DISABLED) {
+            resolved_mask = (uint16_t)(resolved_mask |
+                                       (uint16_t)(1u << index));
+        }
+    }
+
+    *focusable_mask = resolved_mask;
+    return DECK_UI_GRID_FRAME_OK;
+}
+
 static int view_state_is_valid(const DeckUiViewState *state) {
     return state &&
            state->focused_slot < DECK_UI_GRID_SLOT_COUNT &&
@@ -44,7 +76,8 @@ DeckUiGridFrameStatus deck_ui_grid_frame_build(
 
         presentation_status = deck_ui_presentation_resolve_slot(
             view_state, index, model_state, &presentation);
-        if (presentation_status == DECK_UI_PRESENTATION_INVALID_MODEL_STATE) {
+        if (!model_state_is_valid(model_state) ||
+            presentation_status == DECK_UI_PRESENTATION_INVALID_MODEL_STATE) {
             return DECK_UI_GRID_FRAME_INVALID_MODEL_STATE;
         }
         if (presentation_status != DECK_UI_PRESENTATION_OK) {
