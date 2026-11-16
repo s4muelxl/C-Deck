@@ -236,3 +236,11 @@ A landing page mantém o acento neutro (`#EEF1F5`) para foco genérico, links e 
 ## Feedback persistente do simulador
 
 A barra de status do simulador web distingue mensagens transitórias de estado demonstrativo estável. Após o feedback temporário, o texto deve refletir a combinação atual de reprodução simulada e mute simulado; não deve retornar a um estado genérico de pronto enquanto a reprodução estiver marcada como ativa. Os rótulos sempre incluem o contexto de simulação e não representam estado do player ou do Windows.
+
+## Validação integrada de geometria e hit-testing por DPI
+
+A suíte de layout combina agora os contratos de geometria e entrada em um percurso de regressão: calcula a grade 5×3 em DIP, converte cada retângulo de tecla para pixels físicos, simula um clique no centro físico de cada tecla, converte a coordenada de volta para DIP e confirma que o hit-test resolve o mesmo slot.
+
+O percurso é executado para os 15 slots em quatro composições (wide, medium, narrow e compact mínimo) e quatro escalas (96, 120, 144 e 192 DPI), totalizando 240 verificações. Isso detecta regressões em que o arredondamento de bordas, a escala do retângulo ou a conversão das coordenadas mudem a identidade da tecla.
+
+O teste valida os contratos matemáticos independentes. Ele não simula `WM_DPICHANGED`, não substitui o tratamento de coordenadas da janela Win32 e não equivale a um teste interativo com mouse em monitores físicos.
