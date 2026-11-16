@@ -487,6 +487,21 @@ int main(void) {
         "step1=action:volume_up\nstep1=action:volume_down\nmarker=duplicate-step\n",
         "marker=duplicate-step");
 
+    /* Section identifiers use the exact canonical [macroN] syntax.
+       strtol previously accepted signed, whitespace-padded and zero-padded IDs. */
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro+1]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\n; malformed-signed-section\n",
+        "malformed-signed-section");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro 1]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\n; malformed-spaced-section\n",
+        "malformed-spaced-section");
+    assert_invalid_store_is_read_only(
+        "[meta]\nversion=1\n[macro01]\nname=Macro\nstep_count=1\n"
+        "step1=action:volume_up\n; malformed-zero-padded-section\n",
+        "malformed-zero-padded-section");
+
     /* Unknown syntax is rejected fail-closed and never rewritten. */
     assert_invalid_store_is_read_only(
         "[meta]\nversion=1\n[profile]\nmarker=unknown-section\n",

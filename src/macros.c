@@ -237,12 +237,20 @@ static int utf8_path_to_wide(const char *path, wchar_t *wide, size_t capacity) {
 }
 
 static int parse_macro_section(const char *section_name) {
-    char *end = NULL;
-    long id;
-    if (strncmp(section_name, "[macro", 6) != 0) return -1;
-    id = strtol(section_name + 6, &end, 10);
-    if (end == section_name + 6 || !end || end[0] != ']' || end[1] != '\0' ||
-        id < 1 || id > DECK_MACRO_COUNT) return -2;
+    const unsigned char *cursor;
+    unsigned int id;
+
+    if (!section_name || strncmp(section_name, "[macro", 6) != 0) return -1;
+
+    /* Macro slots are deliberately single-digit (1..8). Do not let strtol
+       accept signs, internal whitespace, or zero-padded aliases such as
+       [macro+1], [macro 1], or [macro01]. */
+    cursor = (const unsigned char *)section_name + 6;
+    if (*cursor < '1' || *cursor > '9') return -2;
+    id = (unsigned int)(*cursor - '0');
+    ++cursor;
+
+    if (*cursor != ']' || cursor[1] != '\0' || id > DECK_MACRO_COUNT) return -2;
     return (int)id - 1;
 }
 
