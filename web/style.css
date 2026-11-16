@@ -451,6 +451,28 @@ a {
   gap: 7px;
 }
 
+/* A quiet, visible discovery cue for sighted keyboard users. */
+.demo-grid-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 9px 0 0;
+  color: #8b96a4;
+  font: 10px/1.5 var(--mono);
+  text-align: center;
+}
+.demo-grid-hint > span {
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 4px;
+  color: #778391;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
 .deck-key {
   height: 72px;
   min-width: 0;
@@ -1210,4 +1232,8 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline: 2px solid va
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+@media (max-width: 360px) {
+  .demo-grid-hint { gap: 5px; margin-top: 7px; font-size: 9px; }
 }
