@@ -21,6 +21,10 @@ on:
       - 'src/ui_grid_frame.c'
       - 'src/ui_grid_frame.h'
       - 'tests/ui_grid_frame_test.c'
+      - 'src/ui_win32_grid_renderer.c'
+      - 'src/ui_win32_grid_renderer.h'
+      - 'tests/ui_win32_grid_renderer_test.c'
+      - 'docs/design/win32-grid-renderer.md'
       - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
   pull_request:
@@ -44,6 +48,10 @@ on:
       - 'src/ui_grid_frame.c'
       - 'src/ui_grid_frame.h'
       - 'tests/ui_grid_frame_test.c'
+      - 'src/ui_win32_grid_renderer.c'
+      - 'src/ui_win32_grid_renderer.h'
+      - 'tests/ui_win32_grid_renderer_test.c'
+      - 'docs/design/win32-grid-renderer.md'
       - 'docs/design/grid-frame-contract.md'
       - '.github/workflows/native-ui-theme.yml'
 permissions:
@@ -108,3 +116,8 @@ jobs:
           ./build/ui-presentation-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c tests/ui_grid_frame_test.c -o build/ui-grid-frame-test.exe
           ./build/ui-grid-frame-test.exe
+      - name: Compile and run off-screen Win32 grid renderer test
+        shell: msys2 {0}
+        run: |
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_theme.c src/ui_layout.c src/ui_navigation.c src/ui_state.c src/ui_presentation.c src/ui_grid_frame.c src/ui_win32_grid_renderer.c tests/ui_win32_grid_renderer_test.c -lgdi32 -luser32 -o build/ui-win32-grid-renderer-test.exe
+          ./build/ui-win32-grid-renderer-test.exe
