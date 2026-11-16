@@ -6,6 +6,7 @@
 #include "macro_editor.h"
 #include "hotkeys.h"
 #include "gdi_scope.h"
+#include "win_paths.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -123,7 +124,7 @@ static pfnDwmSetWindowAttribute resolve_dwm_set_window_attribute(HMODULE module)
 
 // Global application state: all 15 keys share one persistent model.
 static DeckConfig g_config;
-static char g_config_path[MAX_PATH * 4];
+static char g_config_path[DECK_PATH_UTF8_MAX];
 static DeckProfileStore g_profile_store;
 static int g_profile_store_ready;
 static DeckMacroStore g_macro_store;
@@ -207,23 +208,6 @@ static void wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
         utf8[0] = '\0';
     }
     utf8[max_bytes - 1] = '\0';
-}
-
-static int build_config_path(char *out, DWORD capacity) {
-    wchar_t module_path[MAX_PATH];
-    wchar_t *separator;
-    const wchar_t suffix[] = L"config\\apps.cfg";
-    DWORD length = GetModuleFileNameW(NULL, module_path, MAX_PATH);
-
-    if (length == 0 || length >= MAX_PATH) return 0;
-    separator = wcsrchr(module_path, L'\\');
-    if (!separator) separator = wcsrchr(module_path, L'/');
-    if (!separator) return 0;
-    separator[1] = L'\0';
-    if (wcslen(module_path) + (sizeof(suffix) / sizeof(suffix[0])) > MAX_PATH) return 0;
-    wcscat(module_path, suffix);
-    return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, module_path, -1,
-                               out, (int)capacity, NULL, NULL) > 0;
 }
 
 static void set_status(const wchar_t *message) {
@@ -393,11 +377,19 @@ static void set_run_on_startup(int enable) {
     LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &key);
     if (res != ERROR_SUCCESS) return;
     if (enable) {
-        wchar_t exe_path[MAX_PATH];
-        GetModuleFileNameW(NULL, exe_path, MAX_PATH);
-        RegSetValueExW(key, L"CDeck", 0, REG_SZ, (const BYTE *)exe_path, (DWORD)((wcslen(exe_path) + 1) * sizeof(wchar_t)));
+        wchar_t exe_path[DECK_PATH_WIDE_MAX];
+        if (!deck_get_module_path_wide(exe_path, DECK_PATH_WIDE_MAX)) {
+            RegCloseKey(key);
+            set_status(L"Não foi possível resolver o caminho completo do executável.");
+            return;
+        }
+        res = RegSetValueExW(key, L"CDeck", 0, REG_SZ, (const BYTE *)exe_path,
+                             (DWORD)((wcslen(exe_path) + 1) * sizeof(wchar_t)));
+        if (res != ERROR_SUCCESS) set_status(L"Não foi possível salvar a inicialização com o Windows.");
     } else {
-        RegDeleteValueW(key, L"CDeck");
+        res = RegDeleteValueW(key, L"CDeck");
+        if (res != ERROR_SUCCESS && res != ERROR_FILE_NOT_FOUND)
+            set_status(L"Não foi possível remover a inicialização com o Windows.");
     }
     RegCloseKey(key);
 }
@@ -2837,7 +2829,7 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     MSG message;
 
     DeckConfig active_config;
-    if (!config || !build_config_path(g_config_path, (DWORD)sizeof(g_config_path))) return 1;
+    if (!config || !deck_get_config_path_utf8(g_config_path, sizeof(g_config_path))) return 1;
     if (profiles_load(&g_profile_store, g_config_path, config, &active_config)) {
         g_profile_store_ready = 1;
         g_config = active_config;
