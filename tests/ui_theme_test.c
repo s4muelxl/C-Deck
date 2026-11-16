@@ -41,6 +41,25 @@ static void test_palette_tokens(void) {
     assert(deck_ui_palette_get(&palette, DECK_UI_COLOR_COUNT) == 0u);
 }
 
+static void test_win32_colorref_channel_order(void) {
+    DeckUiPalette palette;
+
+    deck_ui_palette_init(&palette);
+
+    /* Win32 COLORREF stores red in the least-significant byte. */
+    assert(deck_ui_rgb_to_colorref(0xFF0000u) == 0x000000FFu);
+    assert(deck_ui_rgb_to_colorref(0x00FF00u) == 0x0000FF00u);
+    assert(deck_ui_rgb_to_colorref(0x0000FFu) == 0x00FF0000u);
+
+    /* The official lime token must not swap red/blue when passed to GDI. */
+    assert(deck_ui_rgb_to_colorref(
+               deck_ui_palette_get(&palette, DECK_UI_COLOR_ACCENT))
+           == 0x0000FF9Du);
+
+    /* The helper deliberately ignores bits outside the documented RGB value. */
+    assert(deck_ui_rgb_to_colorref(0xAA9DFF00u) == 0x0000FF9Du);
+}
+
 static void test_component_states(void) {
     DeckUiPalette palette;
     DeckUiStyle normal;
@@ -146,6 +165,7 @@ static void test_wcag_palette_contrast(void) {
 
 int main(void) {
     test_palette_tokens();
+    test_win32_colorref_channel_order();
     test_component_states();
     test_invalid_state_falls_back_safely();
     test_wcag_palette_contrast();
