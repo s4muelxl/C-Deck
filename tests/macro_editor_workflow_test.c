@@ -7,11 +7,15 @@
 #include "macro_editor.h"
 
 #define EDITOR_CLASS_NAME L"CDeckMacroEditorWindow"
+#define ID_EDITOR_MACRO_COMBO 6101
 #define ID_EDITOR_NAME 6102
 #define ID_EDITOR_STEPS 6103
 #define ID_EDITOR_STEP_TYPE 6104
 #define ID_EDITOR_STEP_VALUE 6105
 #define ID_EDITOR_ADD_STEP 6106
+#define ID_EDITOR_UPDATE_STEP 6107
+#define ID_EDITOR_REMOVE_STEP 6108
+#define ID_EDITOR_STEP_UP 6109
 #define ID_EDITOR_NEW_MACRO 6111
 #define ID_EDITOR_SAVE 6112
 #define ID_EDITOR_CANCEL 6113
@@ -19,6 +23,8 @@
 typedef enum EditorScenario {
     EDITOR_SCENARIO_CREATE_AND_SAVE,
     EDITOR_SCENARIO_CREATE_LONG_OPEN_AND_SAVE,
+    EDITOR_SCENARIO_EDIT_REORDER_REMOVE_AND_SAVE,
+    EDITOR_SCENARIO_SWITCH_SLOT_PRESERVES_DRAFT,
     EDITOR_SCENARIO_EDIT_AND_CANCEL
 } EditorScenario;
 
@@ -136,6 +142,91 @@ static DWORD WINAPI drive_editor(LPVOID parameter) {
             InterlockedExchange(&driver->failed, 1);
             PostMessageW(editor, WM_CLOSE, 0, 0);
         }
+    } else if (driver->scenario == EDITOR_SCENARIO_EDIT_REORDER_REMOVE_AND_SAVE) {
+        HWND step_type = GetDlgItem(editor, ID_EDITOR_STEP_TYPE);
+        if (!step_type || SendMessageW(steps_list, LB_GETCOUNT, 0, 0) != 3) {
+            InterlockedExchange(&driver->failure_stage, 10);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        /* Move the third step above the second, then replace and remove through Win32 controls. */
+        SendMessageW(steps_list, LB_SETCURSEL, 2, 0);
+        if (!click_control(editor, ID_EDITOR_STEP_UP) ||
+            SendMessageW(steps_list, LB_GETCOUNT, 0, 0) != 3) {
+            InterlockedExchange(&driver->failure_stage, 11);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        SendMessageW(steps_list, LB_SETCURSEL, 1, 0);
+        SendMessageW(step_type, CB_SETCURSEL, 0, 0);
+        SetWindowTextW(step_value, L"media_previous");
+        if (!click_control(editor, ID_EDITOR_UPDATE_STEP)) {
+            InterlockedExchange(&driver->failure_stage, 12);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        SendMessageW(steps_list, LB_SETCURSEL, 0, 0);
+        if (!click_control(editor, ID_EDITOR_REMOVE_STEP) ||
+            SendMessageW(steps_list, LB_GETCOUNT, 0, 0) != 2) {
+            InterlockedExchange(&driver->failure_stage, 13);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        SetWindowTextW(name_edit, L"Macro editada pelo teste");
+        if (!click_control(editor, ID_EDITOR_SAVE)) {
+            InterlockedExchange(&driver->failure_stage, 14);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+        }
+    } else if (driver->scenario == EDITOR_SCENARIO_SWITCH_SLOT_PRESERVES_DRAFT) {
+        HWND combo = GetDlgItem(editor, ID_EDITOR_MACRO_COMBO);
+        wchar_t current_name[DECK_MACRO_NAME_MAX * 2];
+        if (!combo) {
+            InterlockedExchange(&driver->failure_stage, 15);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        SetWindowTextW(name_edit, L"Rascunho antes da troca");
+        SendMessageW(combo, CB_SETCURSEL, 1, 0);
+        SendMessageW(editor, WM_COMMAND,
+                     MAKEWPARAM(ID_EDITOR_MACRO_COMBO, CBN_SELCHANGE), (LPARAM)combo);
+        GetWindowTextW(name_edit, current_name,
+                       (int)(sizeof(current_name) / sizeof(current_name[0])));
+        if (wcscmp(current_name, L"Macro destino longo") != 0) {
+            InterlockedExchange(&driver->failure_stage, 16);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+            InterlockedExchange(&driver->completed, 1);
+            return 0;
+        }
+
+        SetWindowTextW(name_edit, L"Macro longa preservada");
+        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+        SendMessageW(editor, WM_COMMAND,
+                     MAKEWPARAM(ID_EDITOR_MACRO_COMBO, CBN_SELCHANGE), (LPARAM)combo);
+        GetWindowTextW(name_edit, current_name,
+                       (int)(sizeof(current_name) / sizeof(current_name[0])));
+        if (wcscmp(current_name, L"Macro editada pelo teste") != 0 ||
+            !click_control(editor, ID_EDITOR_SAVE)) {
+            InterlockedExchange(&driver->failure_stage, 17);
+            InterlockedExchange(&driver->failed, 1);
+            PostMessageW(editor, WM_CLOSE, 0, 0);
+        }
     } else {
         SetWindowTextW(name_edit, L"Alteração que deve ser descartada");
         if (!click_control(editor, ID_EDITOR_CANCEL)) {
@@ -237,11 +328,42 @@ int main(void) {
         assert(strstr(long_macro->steps[0].value, ".exe") != NULL);
     }
 
+    /* Seed three valid steps so the native editor's update/remove/reorder controls
+       are exercised as a complete persisted workflow, not only as model helpers. */
+    {
+        DeckMacroStep step;
+        DeckMacro *first_macro = &store.macros[0];
+        assert(macro_step_parse("action:media_next", &step));
+        assert(macro_step_insert(first_macro, 1, &step));
+        assert(macro_step_parse("delay:250", &step));
+        assert(macro_step_insert(first_macro, 2, &step));
+        assert(macro_store_save(&store));
+    }
+
     assert(macro_store_load(&reloaded, config_path));
     assert(macro_store_count(&reloaded) == 2);
     assert(strlen(macro_store_get(&reloaded, 2)->steps[0].value) > 260);
     assert(strcmp(macro_store_get(&reloaded, 1)->name,
                   "Macro criada pelo teste") == 0);
+
+    run_editor_scenario(parent, &reloaded,
+                        EDITOR_SCENARIO_EDIT_REORDER_REMOVE_AND_SAVE, 1);
+    {
+        const DeckMacro *edited = macro_store_get(&reloaded, 1);
+        assert(edited != NULL && edited->step_count == 2);
+        assert(strcmp(edited->name, "Macro editada pelo teste") == 0);
+        assert(edited->steps[0].type == DECK_MACRO_STEP_ACTION);
+        assert(strcmp(edited->steps[0].value, "media_previous") == 0);
+        assert(edited->steps[1].type == DECK_MACRO_STEP_ACTION);
+        assert(strcmp(edited->steps[1].value, "media_next") == 0);
+    }
+
+    run_editor_scenario(parent, &reloaded,
+                        EDITOR_SCENARIO_SWITCH_SLOT_PRESERVES_DRAFT, 1);
+    assert(strcmp(macro_store_get(&reloaded, 1)->name,
+                  "Rascunho antes da troca") == 0);
+    assert(strcmp(macro_store_get(&reloaded, 2)->name,
+                  "Macro longa preservada") == 0);
 
     before_cancel = reloaded;
     run_editor_scenario(parent, &reloaded, EDITOR_SCENARIO_EDIT_AND_CANCEL, 0);
@@ -249,13 +371,18 @@ int main(void) {
 
     assert(macro_store_load(&store, config_path));
     assert(strcmp(macro_store_get(&store, 1)->name,
-                  "Macro criada pelo teste") == 0);
+                  "Rascunho antes da troca") == 0);
+    assert(strcmp(macro_store_get(&store, 2)->name,
+                  "Macro longa preservada") == 0);
+    assert(macro_store_get(&store, 1)->step_count == 2);
+    assert(strcmp(macro_store_get(&store, 1)->steps[0].value,
+                  "media_previous") == 0);
 
     assert(DestroyWindow(parent));
     remove_store_files(directory);
     swprintf(persisted_path, DECK_MACRO_PATH_MAX, L"%ls", directory);
     assert(RemoveDirectoryW(persisted_path));
 
-    puts("macro editor create, save, reload and cancel: OK");
+    puts("macro editor create, update, remove, reorder, slot switch, save, reload and cancel: OK");
     return 0;
 }
