@@ -3,8 +3,8 @@
 #include <wchar.h>
 
 static int command_range_is_valid(UINT command_id_base) {
-    const uint32_t last_id =
-        (uint32_t)command_id_base + DECK_UI_SHELL_MAX_ITEMS - 1u;
+    const uint64_t last_id =
+        (uint64_t)command_id_base + DECK_UI_SHELL_MAX_ITEMS - 1u;
 
     return command_id_base != 0u &&
            last_id <= DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_ID_MAX;
