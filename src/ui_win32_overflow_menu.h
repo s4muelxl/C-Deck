@@ -48,8 +48,6 @@ typedef struct DeckUiWin32OverflowMenuInput {
     UINT command_id_base;
 } DeckUiWin32OverflowMenuInput;
 
-typedef enum DeckUiWin32OverflowMenuStatus DeckUiWin32OverflowMenuStatus;
-
 /*
  * Creates a native popup menu for the hidden navigation items.
  *
