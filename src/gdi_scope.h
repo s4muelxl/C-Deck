@@ -11,6 +11,10 @@ typedef struct DeckGdiScope {
 } DeckGdiScope;
 
 void deck_gdi_scope_init(DeckGdiScope *scope);
+/* Selects a stock brush and returns the previous brush, or NULL on failure. */
+HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush);
+/* Restores a previously selected brush without taking ownership of it. */
+int deck_gdi_restore_brush(HDC dc, HGDIOBJ previous_brush);
 /* Returns nonzero when deleted or queued once for deferred restoration. */
 int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object);
 /* Returns failures; handles still selected or not deletable remain queued for retry. */
