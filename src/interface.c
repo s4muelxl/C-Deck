@@ -992,7 +992,17 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
     DeleteObject(brush);
 }
 
-static int select_icon_object(HDC dc, DeckGdiScope static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
+static int select_icon_object(HDC dc, DeckGdiScope *scope,
+                              HGDIOBJ object, int owned, HGDIOBJ *previous) {
+    if (deck_gdi_select_object_checked(dc, object, previous)) return 1;
+    if (owned && object && object != HGDI_ERROR) {
+        (void)deck_gdi_scope_release(dc, scope, object);
+    }
+    return 0;
+}
+
+// Built-in Vector Icon Library for Gallery & Keys
+static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
     DeckGdiScope scope;
     HPEN pen = NULL;
     HBRUSH brush = NULL;
@@ -1252,16 +1262,6 @@ cleanup:
 #undef ICON_CREATE_PEN
 #undef ICON_SELECT_OWNED
 #undef ICON_SELECT_STOCK
-}NULL); LineTo(dc, cx + 5, cy);
-            MoveToEx(dc, cx, cy - 4, NULL); LineTo(dc, cx, cy + 5);
-            deck_gdi_scope_release(dc, &scope, plus_pen);
-            break;
-        }
-    }
-
-    deck_gdi_scope_restore(dc, &scope, old_b, old_p);
-    deck_gdi_scope_release(dc, &scope, pen);
-    deck_gdi_scope_release(dc, &scope, brush);
 }
 
 // Drawing for 15 Keys in Canvas Grid
