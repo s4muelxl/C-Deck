@@ -57,13 +57,15 @@ unsigned int deck_gdi_scope_restore(HDC dc, DeckGdiScope *scope,
     memset(scope->deferred, 0, sizeof(scope->deferred));
     scope->count = 0;
 
-    if (previous_brush && previous_brush != HGDI_ERROR &&
-        SelectObject(dc, previous_brush) == HGDI_ERROR) {
-        ++failures;
+    if (previous_brush && previous_brush != HGDI_ERROR) {
+        HGDIOBJ replaced_brush = SelectObject(dc, previous_brush);
+        /* SelectObject reports failure with NULL for brushes/pens and
+           HGDI_ERROR for regions. Treat both sentinels as failure. */
+        if (!replaced_brush || replaced_brush == HGDI_ERROR) ++failures;
     }
-    if (previous_pen && previous_pen != HGDI_ERROR &&
-        SelectObject(dc, previous_pen) == HGDI_ERROR) {
-        ++failures;
+    if (previous_pen && previous_pen != HGDI_ERROR) {
+        HGDIOBJ replaced_pen = SelectObject(dc, previous_pen);
+        if (!replaced_pen || replaced_pen == HGDI_ERROR) ++failures;
     }
 
     for (unsigned int i = 0; i < pending_count; ++i) {
