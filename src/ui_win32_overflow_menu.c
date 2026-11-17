@@ -27,13 +27,27 @@ static int escape_menu_label(const wchar_t *label,
     for (source = 0u; source < length; ++source) {
         const wchar_t character = label[source];
 
-        if (character == L'\r' || character == L'\n' ||
-            character == L'\t') {
-            return 0;
+        const uint32_t code_unit =
+            (uint32_t)(unsigned short)character;
+
+        /* Win32 wchar_t is a UTF-16 code unit; reject controls and bad pairs. */
+        if (code_unit < 0x20u || code_unit == 0x7Fu) return 0;
+        if (code_unit >= 0xD800u && code_unit <= 0xDBFFu) {
+            uint32_t low_surrogate;
+
+            if (source + 1u >= length) return 0;
+            low_surrogate =
+                (uint32_t)(unsigned short)label[source + 1u];
+            if (low_surrogate < 0xDC00u || low_surrogate > 0xDFFFu) {
+                return 0;
+            }
+            escaped[target++] = character;
+            escaped[target++] = label[++source];
+            continue;
         }
-        if (character == L'&') {
-            escaped[target++] = L'&';
-        }
+        if (code_unit >= 0xDC00u && code_unit <= 0xDFFFu) return 0;
+
+        if (character == L'&') escaped[target++] = L'&';
         escaped[target++] = character;
     }
 
@@ -123,6 +137,49 @@ DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_command_to_index(
     }
 
     resolved = (uint32_t)command_id - command_id_base;
+    *source_index = resolved;
+    return DECK_UI_WIN32_OVERFLOW_MENU_OK;
+}
+
+DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_resolve_hidden_command(
+    UINT command_id,
+    UINT command_id_base,
+    const uint32_t *current_hidden_indices,
+    uint32_t current_hidden_count,
+    uint32_t *source_index) {
+    uint32_t resolved;
+    uint32_t position;
+    uint16_t seen = 0u;
+    int is_still_hidden = 0;
+    DeckUiWin32OverflowMenuStatus status;
+
+    if (!source_index || current_hidden_count > DECK_UI_SHELL_MAX_ITEMS ||
+        (current_hidden_count > 0u && !current_hidden_indices) ||
+        !command_range_is_valid(command_id_base)) {
+        return DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT;
+    }
+
+    status = deck_ui_win32_overflow_menu_command_to_index(
+        command_id, command_id_base, &resolved);
+    if (status != DECK_UI_WIN32_OVERFLOW_MENU_OK) return status;
+
+    for (position = 0u; position < current_hidden_count; ++position) {
+        const uint32_t index = current_hidden_indices[position];
+        uint16_t bit;
+
+        if (index >= DECK_UI_SHELL_MAX_ITEMS) {
+            return DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT;
+        }
+        bit = (uint16_t)(1u << index);
+        if ((seen & bit) != 0u) {
+            return DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT;
+        }
+        seen = (uint16_t)(seen | bit);
+        if (index == resolved) is_still_hidden = 1;
+    }
+
+    if (!is_still_hidden) return DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND;
+
     *source_index = resolved;
     return DECK_UI_WIN32_OVERFLOW_MENU_OK;
 }

@@ -19,9 +19,9 @@ runtime, graphics framework or third-party dependency.
   application model; this module does not invent category names.
 - enabled_mask uses one bit per source index. Disabled entries remain visible
   but are grayed and cannot be selected.
-- Each label must contain 1–128 UTF-16 code units. CR, LF and TAB are rejected.
-  Ampersands are escaped so a category label cannot accidentally create a
-  mnemonic.
+- Each label must contain 1–128 UTF-16 code units. C0 controls and DEL are
+  rejected, and surrogate pairs must be well formed. Ampersands are escaped so
+  a category label cannot accidentally create a mnemonic.
 - The caller reserves a 16-ID command range that fits in the low word of
   WM_COMMAND. Each menu item ID is command_id_base + source_index, so the
   original model index survives filtering and ordering. The base is limited
@@ -45,10 +45,12 @@ commands. The production WndProc remains the owner of the menu lifecycle:
    pixels (then to screen coordinates with ClientToScreen).
 4. Call TrackPopupMenu with TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTBUTTON.
    The native menu supplies keyboard navigation and Escape dismissal.
-5. Convert the returned command ID with
-   deck_ui_win32_overflow_menu_command_to_index.
-6. Verify that the resolved index is still in the current hidden_indices list,
-   then emit a navigation intent. Do not execute the slot action.
+5. Resolve the returned command ID with
+   deck_ui_win32_overflow_menu_resolve_hidden_command, passing the current
+   hidden_indices list. The helper rejects a command if a resize or model
+   update made that item visible or removed it while the popup was open.
+6. Emit a navigation intent only when the helper returns OK. Do not execute
+   the slot action.
 7. Call DestroyMenu on every path after creation.
 
 Rebuild the menu after a resize, DPI transition, locale/model change or enabled
@@ -60,7 +62,9 @@ Windows supplies native menu colors and high-contrast behavior.
 tests/ui_win32_overflow_menu_test.c runs on the Windows CI runner. It creates
 and inspects a real popup-menu handle without displaying a window, verifies
 Unicode labels, original source IDs, enabled/disabled states, reverse mapping,
-invalid/duplicate indices, label bounds and 16-bit command-range validation.
+invalid/duplicate indices, ampersand escaping, control-character rejection,
+UTF-16 surrogate validation, label bounds, stale-command rejection and 16-bit
+command-range validation.
 
 This is a resource/API contract test, not a manual visual inspection of the
 popup on a desktop session. The adapter is not yet connected to the production

@@ -24,7 +24,8 @@ typedef enum DeckUiWin32OverflowMenuStatus {
     DECK_UI_WIN32_OVERFLOW_MENU_OK = 0,
     DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT,
     DECK_UI_WIN32_OVERFLOW_MENU_PLATFORM_ERROR,
-    DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_NOT_FOUND
+    DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_NOT_FOUND,
+    DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND
 } DeckUiWin32OverflowMenuStatus;
 
 typedef struct DeckUiWin32OverflowMenuInput {
@@ -75,6 +76,19 @@ DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_create(
 DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_command_to_index(
     UINT command_id,
     UINT command_id_base,
+    uint32_t *source_index);
+
+/*
+ * Resolves a menu command only if its source index is still present in the
+ * current hidden-index list. This rejects commands returned by a stale menu
+ * after a resize, locale change or navigation-model update. A zero count with
+ * a NULL list is valid and makes every command stale. Output is transactional.
+ */
+DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_resolve_hidden_command(
+    UINT command_id,
+    UINT command_id_base,
+    const uint32_t *current_hidden_indices,
+    uint32_t current_hidden_count,
     uint32_t *source_index);
 
 #ifdef __cplusplus
