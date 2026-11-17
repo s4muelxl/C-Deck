@@ -38,6 +38,15 @@ jobs:
       - name: Verify release version consistency
         shell: pwsh
         run: ./scripts/check-version.ps1
+      - name: Ensure tag matches repository VERSION
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = (Get-Content -Raw -Encoding UTF8 -LiteralPath "VERSION").Trim()
+          if ($env:RELEASE_TAG -ne "v$version") {
+            throw "Release tag $($env:RELEASE_TAG) does not match VERSION $version."
+          }
 
       - uses: msys2/setup-msys2@v2
         with:
