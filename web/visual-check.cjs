@@ -49,12 +49,25 @@ const { chromium } = require('playwright');
     }
 
     await page.setViewportSize({ width: 1440, height: 1000 });
+    const desktopHeading = await page.locator('.hero h1').evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      fontSize: Number.parseFloat(getComputedStyle(element).fontSize)
+    }));
+    assert.ok(desktopHeading.height <= desktopHeading.fontSize * 2.3,
+      'desktop hero headline should remain in two intentional lines');
+    await page.screenshot({ path: 'artifacts/c-deck-hero-1440.png' });
     await page.screenshot({ path: 'artifacts/c-deck-desktop-1440.png', fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: 'artifacts/c-deck-mobile-390.png', fullPage: true });
 
     await page.setViewportSize({ width: 320, height: 780 });
+    const compactHeading = await page.locator('.hero h1').evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      fontSize: Number.parseFloat(getComputedStyle(element).fontSize)
+    }));
+    assert.ok(compactHeading.height <= compactHeading.fontSize * 2.3,
+      '320px hero headline should remain in two intentional lines');
     await page.screenshot({ path: 'artifacts/c-deck-mobile-320.png', fullPage: true });
 
     const menu = page.locator('.mobile-nav');
