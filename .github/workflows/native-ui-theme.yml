@@ -12,6 +12,10 @@ on:
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
+      - 'src/ui_shell_layout.c'
+      - 'src/ui_shell_layout.h'
+      - 'tests/ui_shell_layout_test.c'
+      - 'docs/design/shell-layout-contract.md'
       - 'src/ui_navigation.c'
       - 'src/ui_navigation.h'
       - 'tests/ui_navigation_test.c'
@@ -45,6 +49,10 @@ on:
       - 'src/ui_layout.c'
       - 'src/ui_layout.h'
       - 'tests/ui_layout_test.c'
+      - 'src/ui_shell_layout.c'
+      - 'src/ui_shell_layout.h'
+      - 'tests/ui_shell_layout_test.c'
+      - 'docs/design/shell-layout-contract.md'
       - 'src/ui_navigation.c'
       - 'src/ui_navigation.h'
       - 'tests/ui_navigation_test.c'
@@ -69,7 +77,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: c-deck-native-ui-contracts-${{ github.ref }}
+  group: c-deck-native-ui-contracts-\${{ github.ref }}
   cancel-in-progress: true
 jobs:
   native-ui-contracts:
@@ -85,6 +93,10 @@ jobs:
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o /tmp/ui-layout-test
       - name: Run native C11 layout contract
         run: /tmp/ui-layout-test
+      - name: Compile native C11 shell axis layout contract
+        run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c src/ui_shell_layout.c tests/ui_shell_layout_test.c -o /tmp/ui-shell-layout-test
+      - name: Run native C11 shell axis layout contract
+        run: /tmp/ui-shell-layout-test
       - name: Compile native C11 keyboard navigation contract
         run: gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o /tmp/ui-navigation-test
       - name: Run native C11 keyboard navigation contract
@@ -122,6 +134,8 @@ jobs:
           ./build/ui-win32-theme-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c tests/ui_layout_test.c -o build/ui-layout-test.exe
           ./build/ui-layout-test.exe
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_layout.c src/ui_shell_layout.c tests/ui_shell_layout_test.c -o build/ui-shell-layout-test.exe
+          ./build/ui-shell-layout-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c tests/ui_navigation_test.c -o build/ui-navigation-test.exe
           ./build/ui-navigation-test.exe
           gcc -std=c11 -Wall -Wextra -Wpedantic -Werror src/ui_navigation.c src/ui_state.c tests/ui_state_test.c -o build/ui-state-test.exe

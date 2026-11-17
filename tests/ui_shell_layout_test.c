@@ -1,0 +1,210 @@
+#include "ui_shell_layout.h"
+
+#include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+static void test_horizontal_tabs_keep_preferred_widths(void) {
+    const int32_t widths[] = {100, 120, 100, 90, 110};
+    DeckUiShellAxisInput input = {
+        {20, 4, 600, 52}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        5u, widths, 64, 8, 2u
+    };
+    DeckUiShellAxisLayout layout;
+
+    memset(&layout, 0xA5, sizeof(layout));
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.item_count == 5u);
+    assert(layout.active_index == 2u);
+    assert(layout.compressed == 0);
+    assert(layout.total_extent_dip == 552);
+    assert(layout.items[0].x == 20 && layout.items[0].width == 100);
+    assert(layout.items[1].x == 128 && layout.items[1].width == 120);
+    assert(layout.items[2].x == 256 && layout.items[2].width == 100);
+    assert(layout.items[4].x == 462 && layout.items[4].width == 110);
+    assert(layout.items[0].y == 4 && layout.items[0].height == 52);
+}
+
+static void test_horizontal_tabs_compress_deterministically(void) {
+    const int32_t widths[] = {100, 120, 100, 90, 110};
+    DeckUiShellAxisInput input = {
+        {0, 0, 360, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        5u, widths, 60, 8, 1u
+    };
+    DeckUiShellAxisLayout first;
+    DeckUiShellAxisLayout second;
+    int32_t sum = 0;
+    uint32_t index;
+
+    memset(&first, 0, sizeof(first));
+    memset(&second, 0, sizeof(second));
+    assert(deck_ui_shell_axis_layout_compute(&input, &first) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(deck_ui_shell_axis_layout_compute(&input, &second) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(first.compressed == 1);
+    assert(first.total_extent_dip == 360);
+    assert(memcmp(&first, &second, sizeof(first)) == 0);
+    for (index = 0u; index < first.item_count; ++index) {
+        assert(first.items[index].width >= 60);
+        assert(first.items[index].width <= widths[index]);
+        sum += first.items[index].width;
+    }
+    assert(sum + 4 * 8 == 360);
+    assert(first.items[0].x == 0);
+    assert(first.items[4].x + first.items[4].width == 360);
+}
+
+static void test_vertical_sidebar_rows(void) {
+    const int32_t heights[] = {44, 44, 52, 44};
+    DeckUiShellAxisInput input = {
+        {-120, 64, 216, 220}, DECK_UI_SHELL_AXIS_VERTICAL,
+        4u, heights, 36, 8, DECK_UI_SHELL_NO_ACTIVE_ITEM
+    };
+    DeckUiShellAxisLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.active_index == DECK_UI_SHELL_NO_ACTIVE_ITEM);
+    assert(layout.compressed == 0);
+    assert(layout.items[0].x == -120 && layout.items[0].width == 216);
+    assert(layout.items[0].y == 64 && layout.items[0].height == 44);
+    assert(layout.items[1].y == 116 && layout.items[1].height == 44);
+    assert(layout.items[2].y == 168 && layout.items[2].height == 52);
+    assert(layout.items[3].y == 228 && layout.items[3].height == 44);
+}
+
+static void test_too_small_preserves_output(void) {
+    const int32_t widths[] = {100, 120, 100, 90, 110};
+    DeckUiShellAxisInput input = {
+        {0, 0, 300, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        5u, widths, 60, 8, 0u
+    };
+    DeckUiShellAxisLayout layout;
+    DeckUiShellAxisLayout before;
+
+    memset(&layout, 0x5A, sizeof(layout));
+    before = layout;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_TOO_SMALL);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+}
+
+static void test_invalid_arguments_preserve_output(void) {
+    const int32_t widths[] = {80, 90};
+    DeckUiShellAxisInput input = {
+        {0, 0, 200, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        2u, widths, 40, 8, 1u
+    };
+    DeckUiShellAxisLayout layout;
+    DeckUiShellAxisLayout before;
+
+    memset(&layout, 0x3C, sizeof(layout));
+    before = layout;
+    input.active_index = 2u;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+
+    input.active_index = 1u;
+    input.preferred_extents_dip = NULL;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+
+    input.preferred_extents_dip = widths;
+    input.axis = (DeckUiShellAxis)99;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+}
+
+static void test_invalid_dimensions_and_item_limits(void) {
+    const int32_t widths[] = {80};
+    DeckUiShellAxisInput input = {
+        {0, 0, 80, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        1u, widths, 40, 0, 0u
+    };
+    DeckUiShellAxisLayout layout;
+
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    input.bounds.width = 0;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    input.bounds.width = 80;
+    input.item_count = DECK_UI_SHELL_MAX_ITEMS + 1u;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+}
+
+static void test_large_extents_and_overflow_boundaries(void) {
+    const int32_t widths[] = {INT32_MAX, INT32_MAX};
+    DeckUiShellAxisInput input = {
+        {0, 0, INT32_MAX, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        2u, widths, 1, 0, DECK_UI_SHELL_NO_ACTIVE_ITEM
+    };
+    DeckUiShellAxisLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.compressed == 1);
+    assert(layout.total_extent_dip == INT32_MAX);
+    assert((int64_t)layout.items[0].width + layout.items[1].width ==
+           INT32_MAX);
+
+    input.bounds.x = INT32_MAX - 10;
+    input.bounds.width = 20;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+
+    input.bounds.x = 0;
+    input.bounds.width = INT32_MAX;
+    input.gap_dip = INT32_MAX;
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_TOO_SMALL);
+}
+
+static void test_maximum_item_count(void) {
+    int32_t widths[DECK_UI_SHELL_MAX_ITEMS];
+    DeckUiShellAxisInput input;
+    DeckUiShellAxisLayout layout;
+    uint32_t index;
+
+    for (index = 0u; index < DECK_UI_SHELL_MAX_ITEMS; ++index) {
+        widths[index] = 24;
+    }
+    input.bounds.x = 0;
+    input.bounds.y = 0;
+    input.bounds.width = 400;
+    input.bounds.height = 48;
+    input.axis = DECK_UI_SHELL_AXIS_HORIZONTAL;
+    input.item_count = DECK_UI_SHELL_MAX_ITEMS;
+    input.preferred_extents_dip = widths;
+    input.min_extent_dip = 20;
+    input.gap_dip = 1;
+    input.active_index = 15u;
+
+    assert(deck_ui_shell_axis_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.item_count == DECK_UI_SHELL_MAX_ITEMS);
+    assert(layout.active_index == 15u);
+    assert(layout.items[15].x + layout.items[15].width <= 400);
+}
+
+int main(void) {
+    test_horizontal_tabs_keep_preferred_widths();
+    test_horizontal_tabs_compress_deterministically();
+    test_vertical_sidebar_rows();
+    test_too_small_preserves_output();
+    test_invalid_arguments_preserve_output();
+    test_invalid_dimensions_and_item_limits();
+    test_large_extents_and_overflow_boundaries();
+    test_maximum_item_count();
+    puts("ui_shell_layout_test: all tests passed");
+    return 0;
+}
