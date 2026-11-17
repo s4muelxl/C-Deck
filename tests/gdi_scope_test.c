@@ -2,6 +2,54 @@
 #include <assert.h>
 #include <stdio.h>
 
+static void test_duplicate_release_is_queued_once(HDC dc,
+                                                   HGDIOBJ original_brush,
+                                                   HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HBRUSH brush = CreateSolidBrush(RGB(9, 17, 25));
+
+    assert(brush != NULL);
+    deck_gdi_scope_init(&scope);
+    assert(SelectObject(dc, brush) != HGDI_ERROR);
+    assert(deck_gdi_scope_release(dc, &scope, brush));
+    assert(deck_gdi_scope_release(dc, &scope, brush));
+    assert(scope.count == 1);
+
+    assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
+    assert(scope.count == 0);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+    assert(GetObjectType(brush) == 0);
+}
+
+static void test_failed_restore_retains_handle_for_retry(HDC dc,
+                                                          HGDIOBJ original_brush,
+                                                          HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HBRUSH brush = CreateSolidBrush(RGB(31, 47, 63));
+    HBRUSH stale_previous = CreateSolidBrush(RGB(2, 4, 8));
+
+    assert(brush != NULL && stale_previous != NULL);
+    assert(DeleteObject(stale_previous));
+    deck_gdi_scope_init(&scope);
+    assert(SelectObject(dc, brush) != HGDI_ERROR);
+    assert(deck_gdi_scope_release(dc, &scope, brush));
+    assert(scope.count == 1);
+
+    /* A deleted GDI handle cannot restore the original brush. The selected
+       object must remain owned by the scope instead of being forgotten. */
+    assert(deck_gdi_scope_restore(dc, &scope, stale_previous, original_pen) > 0u);
+    assert(scope.count == 1);
+    assert(scope.deferred[0] == brush);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == brush);
+    assert(!DeleteObject(brush));
+
+    /* Once the caller supplies the valid previous brush, cleanup can retry. */
+    assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
+    assert(scope.count == 0);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+    assert(GetObjectType(brush) == 0);
+}
+
 int main(void) {
     HDC dc = CreateCompatibleDC(NULL);
     HGDIOBJ original_brush;
@@ -52,10 +100,13 @@ int main(void) {
         assert(scope.count == 0);
     }
 
+    test_duplicate_release_is_queued_once(dc, original_brush, original_pen);
+    test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
+
     after = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     assert(after <= before + 1u);
     DeleteDC(dc);
 
-    puts("GDI selected-object restore and resource lifetime: OK");
+    puts("GDI selected-object restore, retry and resource lifetime: OK");
     return 0;
 }
