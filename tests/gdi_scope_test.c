@@ -49,18 +49,16 @@ static void test_failed_restore_retains_handle_for_retry(HDC dc,
                                                           HGDIOBJ original_pen) {
     DeckGdiScope scope;
     HBRUSH brush = CreateSolidBrush(RGB(31, 47, 63));
-    HBRUSH stale_previous = CreateSolidBrush(RGB(2, 4, 8));
 
-    assert(brush != NULL && stale_previous != NULL);
-    assert(DeleteObject(stale_previous));
+    assert(brush != NULL);
     deck_gdi_scope_init(&scope);
     assert(SelectObject(dc, brush) != HGDI_ERROR);
     assert(deck_gdi_scope_release(dc, &scope, brush));
     assert(scope.count == 1);
 
-    /* A deleted GDI handle cannot restore the original brush. The selected
-       object must remain owned by the scope instead of being forgotten. */
-    assert(deck_gdi_scope_restore(dc, &scope, stale_previous, original_pen) > 0u);
+    /* A missing HDC is a deterministic restore failure. The scope must keep
+       ownership until the caller can retry with the valid drawing context. */
+    assert(deck_gdi_scope_restore(NULL, &scope, original_brush, original_pen) > 0u);
     assert(scope.count == 1);
     assert(scope.deferred[0] == brush);
     assert(GetCurrentObject(dc, OBJ_BRUSH) == brush);
@@ -123,6 +121,7 @@ int main(void) {
     }
 
     test_duplicate_release_is_queued_once(dc, original_brush, original_pen);
+    test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
 
     after = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
