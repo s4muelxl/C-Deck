@@ -264,7 +264,7 @@ static int overflow_input_is_valid(const DeckUiShellOverflowInput *input) {
         input->item_count == 0u ||
         input->item_count > DECK_UI_SHELL_MAX_ITEMS ||
         input->min_extent_dip <= 0 || input->gap_dip < 0 ||
-        input->overflow_extent_dip < input->min_extent_dip ||
+        input->overflow_extent_dip <= 0 ||
         (input->active_index != DECK_UI_SHELL_NO_ACTIVE_ITEM &&
          input->active_index >= input->item_count)) {
         return 0;
