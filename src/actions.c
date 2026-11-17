@@ -1,48 +1,139 @@
 #define COBJMACROS
 #include "actions.h"
+#include "audio_endpoint_policy.h"
 #include <windows.h>
 #include <shellapi.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
+#include <wchar.h>
+#include <string.h>
+
+static void release_device_enumerator(void *object) {
+    if (object) IMMDeviceEnumerator_Release((IMMDeviceEnumerator *)object);
+}
+
+static void release_audio_device(void *object) {
+    if (object) IMMDevice_Release((IMMDevice *)object);
+}
+
+static void release_endpoint_volume(void *object) {
+    if (object) IAudioEndpointVolume_Release((IAudioEndpointVolume *)object);
+}
 
 static IAudioEndpointVolume *get_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
     IMMDevice *device = NULL;
     IAudioEndpointVolume *volume = NULL;
     HRESULT hr;
+    void *com_output = NULL;
 
-    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (FAILED(hr) || !enumerator) return NULL;
+    /* COM's void** out-parameter is written into a real void* object. Only
+       after HRESULT/interface validation is ownership assigned to the typed
+       interface variable. */
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+                          &IID_IMMDeviceEnumerator, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
+                                      release_device_enumerator)) {
+        com_output = NULL;
+        return NULL;
+    }
+    enumerator = (IMMDeviceEnumerator *)com_output;
+    com_output = NULL;
 
     hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eRender, eMultimedia, &device);
-    if (SUCCEEDED(hr) && device) {
-        hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void **)&volume);
-        IMMDevice_Release(device);
+    if (!deck_audio_com_output_accept((int32_t)hr, device, release_audio_device)) {
+        device = NULL;
+        goto cleanup;
     }
-    IMMDeviceEnumerator_Release(enumerator);
-    return SUCCEEDED(hr) ? volume : NULL;
+
+    com_output = NULL;
+    hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
+                            NULL, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
+                                      release_endpoint_volume)) {
+        com_output = NULL;
+        goto cleanup;
+    }
+    volume = (IAudioEndpointVolume *)com_output;
+    com_output = NULL;
+
+cleanup:
+    if (device) IMMDevice_Release(device);
+    if (enumerator) IMMDeviceEnumerator_Release(enumerator);
+    return volume;
+}
+
+typedef struct CaptureEndpointActivation {
+    IMMDeviceEnumerator *enumerator;
+    IAudioEndpointVolume *volume;
+} CaptureEndpointActivation;
+
+static int activate_capture_endpoint(DeckCaptureEndpointRole role, void *context) {
+    CaptureEndpointActivation *activation = (CaptureEndpointActivation *)context;
+    IMMDevice *device = NULL;
+    IAudioEndpointVolume *volume = NULL;
+    ERole windows_role;
+    HRESULT hr;
+    void *com_output = NULL;
+
+    if (!activation || !activation->enumerator || activation->volume) return 0;
+    if (role == DECK_CAPTURE_ENDPOINT_COMMUNICATIONS) {
+        windows_role = eCommunications;
+    } else if (role == DECK_CAPTURE_ENDPOINT_MULTIMEDIA) {
+        windows_role = eMultimedia;
+    } else {
+        return 0;
+    }
+
+    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(activation->enumerator,
+                                                       eCapture, windows_role, &device);
+    if (!deck_audio_com_output_accept((int32_t)hr, device, release_audio_device)) {
+        device = NULL;
+        return 0;
+    }
+
+    /* A default endpoint is not usable until IAudioEndpointVolume activates.
+       If activation fails, release any partial interface and let the policy
+       try the multimedia capture role. */
+    hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL,
+                            NULL, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
+                                      release_endpoint_volume)) {
+        com_output = NULL;
+        IMMDevice_Release(device);
+        return 0;
+    }
+
+    volume = (IAudioEndpointVolume *)com_output;
+    com_output = NULL;
+    IMMDevice_Release(device);
+    activation->volume = volume;
+    return 1;
 }
 
 static IAudioEndpointVolume *get_capture_endpoint_volume(void) {
     IMMDeviceEnumerator *enumerator = NULL;
-    IMMDevice *device = NULL;
-    IAudioEndpointVolume *volume = NULL;
+    CaptureEndpointActivation activation;
     HRESULT hr;
+    void *com_output = NULL;
 
-    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (FAILED(hr) || !enumerator) return NULL;
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+                          &IID_IMMDeviceEnumerator, &com_output);
+    if (!deck_audio_com_output_accept((int32_t)hr, com_output,
+                                      release_device_enumerator)) {
+        com_output = NULL;
+        return NULL;
+    }
+    enumerator = (IMMDeviceEnumerator *)com_output;
+    com_output = NULL;
 
-    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eCapture, eCommunications, &device);
-    if (FAILED(hr) || !device) {
-        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(enumerator, eCapture, eMultimedia, &device);
-    }
-    if (SUCCEEDED(hr) && device) {
-        hr = IMMDevice_Activate(device, &IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void **)&volume);
-        IMMDevice_Release(device);
-    }
+    activation.enumerator = enumerator;
+    activation.volume = NULL;
+    (void)deck_capture_endpoint_resolve(activate_capture_endpoint, &activation);
+
     IMMDeviceEnumerator_Release(enumerator);
-    return SUCCEEDED(hr) ? volume : NULL;
+    return activation.volume;
 }
 
 ActionResult action_volume_step(float delta) {
@@ -147,18 +238,51 @@ ActionResult action_get_mic_mute(int *muted) {
 }
 
 ActionResult action_open_sound_devices(void) {
-    HINSTANCE result = ShellExecuteA(NULL, "open", "ms-settings:sound", NULL, NULL, SW_SHOWNORMAL);
+    HINSTANCE result = ShellExecuteW(NULL, L"open", L"ms-settings:sound", NULL, NULL, SW_SHOWNORMAL);
     if ((INT_PTR)result <= 32) {
-        result = ShellExecuteA(NULL, "open", "control.exe", "mmsys.cpl sounds", NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", L"control.exe", L"mmsys.cpl sounds", NULL, SW_SHOWNORMAL);
     }
     return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
 }
 
+ActionResult action_prepare_launch_target(const DeckApp *app, wchar_t *wide_path, int max_chars) {
+    if (!app || !wide_path || max_chars <= 0) return ACTION_INVALID_ARGUMENT;
+    wide_path[0] = L'\0';
+    if (!app->configured || !app->path[0]) return ACTION_NOT_CONFIGURED;
+    /* DeckApp is fixed-size; never scan beyond an unterminated field. */
+    if (!memchr(app->path, '\0', sizeof(app->path))) return ACTION_LAUNCH_FAILED;
+    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, app->path, -1,
+                             wide_path, max_chars)) {
+        wide_path[0] = L'\0';
+        return ACTION_LAUNCH_FAILED;
+    }
+    return ACTION_SUCCESS;
+}
+
+static intptr_t shell_execute_launch_target(const wchar_t *verb,
+                                               const wchar_t *target,
+                                               void *context) {
+    (void)context;
+    return (intptr_t)ShellExecuteW(NULL, verb, target, NULL, NULL, SW_SHOWNORMAL);
+}
+
+ActionResult action_launch_app_with_executor(const DeckApp *app,
+                                             ActionShellExecuteExecutor executor,
+                                             void *context) {
+    wchar_t wide_path[DECK_PATH_WIDE_MAX];
+    ActionResult prepared;
+    intptr_t result;
+
+    if (!executor) return ACTION_INVALID_ARGUMENT;
+    prepared = action_prepare_launch_target(app, wide_path, DECK_PATH_WIDE_MAX);
+    if (prepared != ACTION_SUCCESS) return prepared;
+
+    result = executor(L"open", wide_path, context);
+    return result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
+}
+
 ActionResult action_launch_app(const DeckApp *app) {
-    HINSTANCE result;
-    if (!app || !app->configured || !app->path[0]) return ACTION_NOT_CONFIGURED;
-    result = ShellExecuteA(NULL, "open", app->path, NULL, NULL, SW_SHOWNORMAL);
-    return (INT_PTR)result > 32 ? ACTION_SUCCESS : ACTION_LAUNCH_FAILED;
+    return action_launch_app_with_executor(app, shell_execute_launch_target, NULL);
 }
 
 static ActionResult send_media_key(WORD virtual_key) {

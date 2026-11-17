@@ -1,5 +1,15 @@
 #include "interface.h"
 #include "actions.h"
+#include "profiles.h"
+#include "action_library.h"
+#include "macros.h"
+#include "macro_editor.h"
+#include "macro_run_state.h"
+#include "macro_completion_gate.h"
+#include "hotkeys.h"
+#include "hotkeys_win32.h"
+#include "gdi_scope.h"
+#include "win_paths.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +17,9 @@
 #include <commctrl.h>
 #include <shellapi.h>
 #include <commdlg.h>
+#include <wchar.h>
+#include <stdlib.h>
+#include <objbase.h>
 
 #define IDI_APP_ICON        101
 #define CLASS_NAME          L"CDeckMainWindow"
@@ -23,6 +36,20 @@
 #define DWMWA_SYSTEMBACKDROP_TYPE 38
 #endif
 typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
+
+/* Win32 uses one representation for exported function pointers. Copying the
+   FARPROC representation avoids an incompatible function-pointer cast. */
+_Static_assert(sizeof(FARPROC) == sizeof(pfnDwmSetWindowAttribute),
+               "FARPROC and DWM callback pointers must have equal size");
+
+static pfnDwmSetWindowAttribute resolve_dwm_set_window_attribute(HMODULE module) {
+    FARPROC symbol;
+    pfnDwmSetWindowAttribute function = NULL;
+    if (!module) return NULL;
+    symbol = GetProcAddress(module, "DwmSetWindowAttribute");
+    if (symbol) memcpy(&function, &symbol, sizeof(function));
+    return function;
+}
 
 // Modern C-Deck Color Palette
 #define COLOR_BG            RGB(21, 23, 27)     // #15171B (Deep canvas background)
@@ -74,6 +101,9 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_LIB_APPS         1305
 #define ID_LIB_NAVIGATION   1306
 #define ID_LIB_MULTIACTION  1307
+#define ID_LIBRARY_ACTION_BASE 5200
+#define ID_LIBRARY_MACRO_BASE 5300
+#define ID_LIBRARY_MACRO_MANAGE 5399
 
 // Settings Dialog IDs
 #define ID_SET_STARTUP_CHK   2101
@@ -92,22 +122,20 @@ typedef HRESULT (WINAPI *pfnDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
 #define ID_HOTKEY_DOWN      2
 #define ID_HOTKEY_MUTE      3
 #define WM_TRAYICON         (WM_APP + 1)
+#define WM_MACRO_COMPLETE   (WM_APP + 2)
 #define ID_VOLUME_TIMER     1
 
-// Extended App Slots for Keys 9..14
-#define EXTRA_APP_COUNT     6
-static DeckApp g_extra_apps[EXTRA_APP_COUNT] = {
-    { "Mudo Mic", "action:mic_mute", "", 1 },
-    { "Trocar Áudio", "action:sound_devices", "", 1 },
-    { "Navegador", "https://www.google.com", "", 1 },
-    { "Tarefas", "taskmgr.exe", "", 1 },
-    { "Captura", "SnippingTool.exe", "", 1 },
-    { "Configurações", "ms-settings:", "", 1 }
-};
-
-// Global application state
+// Global application state: all 15 keys share one persistent model.
 static DeckConfig g_config;
-static char g_config_path[MAX_PATH];
+static char g_config_path[DECK_PATH_UTF8_MAX];
+static DeckProfileStore g_profile_store;
+static int g_profile_store_ready;
+static DeckMacroStore g_macro_store;
+static int g_macro_store_ready;
+static HANDLE g_macro_thread;
+static volatile LONG g_macro_cancelled;
+static DeckMacroRunState g_macro_run_state;
+static DeckMacroCompletionGate g_macro_completion_gate = DECK_MACRO_COMPLETION_GATE_INITIALIZER;
 static HWND g_main_window;
 static HWND g_status;
 static HWND g_keys[ID_KEY_COUNT];
@@ -118,6 +146,7 @@ static int g_selected_category = ID_LIB_SYSTEM;
 static wchar_t g_current_profile[64] = L"Default Profile";
 static int g_minimize_to_tray = 1;
 static int g_enable_hotkeys = 1;
+static DeckHotkeyState g_hotkey_state;
 static int g_window_opacity = 100; // 60% to 100%
 static int g_is_mini_mode = 0;     // 1 = Compact Floating Mini-Deck (Always on Top)
 
@@ -161,32 +190,31 @@ static const wchar_t *get_key_display_title(int idx);
 static void show_profile_menu(HWND hwnd, int x, int y);
 static void show_settings_dialog(HWND parent);
 static void show_icon_picker(HWND parent, int key_idx);
-static void apply_profile(const wchar_t *profile);
+static int apply_profile(const wchar_t *profile);
+static int save_active_profile(void);
 static void toggle_mini_mode(HWND hwnd);
+static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category);
+static void start_macro_execution(unsigned int macro_id);
+static const DeckMacro *macro_for_app(const DeckApp *app);
 
 static void utf8_to_wide(const char *utf8, wchar_t *wide, int max_chars) {
-    if (!utf8 || !wide || max_chars <= 0) return;
-    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, max_chars);
+    if (!wide || max_chars <= 0) return;
+    wide[0] = L'\0';
+    if (!utf8 || !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide, max_chars)) {
+        wide[0] = L'\0';
+    }
     wide[max_chars - 1] = L'\0';
 }
 
-static void wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
-    if (!wide || !utf8 || max_bytes <= 0) return;
-    WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, max_bytes, NULL, NULL);
+static int wide_to_utf8(const wchar_t *wide, char *utf8, int max_bytes) {
+    if (!utf8 || max_bytes <= 0) return 0;
+    utf8[0] = '\0';
+    if (!wide || !WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1,
+                                      utf8, max_bytes, NULL, NULL)) {
+        utf8[0] = '\0';
+        return 0;
+    }
     utf8[max_bytes - 1] = '\0';
-}
-
-static int build_config_path(char *out, DWORD capacity) {
-    DWORD length = GetModuleFileNameA(NULL, out, capacity);
-    char *separator;
-    const char suffix[] = "config\\apps.cfg";
-    if (length == 0 || length >= capacity) return 0;
-    separator = strrchr(out, '\\');
-    if (!separator) separator = strrchr(out, '/');
-    if (!separator) return 0;
-    separator[1] = '\0';
-    if (strlen(out) + sizeof(suffix) > capacity) return 0;
-    strcat(out, suffix);
     return 1;
 }
 
@@ -204,12 +232,140 @@ static void report_result(ActionResult result, const wchar_t *success_message) {
         default: set_status(L"Não foi possível executar esta ação."); break;
     }
 }
+typedef struct MacroThreadArgs {
+    DeckMacro macro;
+    volatile LONG *cancelled;
+    uint32_t run_id;
+} MacroThreadArgs;
+
+static int macro_cancel_check(void *context) {
+    volatile LONG *cancelled = (volatile LONG *)context;
+    return cancelled && InterlockedCompareExchange(cancelled, 0, 0) != 0;
+}
+
+static int macro_action_executor(const char *action_id, void *context) {
+    (void)context;
+    if (strcmp(action_id, "volume_up") == 0) return action_volume_step(0.05f) == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "volume_down") == 0) return action_volume_step(-0.05f) == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "audio_mute") == 0) return action_toggle_mute() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "mic_mute") == 0) return action_toggle_mic_mute() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_play_pause") == 0) return action_media_play_pause() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_previous") == 0) return action_media_previous() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "media_next") == 0) return action_media_next() == ACTION_SUCCESS ? 0 : 1;
+    if (strcmp(action_id, "sound_devices") == 0) return action_open_sound_devices() == ACTION_SUCCESS ? 0 : 1;
+    return 1;
+}
+
+static int macro_open_executor(const char *target, void *context) {
+    DeckApp app;
+    (void)context;
+    ZeroMemory(&app, sizeof(app));
+    if (!target || strlen(target) >= sizeof(app.path)) return 1;
+    strcpy(app.name, "Macro target");
+    strcpy(app.path, target);
+    app.configured = 1;
+    return action_launch_app(&app) == ACTION_SUCCESS ? 0 : 1;
+}
+
+static int macro_delay_executor(unsigned int milliseconds, void *context) {
+    unsigned int remaining = milliseconds;
+    while (remaining > 0) {
+        DWORD chunk;
+        if (macro_cancel_check(context)) return 1;
+        chunk = remaining > 50u ? 50u : (DWORD)remaining;
+        Sleep(chunk);
+        remaining -= chunk;
+    }
+    return 0;
+}
+
+static DWORD WINAPI macro_worker_thread(LPVOID parameter) {
+    MacroThreadArgs *args = (MacroThreadArgs *)parameter;
+    HRESULT com_result;
+    DeckMacroResult result;
+    uint32_t run_id;
+
+    if (!args) return 1;
+    run_id = args->run_id;
+    com_result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE) {
+        result = DECK_MACRO_EXECUTION_FAILED;
+    } else {
+        result = macro_execute(&args->macro, macro_action_executor, macro_open_executor,
+                               macro_delay_executor, macro_cancel_check, (void *)args->cancelled);
+    }
+    if (SUCCEEDED(com_result)) CoUninitialize();
+    HeapFree(GetProcessHeap(), 0, args);
+    deck_macro_completion_gate_post(&g_macro_completion_gate, WM_MACRO_COMPLETE,
+                                    (WPARAM)result, (LPARAM)(ULONG_PTR)run_id);
+    return 0;
+}
+
+static void start_macro_execution(unsigned int macro_id) {
+    const DeckMacro *macro;
+    MacroThreadArgs *args;
+    DWORD wait_result;
+
+    if (!g_macro_store_ready) {
+        set_status(L"Arquivo de macros inválido ou inacessível; o arquivo original foi preservado.");
+        return;
+    }
+    macro = macro_store_get(&g_macro_store, macro_id);
+    if (!macro) {
+        set_status(L"Macro não encontrada ou inválida.");
+        return;
+    }
+
+    if (g_macro_thread) {
+        wait_result = WaitForSingleObject(g_macro_thread, 0);
+        if (wait_result == WAIT_TIMEOUT) {
+            set_status(L"Já existe uma Multi Action em execução.");
+            return;
+        }
+        if (wait_result != WAIT_OBJECT_0) {
+            set_status(L"Não foi possível verificar o estado da Multi Action; nova execução bloqueada.");
+            return;
+        }
+        CloseHandle(g_macro_thread);
+        g_macro_thread = NULL;
+    }
+
+    InterlockedExchange(&g_macro_cancelled, 0);
+    args = (MacroThreadArgs *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*args));
+    if (!args) {
+        set_status(L"Memória insuficiente para iniciar a macro.");
+        return;
+    }
+    args->macro = *macro;
+    args->cancelled = &g_macro_cancelled;
+    args->run_id = deck_macro_run_state_begin(&g_macro_run_state);
+    if (args->run_id == 0) {
+        HeapFree(GetProcessHeap(), 0, args);
+        set_status(L"Não foi possível identificar a execução da Multi Action.");
+        return;
+    }
+    g_macro_thread = CreateThread(NULL, 0, macro_worker_thread, args, 0, NULL);
+    if (!g_macro_thread) {
+        deck_macro_run_state_complete(&g_macro_run_state, args->run_id);
+        HeapFree(GetProcessHeap(), 0, args);
+        set_status(L"Não foi possível iniciar a execução da macro.");
+        return;
+    }
+    set_status(L"Multi Action em execução...");
+}
+
+
+static int save_active_profile(void) {
+    /* Never overwrite an unreadable/future-version profile file with fallback defaults. */
+    if (!g_profile_store_ready) return 0;
+    return profiles_save_active(&g_profile_store, &g_config);
+}
 
 // Windows 11 Mica / Acrylic Effect & Dark Mode Title Bar
 static void enable_system_backdrop(HWND hwnd) {
-    HMODULE dwm = LoadLibraryA("dwmapi.dll");
+    HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
     if (dwm) {
-        pfnDwmSetWindowAttribute set_attr = (pfnDwmSetWindowAttribute)GetProcAddress(dwm, "DwmSetWindowAttribute");
+        pfnDwmSetWindowAttribute set_attr = resolve_dwm_set_window_attribute(dwm);
         if (set_attr) {
             BOOL enable_dark = TRUE;
             if (FAILED(set_attr(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &enable_dark, sizeof(enable_dark)))) {
@@ -242,11 +398,19 @@ static void set_run_on_startup(int enable) {
     LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &key);
     if (res != ERROR_SUCCESS) return;
     if (enable) {
-        wchar_t exe_path[MAX_PATH];
-        GetModuleFileNameW(NULL, exe_path, MAX_PATH);
-        RegSetValueExW(key, L"CDeck", 0, REG_SZ, (const BYTE *)exe_path, (DWORD)((wcslen(exe_path) + 1) * sizeof(wchar_t)));
+        wchar_t exe_path[DECK_PATH_WIDE_MAX];
+        if (!deck_get_module_path_wide(exe_path, DECK_PATH_WIDE_MAX)) {
+            RegCloseKey(key);
+            set_status(L"Não foi possível resolver o caminho completo do executável.");
+            return;
+        }
+        res = RegSetValueExW(key, L"CDeck", 0, REG_SZ, (const BYTE *)exe_path,
+                             (DWORD)((wcslen(exe_path) + 1) * sizeof(wchar_t)));
+        if (res != ERROR_SUCCESS) set_status(L"Não foi possível salvar a inicialização com o Windows.");
     } else {
-        RegDeleteValueW(key, L"CDeck");
+        res = RegDeleteValueW(key, L"CDeck");
+        if (res != ERROR_SUCCESS && res != ERROR_FILE_NOT_FOUND)
+            set_status(L"Não foi possível remover a inicialização com o Windows.");
     }
     RegCloseKey(key);
 }
@@ -267,16 +431,83 @@ static void apply_window_opacity(HWND hwnd, int opacity_percent) {
     }
 }
 
-static void apply_hotkeys(HWND hwnd, int enable) {
-    g_enable_hotkeys = enable;
-    UnregisterHotKey(hwnd, ID_HOTKEY_UP);
-    UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
-    UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
-    if (enable) {
-        RegisterHotKey(hwnd, ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP);
-        RegisterHotKey(hwnd, ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN);
-        RegisterHotKey(hwnd, ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M');
+static const DeckHotkeySpec g_hotkey_specs[] = {
+    { ID_HOTKEY_UP, MOD_CONTROL | MOD_ALT, VK_UP },
+    { ID_HOTKEY_DOWN, MOD_CONTROL | MOD_ALT, VK_DOWN },
+    { ID_HOTKEY_MUTE, MOD_CONTROL | MOD_ALT, 'M' }
+};
+
+static const wchar_t *hotkey_label(unsigned int index) {
+    static const wchar_t *labels[] = {
+        L"Ctrl+Alt+↑", L"Ctrl+Alt+↓", L"Ctrl+Alt+M"
+    };
+    return index < (unsigned int)(sizeof(labels) / sizeof(labels[0])) ? labels[index] : L"atalho desconhecido";
+}
+
+static void append_hotkey_issue(wchar_t *message, size_t capacity,
+                                const wchar_t *label, unsigned long error_code) {
+    wchar_t detail[48];
+    size_t used;
+    if (!message || capacity == 0) return;
+    used = wcslen(message);
+    if (used < capacity - 1) wcsncat(message, L"; ", capacity - used - 1);
+    used = wcslen(message);
+    if (used < capacity - 1) wcsncat(message, label, capacity - used - 1);
+    if (error_code == 1409ul) {
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, L" (já em uso)", capacity - used - 1);
+    } else if (error_code != 0) {
+        swprintf(detail, sizeof(detail) / sizeof(detail[0]), L" (erro %lu)", error_code);
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, detail, capacity - used - 1);
+    } else {
+        used = wcslen(message);
+        if (used < capacity - 1) wcsncat(message, L" (não liberado)", capacity - used - 1);
     }
+}
+
+static DeckHotkeyReport apply_hotkeys(HWND hwnd, int enable) {
+    DeckHotkeyReport report = deck_hotkeys_apply(
+        &g_hotkey_state, g_hotkey_specs,
+        (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
+        enable, deck_hotkey_win32_register, deck_hotkey_win32_unregister, hwnd);
+    g_enable_hotkeys = enable ? 1 : 0;
+
+    if (report.invalid_request) {
+        set_status(L"Não foi possível atualizar os atalhos globais.");
+        return report;
+    }
+
+    if (report.unregister_failed_mask || report.failed_mask) {
+        wchar_t message[320] = L"Atalhos globais parcialmente atualizados. ";
+        for (unsigned int i = 0; i < (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])); ++i) {
+            unsigned int bit = 1u << i;
+            if (report.unregister_failed_mask & bit) {
+                append_hotkey_issue(message, sizeof(message) / sizeof(message[0]),
+                                    hotkey_label(i), report.unregister_errors[i]);
+            }
+        }
+        for (unsigned int i = 0; i < (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])); ++i) {
+            unsigned int bit = 1u << i;
+            if (report.failed_mask & bit) {
+                append_hotkey_issue(message, sizeof(message) / sizeof(message[0]),
+                                    hotkey_label(i), report.register_errors[i]);
+            }
+        }
+        set_status(message);
+    } else if (enable) {
+        set_status(L"Atalhos globais ativos: Ctrl+Alt+↑ / Ctrl+Alt+↓ / Ctrl+Alt+M.");
+    } else {
+        set_status(L"Atalhos globais desativados.");
+    }
+    return report;
+}
+
+static void release_hotkeys(HWND hwnd) {
+    (void)deck_hotkeys_apply(
+        &g_hotkey_state, g_hotkey_specs,
+        (unsigned int)(sizeof(g_hotkey_specs) / sizeof(g_hotkey_specs[0])),
+        0, deck_hotkey_win32_register, deck_hotkey_win32_unregister, hwnd);
 }
 
 static int add_tray_icon(HWND hwnd) {
@@ -337,87 +568,73 @@ static void toggle_mini_mode(HWND hwnd) {
 
 // Key Action Execution
 static void execute_key_action(int key_index) {
-    switch (key_index) {
-        case 0: // Volume +
-            report_result(action_volume_step(0.05f), L"Volume aumentado em +5%.");
-            break;
-        case 1: // Mudo
-            report_result(action_toggle_mute(), L"Mudo de áudio alternado.");
-            break;
-        case 2: // Play / Pause
-            report_result(action_media_play_pause(), L"Play / Pause enviado ao Windows.");
-            break;
-        case 3: // Faixa Anterior
-            report_result(action_media_previous(), L"Comando de faixa anterior enviado.");
-            break;
-        case 4: // Proxima Faixa
-            report_result(action_media_next(), L"Comando de próxima faixa enviado.");
-            break;
-        case 5: // Volume -
-            report_result(action_volume_step(-0.05f), L"Volume reduzido em −5%.");
-            break;
-        case 6: // App Slot 1 (Bloco de Notas)
-            report_result(action_launch_app(&g_config.apps[0]), L"Atalho executado.");
-            break;
-        case 7: // App Slot 2 (Calculadora)
-            report_result(action_launch_app(&g_config.apps[1]), L"Atalho executado.");
-            break;
-        case 8: // App Slot 3 (Paint)
-            report_result(action_launch_app(&g_config.apps[2]), L"Atalho executado.");
-            break;
-        case 9: { // Mudo Microfone (Option B)
-            if (strcmp(g_extra_apps[0].path, "action:mic_mute") == 0) {
-                int mic_muted = 0;
-                report_result(action_toggle_mic_mute(), L"Mudo do microfone alternado.");
-                action_get_mic_mute(&mic_muted);
-                set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
-            } else {
-                report_result(action_launch_app(&g_extra_apps[0]), L"Atalho executado.");
-            }
-            break;
-        }
-        case 10: { // Trocar Dispositivo de Saída (Option B)
-            if (strcmp(g_extra_apps[1].path, "action:sound_devices") == 0) {
-                report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
-            } else {
-                report_result(action_launch_app(&g_extra_apps[1]), L"Atalho executado.");
-            }
-            break;
-        }
-        case 11:
-        case 12:
-        case 13:
-        case 14:
-        {
-            int extra_idx = key_index - 9;
-            if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].path[0]) {
-                report_result(action_launch_app(&g_extra_apps[extra_idx]), L"Atalho executado com sucesso.");
-            } else {
-                set_status(L"Slot vazio selecionado. Configure o atalho ao lado.");
-            }
-            break;
-        }
-        default:
-            set_status(L"Slot selecionado.");
-            break;
+    const DeckApp *app;
+    ActionResult result;
+
+    if (key_index < 0 || key_index >= ID_KEY_COUNT) return;
+    app = &g_config.apps[key_index];
+    if (!app->configured || !app->path[0]) {
+        set_status(L"Slot vazio selecionado. Configure a ação ao lado.");
+        update_inspector_ui();
+        return;
     }
+
+    if (strcmp(app->path, "action:volume_up") == 0) {
+        report_result(action_volume_step(0.05f), L"Volume aumentado em +5%.");
+    } else if (strcmp(app->path, "action:volume_down") == 0) {
+        report_result(action_volume_step(-0.05f), L"Volume reduzido em −5%.");
+    } else if (strcmp(app->path, "action:audio_mute") == 0) {
+        report_result(action_toggle_mute(), L"Mudo de áudio alternado.");
+    } else if (strcmp(app->path, "action:media_play_pause") == 0) {
+        report_result(action_media_play_pause(), L"Play / Pause enviado ao Windows.");
+    } else if (strcmp(app->path, "action:media_previous") == 0) {
+        report_result(action_media_previous(), L"Comando de faixa anterior enviado.");
+    } else if (strcmp(app->path, "action:media_next") == 0) {
+        report_result(action_media_next(), L"Comando de próxima faixa enviado.");
+    } else if (strcmp(app->path, "action:mic_mute") == 0) {
+        int mic_muted = 0;
+        result = action_toggle_mic_mute();
+        if (result != ACTION_SUCCESS) {
+            report_result(result, L"Microfone alternado.");
+        } else {
+            result = action_get_mic_mute(&mic_muted);
+            if (result != ACTION_SUCCESS) {
+                set_status(L"Microfone alternado, mas não foi possível consultar o estado atual.");
+            } else {
+                set_status(mic_muted ? L"Microfone silenciado (MUDO ATIVO)." : L"Microfone aberto e ativo.");
+            }
+        }
+    } else if (strncmp(app->path, "action:macro:", 13) == 0) {
+        char *end = NULL;
+        unsigned long macro_id = strtoul(app->path + 13, &end, 10);
+        if (!end || *end != '\0' || macro_id == 0 || macro_id > DECK_MACRO_COUNT) {
+            set_status(L"Referência de macro inválida.");
+        } else {
+            start_macro_execution((unsigned int)macro_id);
+        }
+    } else if (strcmp(app->path, "action:sound_devices") == 0) {
+        report_result(action_open_sound_devices(), L"Gerenciador de saída de áudio aberto.");
+    } else {
+        report_result(action_launch_app(app), L"Atalho executado com sucesso.");
+    }
+
     update_inspector_ui();
 }
 
 static void browse_file_for_inspector(HWND hwnd) {
     OPENFILENAMEW dialog;
-    wchar_t selected[MAX_PATH];
+    wchar_t selected[DECK_PATH_WIDE_MAX];
     const wchar_t *filter = L"Aplicativos (*.exe;*.com;*.bat;*.cmd)\0*.exe;*.com;*.bat;*.cmd\0Todos os arquivos (*.*)\0*.*\0\0";
     ZeroMemory(&dialog, sizeof(dialog));
     ZeroMemory(selected, sizeof(selected));
-    if (g_insp_path_edit) GetWindowTextW(g_insp_path_edit, selected, MAX_PATH);
+    if (g_insp_path_edit) GetWindowTextW(g_insp_path_edit, selected, DECK_PATH_WIDE_MAX);
 
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = hwnd;
     dialog.lpstrFilter = filter;
     dialog.lpstrFile = selected;
-    dialog.nMaxFile = MAX_PATH;
-    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    dialog.nMaxFile = DECK_PATH_WIDE_MAX;
+    dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     dialog.lpstrTitle = L"Escolher aplicativo (.exe)";
     if (GetOpenFileNameW(&dialog)) {
         if (g_insp_path_edit) SetWindowTextW(g_insp_path_edit, selected);
@@ -425,57 +642,64 @@ static void browse_file_for_inspector(HWND hwnd) {
 }
 
 static void save_inspector_changes(void) {
-    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
-
+    DeckApp *app;
+    DeckApp previous;
+    DeckApp updated;
     wchar_t wname[DECK_TEXT_MAX];
-    wchar_t wpath[DECK_TEXT_MAX];
+    wchar_t wpath[DECK_PATH_WIDE_MAX];
     char name[DECK_TEXT_MAX];
-    char path[DECK_TEXT_MAX];
+    char path[DECK_PATH_TEXT_MAX];
+    char *start;
+    char *end;
 
+    if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
     GetWindowTextW(g_insp_title_edit, wname, DECK_TEXT_MAX);
-    GetWindowTextW(g_insp_path_edit, wpath, DECK_TEXT_MAX);
-
-    wide_to_utf8(wname, name, DECK_TEXT_MAX);
-    wide_to_utf8(wpath, path, DECK_TEXT_MAX);
-
-    char *s = name; while (*s && isspace((unsigned char)*s)) ++s; memmove(name, s, strlen(s) + 1);
-    char *e = name + strlen(name); while (e > name && isspace((unsigned char)e[-1])) *--e = '\0';
-
-    s = path; while (*s && isspace((unsigned char)*s)) ++s; memmove(path, s, strlen(s) + 1);
-    e = path + strlen(path); while (e > path && isspace((unsigned char)e[-1])) *--e = '\0';
-
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        strcpy(g_config.apps[app_idx].name, name);
-        strcpy(g_config.apps[app_idx].path, path);
-        g_config.apps[app_idx].configured = (name[0] != '\0' && path[0] != '\0');
-
-        if (config_save(g_config_path, &g_config)) {
-            set_status(L"Atalho salvo com sucesso.");
-        } else {
-            set_status(L"Erro ao salvar configuração.");
-        }
-    } else {
-        int extra_idx = g_selected_key - 9;
-        strcpy(g_extra_apps[extra_idx].name, name);
-        strcpy(g_extra_apps[extra_idx].path, path);
-        g_extra_apps[extra_idx].configured = (name[0] != '\0' && path[0] != '\0');
-        set_status(L"Atalho salvo com sucesso.");
+    GetWindowTextW(g_insp_path_edit, wpath, DECK_PATH_WIDE_MAX);
+    if (!wide_to_utf8(wname, name, DECK_TEXT_MAX)) {
+        set_status(L"O nome da ação contém caracteres inválidos ou excede o limite.");
+        return;
+    }
+    if (!wide_to_utf8(wpath, path, DECK_PATH_TEXT_MAX)) {
+        set_status(L"O caminho/URL excede 8191 bytes UTF-8 ou contém caracteres inválidos.");
+        return;
     }
 
+    start = name;
+    while (*start && isspace((unsigned char)*start)) ++start;
+    memmove(name, start, strlen(start) + 1);
+    end = name + strlen(name);
+    while (end > name && isspace((unsigned char)end[-1])) *--end = '\0';
+
+    start = path;
+    while (*start && isspace((unsigned char)*start)) ++start;
+    memmove(path, start, strlen(start) + 1);
+    end = path + strlen(path);
+    while (end > path && isspace((unsigned char)end[-1])) *--end = '\0';
+
+    app = &g_config.apps[g_selected_key];
+    previous = *app;
+    updated = previous;
+    strcpy(updated.name, name);
+    strcpy(updated.path, path);
+    updated.configured = (name[0] != '\0' && path[0] != '\0');
+    *app = updated;
+
+    if (save_active_profile()) {
+        set_status(L"Ação salva com sucesso.");
+    } else {
+        *app = previous;
+        set_status(L"Erro ao salvar configuração. O arquivo anterior foi preservado.");
+    }
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
 }
 
 static void remove_selected_action(void) {
-    if (g_selected_key < 6 || g_selected_key >= ID_KEY_COUNT) return;
+    if (g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) return;
 
-    if (g_selected_key >= 6 && g_selected_key <= 8) {
-        int app_idx = g_selected_key - 6;
-        ZeroMemory(&g_config.apps[app_idx], sizeof(DeckApp));
-        config_save(g_config_path, &g_config);
-    } else {
-        int extra_idx = g_selected_key - 9;
-        ZeroMemory(&g_extra_apps[extra_idx], sizeof(DeckApp));
+    ZeroMemory(&g_config.apps[g_selected_key], sizeof(DeckApp));
+    if (!save_active_profile()) {
+        set_status(L"Erro ao salvar a remoção da ação. O arquivo anterior foi preservado.");
+        return;
     }
 
     update_inspector_ui();
@@ -484,10 +708,13 @@ static void remove_selected_action(void) {
 }
 
 static void update_inspector_ui(void) {
+    const DeckApp *app;
+    wchar_t wname[DECK_TEXT_MAX];
+    wchar_t wpath[DECK_PATH_WIDE_MAX];
+
     if (!g_insp_title_edit) return;
 
-    if (g_is_mini_mode) {
-        // Hide all inspector items in mini mode
+    if (g_is_mini_mode || g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) {
         ShowWindow(g_insp_title_edit, SW_HIDE);
         ShowWindow(g_insp_path_edit, SW_HIDE);
         ShowWindow(g_insp_path_browse, SW_HIDE);
@@ -500,54 +727,24 @@ static void update_inspector_ui(void) {
         return;
     }
 
-    if (g_selected_key >= 6) {
-        const DeckApp *app = (g_selected_key <= 8)
-            ? &g_config.apps[g_selected_key - 6]
-            : &g_extra_apps[g_selected_key - 9];
+    app = &g_config.apps[g_selected_key];
+    ShowWindow(g_insp_title_edit, SW_SHOW);
+    ShowWindow(g_insp_path_edit, SW_SHOW);
+    ShowWindow(g_insp_path_browse, SW_SHOW);
+    ShowWindow(g_insp_icon_btn, SW_SHOW);
+    ShowWindow(g_insp_test_btn, SW_SHOW);
+    ShowWindow(g_insp_save_btn, SW_SHOW);
+    ShowWindow(g_insp_remove_btn, SW_SHOW);
+    ShowWindow(g_insp_vol_track, SW_HIDE);
+    ShowWindow(g_insp_mute_btn, SW_HIDE);
 
-        ShowWindow(g_insp_title_edit, SW_SHOW);
-        ShowWindow(g_insp_path_edit, SW_SHOW);
-        ShowWindow(g_insp_path_browse, SW_SHOW);
-        ShowWindow(g_insp_icon_btn, SW_SHOW);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_SHOW);
-        ShowWindow(g_insp_remove_btn, SW_SHOW);
-        ShowWindow(g_insp_vol_track, SW_HIDE);
-        ShowWindow(g_insp_mute_btn, SW_HIDE);
-
-        wchar_t wname[DECK_TEXT_MAX];
-        wchar_t wpath[DECK_TEXT_MAX];
-        utf8_to_wide(app->name, wname, DECK_TEXT_MAX);
-        utf8_to_wide(app->path, wpath, DECK_TEXT_MAX);
-
-        SetWindowTextW(g_insp_title_edit, wname);
-        SetWindowTextW(g_insp_path_edit, wpath);
-    } else if (g_selected_key == 0 || g_selected_key == 1 || g_selected_key == 5) {
-        ShowWindow(g_insp_title_edit, SW_HIDE);
-        ShowWindow(g_insp_path_edit, SW_HIDE);
-        ShowWindow(g_insp_path_browse, SW_HIDE);
-        ShowWindow(g_insp_icon_btn, SW_HIDE);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_HIDE);
-        ShowWindow(g_insp_remove_btn, SW_HIDE);
-        ShowWindow(g_insp_vol_track, SW_SHOW);
-        ShowWindow(g_insp_mute_btn, SW_SHOW);
-
-        float level = 0.0f; int muted = 0;
-        action_get_volume(&level, &muted);
-        SendMessageW(g_insp_vol_track, TBM_SETPOS, TRUE, (int)(level * 100.0f + 0.5f));
-        SetWindowTextW(g_insp_mute_btn, muted ? L"Desmutar Áudio" : L"Mutar Áudio");
-    } else {
-        ShowWindow(g_insp_title_edit, SW_HIDE);
-        ShowWindow(g_insp_path_edit, SW_HIDE);
-        ShowWindow(g_insp_path_browse, SW_HIDE);
-        ShowWindow(g_insp_icon_btn, SW_HIDE);
-        ShowWindow(g_insp_test_btn, SW_SHOW);
-        ShowWindow(g_insp_save_btn, SW_HIDE);
-        ShowWindow(g_insp_remove_btn, SW_HIDE);
-        ShowWindow(g_insp_vol_track, SW_HIDE);
-        ShowWindow(g_insp_mute_btn, SW_HIDE);
+    {
+        const DeckMacro *macro = macro_for_app(app);
+        utf8_to_wide(macro ? macro->name : app->name, wname, DECK_TEXT_MAX);
     }
+    utf8_to_wide(app->path, wpath, DECK_PATH_WIDE_MAX);
+    SetWindowTextW(g_insp_title_edit, wname);
+    SetWindowTextW(g_insp_path_edit, wpath);
 
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
 }
@@ -672,6 +869,7 @@ static void draw_logo(HDC dc, int ox, int oy) {
     HBRUSH shadow_brush = CreateSolidBrush(RGB(185, 192, 204));
     SelectObject(dc, shadow_brush);
     Polygon(dc, shadow_pts, 6);
+    SelectObject(dc, old_b);
     DeleteObject(shadow_brush);
 
     POINT lime_pts[] = {
@@ -680,6 +878,7 @@ static void draw_logo(HDC dc, int ox, int oy) {
     HBRUSH lime_brush = CreateSolidBrush(COLOR_ACCENT_LIME);
     SelectObject(dc, lime_brush);
     Polygon(dc, lime_pts, 4);
+    SelectObject(dc, old_b);
     DeleteObject(lime_brush);
 
     SelectObject(dc, old_b);
@@ -712,10 +911,22 @@ static void draw_lime_glow_border(HDC dc, RECT rc, int radius) {
 
 // Vector Category Icons (Left Sidebar)
 static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
-    HPEN pen = CreatePen(PS_SOLID, 1, color);
-    HBRUSH brush = CreateSolidBrush(color);
-    HGDIOBJ old_p = SelectObject(dc, pen);
-    HGDIOBJ old_b = SelectObject(dc, brush);
+    DeckGdiScope scope;
+    HPEN pen = NULL;
+    HBRUSH brush = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ old_b = NULL;
+
+    if (!dc) return;
+    deck_gdi_scope_init(&scope);
+
+    pen = CreatePen(PS_SOLID, 1, color);
+    if (!pen) goto cleanup;
+    brush = CreateSolidBrush(color);
+    if (!brush) goto cleanup;
+
+    if (!deck_gdi_scope_select_owned(dc, &scope, pen, &old_p)) goto cleanup;
+    if (!deck_gdi_scope_select_owned(dc, &scope, brush, &old_b)) goto cleanup;
 
     switch (id) {
         case ID_LIB_FAVORITES: {
@@ -724,12 +935,12 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
                 { cx + 4, cy + 7 }, { cx, cy + 4 }, { cx - 4, cy + 7 }, { cx - 3, cy + 2 },
                 { cx - 7, cy - 2 }, { cx - 2, cy - 2 }
             };
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Polygon(dc, star, 10);
             break;
         }
         case ID_LIB_SYSTEM: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Ellipse(dc, cx - 6, cy - 6, cx + 6, cy + 6);
             Ellipse(dc, cx - 2, cy - 2, cx + 2, cy + 2);
             for (int a = 0; a < 6; ++a) {
@@ -762,7 +973,7 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
             RECT q2 = { cx + 1, cy - 6, cx + 6, cy - 1 };
             RECT q3 = { cx - 6, cy + 1, cx - 1, cy + 6 };
             RECT q4 = { cx + 1, cy + 1, cx + 6, cy + 6 };
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             RoundRect(dc, q1.left, q1.top, q1.right, q1.bottom, 2, 2);
             RoundRect(dc, q2.left, q2.top, q2.right, q2.bottom, 2, 2);
             RoundRect(dc, q3.left, q3.top, q3.right, q3.bottom, 2, 2);
@@ -770,133 +981,168 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
             break;
         }
         case ID_LIB_NAVIGATION: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Ellipse(dc, cx - 7, cy - 7, cx + 7, cy + 7);
             POINT needle1[3] = { { cx, cy }, { cx + 4, cy - 4 }, { cx - 1, cy - 3 } };
             POINT needle2[3] = { { cx, cy }, { cx - 4, cy + 4 }, { cx + 1, cy + 3 } };
-            SelectObject(dc, brush);
+            if (!deck_gdi_select_object_checked(dc, brush, NULL)) goto cleanup;
             Polygon(dc, needle1, 3);
             Polygon(dc, needle2, 3);
             break;
         }
         case ID_LIB_MULTIACTION: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             RoundRect(dc, cx - 6, cy - 3, cx + 2, cy + 6, 2, 2);
             RoundRect(dc, cx - 2, cy - 6, cx + 6, cy + 2, 2, 2);
             break;
         }
     }
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(pen);
-    DeleteObject(brush);
+cleanup:
+    if (pen) (void)deck_gdi_scope_release(dc, &scope, pen);
+    if (brush) (void)deck_gdi_scope_release(dc, &scope, brush);
+    (void)deck_gdi_scope_restore(dc, &scope, old_b, old_p);
+}
+
+static int select_icon_object(HDC dc, DeckGdiScope *scope,
+                              HGDIOBJ object, int owned, HGDIOBJ *previous) {
+    if (deck_gdi_select_object_checked(dc, object, previous)) return 1;
+    if (owned && object && object != HGDI_ERROR) {
+        (void)deck_gdi_scope_release(dc, scope, object);
+    }
+    return 0;
 }
 
 // Built-in Vector Icon Library for Gallery & Keys
 static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
-    HPEN pen = CreatePen(PS_SOLID, 1, color);
-    HBRUSH brush = CreateSolidBrush(color);
-    HGDIOBJ old_p = SelectObject(dc, pen);
-    HGDIOBJ old_b = SelectObject(dc, brush);
+    DeckGdiScope scope;
+    HPEN pen = NULL;
+    HBRUSH brush = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ old_b = NULL;
+
+    if (!dc) return;
+    deck_gdi_scope_init(&scope);
+
+    pen = CreatePen(PS_SOLID, 1, color);
+    if (!pen) goto cleanup;
+    brush = CreateSolidBrush(color);
+    if (!brush) goto cleanup;
+
+    if (!select_icon_object(dc, &scope, pen, 0, &old_p)) goto cleanup;
+    if (!select_icon_object(dc, &scope, brush, 0, &old_b)) goto cleanup;
+
+#define ICON_CREATE_BRUSH(name, value) \
+    HBRUSH name = CreateSolidBrush(value); \
+    if (!(name)) goto cleanup
+#define ICON_CREATE_PEN(name, width, value) \
+    HPEN name = CreatePen(PS_SOLID, width, value); \
+    if (!(name)) goto cleanup
+#define ICON_SELECT_OWNED(object) do { \
+    if (!select_icon_object(dc, &scope, (HGDIOBJ)(object), 1, NULL)) goto cleanup; \
+    if (!deck_gdi_scope_release(dc, &scope, (HGDIOBJ)(object))) goto cleanup; \
+} while (0)
+#define ICON_SELECT_STOCK(object) do { \
+    if (!deck_gdi_select_object_checked(dc, (HGDIOBJ)(object), NULL)) goto cleanup; \
+} while (0)
 
     switch (icon_id) {
         case 1: { // Bloco de Notas
-            HBRUSH paper_br = CreateSolidBrush(RGB(240, 244, 250));
-            SelectObject(dc, paper_br);
+            ICON_CREATE_BRUSH(paper_br, RGB(240, 244, 250));
+            ICON_SELECT_OWNED(paper_br);
             RoundRect(dc, cx - 11, cy - 13, cx + 11, cy + 13, 4, 4);
-            DeleteObject(paper_br);
-            HBRUSH blue_br = CreateSolidBrush(RGB(74, 144, 226));
+            deck_gdi_scope_release(dc, &scope, paper_br);
+            ICON_CREATE_BRUSH(blue_br, RGB(74, 144, 226));
             RECT hdr = { cx - 11, cy - 13, cx + 11, cy - 7 };
             FillRect(dc, &hdr, blue_br);
-            DeleteObject(blue_br);
-            HPEN line_pen = CreatePen(PS_SOLID, 1, RGB(180, 192, 208));
-            SelectObject(dc, line_pen);
+            deck_gdi_scope_release(dc, &scope, blue_br);
+            ICON_CREATE_PEN(line_pen, 1, RGB(180, 192, 208));
+            ICON_SELECT_OWNED(line_pen);
             MoveToEx(dc, cx - 7, cy - 2, NULL); LineTo(dc, cx + 7, cy - 2);
             MoveToEx(dc, cx - 7, cy + 3, NULL); LineTo(dc, cx + 7, cy + 3);
             MoveToEx(dc, cx - 7, cy + 8, NULL); LineTo(dc, cx + 4, cy + 8);
-            DeleteObject(line_pen);
+            deck_gdi_scope_release(dc, &scope, line_pen);
             break;
         }
         case 2: { // Calculadora
-            HBRUSH calc_br = CreateSolidBrush(RGB(50, 58, 72));
-            HPEN calc_pen = CreatePen(PS_SOLID, 1, RGB(75, 88, 108));
-            SelectObject(dc, calc_br);
-            SelectObject(dc, calc_pen);
+            ICON_CREATE_BRUSH(calc_br, RGB(50, 58, 72));
+            ICON_CREATE_PEN(calc_pen, 1, RGB(75, 88, 108));
+            ICON_SELECT_OWNED(calc_br);
+            ICON_SELECT_OWNED(calc_pen);
             RoundRect(dc, cx - 10, cy - 13, cx + 10, cy + 13, 6, 6);
-            DeleteObject(calc_br);
-            DeleteObject(calc_pen);
-            HBRUSH lcd_br = CreateSolidBrush(RGB(145, 168, 188));
+            deck_gdi_scope_release(dc, &scope, calc_br);
+            deck_gdi_scope_release(dc, &scope, calc_pen);
+            ICON_CREATE_BRUSH(lcd_br, RGB(145, 168, 188));
             RECT lcd = { cx - 7, cy - 10, cx + 7, cy - 5 };
             FillRect(dc, &lcd, lcd_br);
-            DeleteObject(lcd_br);
-            HBRUSH btn_br = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, btn_br);
+            deck_gdi_scope_release(dc, &scope, lcd_br);
+            ICON_CREATE_BRUSH(btn_br, COLOR_WHITE);
+            ICON_SELECT_OWNED(btn_br);
             for (int r = 0; r < 2; ++r) {
                 for (int c = 0; c < 3; ++c) {
                     RECT b = { cx - 6 + c * 5, cy - 1 + r * 5, cx - 3 + c * 5, cy + 2 + r * 5 };
                     FillRect(dc, &b, btn_br);
                 }
             }
-            DeleteObject(btn_br);
+            deck_gdi_scope_release(dc, &scope, btn_br);
             break;
         }
         case 3: { // Paint
-            HBRUSH pal_br = CreateSolidBrush(RGB(244, 246, 250));
-            SelectObject(dc, pal_br);
+            ICON_CREATE_BRUSH(pal_br, RGB(244, 246, 250));
+            ICON_SELECT_OWNED(pal_br);
             Ellipse(dc, cx - 13, cy - 9, cx + 13, cy + 9);
-            DeleteObject(pal_br);
-            HBRUSH hole_br = CreateSolidBrush(RGB(25, 28, 35));
-            SelectObject(dc, hole_br);
+            deck_gdi_scope_release(dc, &scope, pal_br);
+            ICON_CREATE_BRUSH(hole_br, RGB(25, 28, 35));
+            ICON_SELECT_OWNED(hole_br);
             Ellipse(dc, cx + 4, cy + 1, cx + 8, cy + 5);
-            DeleteObject(hole_br);
-            HBRUSH r_br = CreateSolidBrush(RGB(245, 60, 60));
-            SelectObject(dc, r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); DeleteObject(r_br);
-            HBRUSH y_br = CreateSolidBrush(RGB(255, 205, 30));
-            SelectObject(dc, y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); DeleteObject(y_br);
-            HBRUSH g_br = CreateSolidBrush(COLOR_ACCENT_LIME);
-            SelectObject(dc, g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); DeleteObject(g_br);
-            HBRUSH b_br = CreateSolidBrush(RGB(40, 140, 255));
-            SelectObject(dc, b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); DeleteObject(b_br);
-            HPEN brush_pen = CreatePen(PS_SOLID, 2, RGB(195, 140, 85));
-            SelectObject(dc, brush_pen);
+            deck_gdi_scope_release(dc, &scope, hole_br);
+            ICON_CREATE_BRUSH(r_br, RGB(245, 60, 60));
+            ICON_SELECT_OWNED(r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); deck_gdi_scope_release(dc, &scope, r_br);
+            ICON_CREATE_BRUSH(y_br, RGB(255, 205, 30));
+            ICON_SELECT_OWNED(y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); deck_gdi_scope_release(dc, &scope, y_br);
+            ICON_CREATE_BRUSH(g_br, COLOR_ACCENT_LIME);
+            ICON_SELECT_OWNED(g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); deck_gdi_scope_release(dc, &scope, g_br);
+            ICON_CREATE_BRUSH(b_br, RGB(40, 140, 255));
+            ICON_SELECT_OWNED(b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); deck_gdi_scope_release(dc, &scope, b_br);
+            ICON_CREATE_PEN(brush_pen, 2, RGB(195, 140, 85));
+            ICON_SELECT_OWNED(brush_pen);
             MoveToEx(dc, cx + 9, cy - 12, NULL); LineTo(dc, cx - 2, cy + 6);
-            DeleteObject(brush_pen);
+            deck_gdi_scope_release(dc, &scope, brush_pen);
             break;
         }
         case 4: { // Pasta
-            HBRUSH f_br = CreateSolidBrush(RGB(240, 244, 250));
-            SelectObject(dc, f_br);
+            ICON_CREATE_BRUSH(f_br, RGB(240, 244, 250));
+            ICON_SELECT_OWNED(f_br);
             POINT tab[4] = { { cx - 11, cy - 9 }, { cx - 4, cy - 9 }, { cx - 2, cy - 6 }, { cx - 11, cy - 6 } };
             Polygon(dc, tab, 4);
             RoundRect(dc, cx - 12, cy - 6, cx + 12, cy + 8, 4, 4);
-            DeleteObject(f_br);
+            deck_gdi_scope_release(dc, &scope, f_br);
             break;
         }
         case 5: { // Terminal / Prompt
-            HBRUSH kb_br = CreateSolidBrush(RGB(20, 24, 30));
-            HPEN kb_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
-            SelectObject(dc, kb_br);
-            SelectObject(dc, kb_pen);
+            ICON_CREATE_BRUSH(kb_br, RGB(20, 24, 30));
+            ICON_CREATE_PEN(kb_pen, 1, COLOR_ACCENT_LIME);
+            ICON_SELECT_OWNED(kb_br);
+            ICON_SELECT_OWNED(kb_pen);
             RoundRect(dc, cx - 12, cy - 9, cx + 12, cy + 9, 3, 3);
             MoveToEx(dc, cx - 8, cy - 4, NULL); LineTo(dc, cx - 4, cy); LineTo(dc, cx - 8, cy + 4);
             MoveToEx(dc, cx - 2, cy + 4, NULL); LineTo(dc, cx + 4, cy + 4);
-            DeleteObject(kb_br);
-            DeleteObject(kb_pen);
+            deck_gdi_scope_release(dc, &scope, kb_br);
+            deck_gdi_scope_release(dc, &scope, kb_pen);
             break;
         }
         case 6: { // Navegador Web (Globe)
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN globe_pen = CreatePen(PS_SOLID, 1, RGB(90, 180, 255));
-            SelectObject(dc, globe_pen);
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
+            ICON_CREATE_PEN(globe_pen, 1, RGB(90, 180, 255));
+            ICON_SELECT_OWNED(globe_pen);
             Ellipse(dc, cx - 9, cy - 9, cx + 9, cy + 9);
             MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx + 9, cy);
             Ellipse(dc, cx - 4, cy - 9, cx + 4, cy + 9);
-            DeleteObject(globe_pen);
+            deck_gdi_scope_release(dc, &scope, globe_pen);
             break;
         }
         case 7: { // Spotify / Música (Nota musical)
-            SelectObject(dc, brush);
+            
             Ellipse(dc, cx - 8, cy + 3, cx - 2, cy + 8);
             Ellipse(dc, cx + 3, cy, cx + 9, cy + 5);
             RECT st1 = { cx - 4, cy - 7, cx - 2, cy + 5 }; FillRect(dc, &st1, brush);
@@ -906,94 +1152,96 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 8: { // Discord
-            HBRUSH d_br = CreateSolidBrush(RGB(88, 101, 242));
-            SelectObject(dc, d_br);
+            ICON_CREATE_BRUSH(d_br, RGB(88, 101, 242));
+            ICON_SELECT_OWNED(d_br);
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 6, 6);
-            HBRUSH eye_br = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, eye_br);
+            ICON_CREATE_BRUSH(eye_br, COLOR_WHITE);
+            ICON_SELECT_OWNED(eye_br);
             Ellipse(dc, cx - 6, cy - 2, cx - 2, cy + 2);
             Ellipse(dc, cx + 2, cy - 2, cx + 6, cy + 2);
-            DeleteObject(eye_br);
-            DeleteObject(d_br);
+            deck_gdi_scope_release(dc, &scope, eye_br);
+            deck_gdi_scope_release(dc, &scope, d_br);
             break;
         }
         case 9: { // OBS Studio (Stream Camera)
-            HBRUSH cam_br = CreateSolidBrush(RGB(50, 60, 75));
-            SelectObject(dc, cam_br);
+            ICON_CREATE_BRUSH(cam_br, RGB(50, 60, 75));
+            ICON_SELECT_OWNED(cam_br);
             RoundRect(dc, cx - 10, cy - 7, cx + 4, cy + 7, 4, 4);
             POINT lens[3] = { { cx + 5, cy - 5 }, { cx + 11, cy - 8 }, { cx + 11, cy + 8 } };
             Polygon(dc, lens, 3);
-            DeleteObject(cam_br);
+            deck_gdi_scope_release(dc, &scope, cam_br);
             break;
         }
         case 10: { // Steam (Game Controller)
-            HBRUSH pad_br = CreateSolidBrush(RGB(35, 45, 60));
-            SelectObject(dc, pad_br);
+            ICON_CREATE_BRUSH(pad_br, RGB(35, 45, 60));
+            ICON_SELECT_OWNED(pad_br);
             RoundRect(dc, cx - 12, cy - 6, cx + 12, cy + 7, 8, 8);
-            HPEN plus_p = CreatePen(PS_SOLID, 1, COLOR_WHITE);
-            SelectObject(dc, plus_p);
+            ICON_CREATE_PEN(plus_p, 1, COLOR_WHITE);
+            ICON_SELECT_OWNED(plus_p);
             MoveToEx(dc, cx - 7, cy, NULL); LineTo(dc, cx - 3, cy);
             MoveToEx(dc, cx - 5, cy - 2, NULL); LineTo(dc, cx - 5, cy + 3);
-            DeleteObject(plus_p);
-            DeleteObject(pad_br);
+            deck_gdi_scope_release(dc, &scope, plus_p);
+            deck_gdi_scope_release(dc, &scope, pad_br);
             break;
         }
         case 11: { // Twitch (Chat box)
-            HBRUSH tw_br = CreateSolidBrush(RGB(145, 71, 255));
-            SelectObject(dc, tw_br);
+            ICON_CREATE_BRUSH(tw_br, RGB(145, 71, 255));
+            ICON_SELECT_OWNED(tw_br);
             POINT box[6] = { { cx - 10, cy - 9 }, { cx + 10, cy - 9 }, { cx + 10, cy + 5 }, { cx + 4, cy + 5 }, { cx, cy + 9 }, { cx - 10, cy + 5 } };
             Polygon(dc, box, 6);
             RECT e1 = { cx - 5, cy - 4, cx - 3, cy + 1 }; FillRect(dc, &e1, brush);
             RECT e2 = { cx + 3, cy - 4, cx + 5, cy + 1 }; FillRect(dc, &e2, brush);
-            DeleteObject(tw_br);
+            deck_gdi_scope_release(dc, &scope, tw_br);
             break;
         }
         case 12: { // YouTube (Play badge)
-            HBRUSH yt_br = CreateSolidBrush(RGB(255, 30, 30));
-            SelectObject(dc, yt_br);
+            ICON_CREATE_BRUSH(yt_br, RGB(255, 30, 30));
+            ICON_SELECT_OWNED(yt_br);
             RoundRect(dc, cx - 11, cy - 7, cx + 11, cy + 7, 6, 6);
             POINT play_p[3] = { { cx - 3, cy - 4 }, { cx + 4, cy }, { cx - 3, cy + 4 } };
-            HBRUSH white_b = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, white_b);
+            ICON_CREATE_BRUSH(white_b, COLOR_WHITE);
+            ICON_SELECT_OWNED(white_b);
             Polygon(dc, play_p, 3);
-            DeleteObject(white_b);
-            DeleteObject(yt_br);
+            deck_gdi_scope_release(dc, &scope, white_b);
+            deck_gdi_scope_release(dc, &scope, yt_br);
             break;
         }
         case 13: { // Microfone
             int mic_muted = 0;
-            action_get_mic_mute(&mic_muted);
-            COLORREF m_col = mic_muted ? COLOR_MIC_MUTED : color;
-            HPEN m_pen = CreatePen(PS_SOLID, 1, m_col);
-            HBRUSH m_br = CreateSolidBrush(m_col);
-            SelectObject(dc, m_pen);
-            SelectObject(dc, m_br);
+            ActionResult mic_status = action_get_mic_mute(&mic_muted);
+            COLORREF m_col = (mic_status == ACTION_SUCCESS)
+                ? (mic_muted ? COLOR_MIC_MUTED : color)
+                : COLOR_TEXT_DIM;
+            ICON_CREATE_PEN(m_pen, 1, m_col);
+            ICON_CREATE_BRUSH(m_br, m_col);
+            ICON_SELECT_OWNED(m_pen);
+            ICON_SELECT_OWNED(m_br);
             RoundRect(dc, cx - 3, cy - 9, cx + 3, cy + 2, 4, 4);
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
             Arc(dc, cx - 6, cy - 5, cx + 6, cy + 5, cx + 6, cy, cx - 6, cy);
             MoveToEx(dc, cx, cy + 5, NULL); LineTo(dc, cx, cy + 9);
             MoveToEx(dc, cx - 4, cy + 9, NULL); LineTo(dc, cx + 4, cy + 9);
             if (mic_muted) {
-                HPEN slash = CreatePen(PS_SOLID, 2, COLOR_MIC_MUTED);
-                SelectObject(dc, slash);
+                ICON_CREATE_PEN(slash, 2, COLOR_MIC_MUTED);
+                ICON_SELECT_OWNED(slash);
                 MoveToEx(dc, cx - 8, cy + 8, NULL); LineTo(dc, cx + 8, cy - 8);
-                DeleteObject(slash);
+                deck_gdi_scope_release(dc, &scope, slash);
             }
-            DeleteObject(m_pen);
-            DeleteObject(m_br);
+            deck_gdi_scope_release(dc, &scope, m_pen);
+            deck_gdi_scope_release(dc, &scope, m_br);
             break;
         }
         case 14: { // Headset / Fone de Ouvido
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN h_pen = CreatePen(PS_SOLID, 2, color);
-            SelectObject(dc, h_pen);
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
+            ICON_CREATE_PEN(h_pen, 2, color);
+            ICON_SELECT_OWNED(h_pen);
             Arc(dc, cx - 9, cy - 10, cx + 9, cy + 4, cx + 9, cy - 2, cx - 9, cy - 2);
-            DeleteObject(h_pen);
-            HBRUSH cup = CreateSolidBrush(color);
-            SelectObject(dc, cup);
+            deck_gdi_scope_release(dc, &scope, h_pen);
+            ICON_CREATE_BRUSH(cup, color);
+            ICON_SELECT_OWNED(cup);
             RoundRect(dc, cx - 11, cy - 3, cx - 7, cy + 6, 3, 3);
             RoundRect(dc, cx + 7, cy - 3, cx + 11, cy + 6, 3, 3);
-            DeleteObject(cup);
+            deck_gdi_scope_release(dc, &scope, cup);
             break;
         }
         case 15: { // Estrela / Favorito
@@ -1002,32 +1250,36 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
                 { cx + 4, cy + 7 }, { cx, cy + 4 }, { cx - 4, cy + 7 }, { cx - 3, cy + 2 },
                 { cx - 7, cy - 2 }, { cx - 2, cy - 2 }
             };
-            SelectObject(dc, brush);
+            
             Polygon(dc, star, 10);
             break;
         }
         default: {
-            HPEN plus_pen = CreatePen(PS_SOLID, 1, RGB(65, 72, 85));
-            SelectObject(dc, plus_pen);
+            ICON_CREATE_PEN(plus_pen, 1, RGB(65, 72, 85));
+            ICON_SELECT_OWNED(plus_pen);
             MoveToEx(dc, cx - 4, cy, NULL); LineTo(dc, cx + 5, cy);
             MoveToEx(dc, cx, cy - 4, NULL); LineTo(dc, cx, cy + 5);
-            DeleteObject(plus_pen);
+            deck_gdi_scope_release(dc, &scope, plus_pen);
             break;
         }
     }
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(pen);
-    DeleteObject(brush);
+cleanup:
+    if (deck_gdi_scope_restore(dc, &scope, old_b, old_p) != 0u) {
+        OutputDebugStringW(L"C-Deck: draw_named_icon could not restore every GDI object.\n");
+    }
+    if (pen) (void)deck_gdi_scope_release(dc, &scope, pen);
+    if (brush) (void)deck_gdi_scope_release(dc, &scope, brush);
+#undef ICON_CREATE_BRUSH
+#undef ICON_CREATE_PEN
+#undef ICON_SELECT_OWNED
+#undef ICON_SELECT_STOCK
 }
 
 // Drawing for 15 Keys in Canvas Grid
 static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
     // Check if custom icon is chosen via Icon Picker
-    const DeckApp *app = NULL;
-    if (idx >= 6 && idx <= 8) app = &g_config.apps[idx - 6];
-    else if (idx >= 9 && idx < ID_KEY_COUNT) app = &g_extra_apps[idx - 9];
+    const DeckApp *app = (idx >= 0 && idx < ID_KEY_COUNT) ? &g_config.apps[idx] : NULL;
 
     if (app && strncmp(app->icon_path, "icon:", 5) == 0) {
         int icon_id = atoi(app->icon_path + 5);
@@ -1064,8 +1316,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             };
             Polygon(dc, cone, 6);
             HPEN slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
-            SelectObject(dc, slash_pen);
+            HGDIOBJ old_slash = SelectObject(dc, slash_pen);
             MoveToEx(dc, cx - 9, cy + 9, NULL); LineTo(dc, cx + 9, cy - 9);
+            SelectObject(dc, old_slash);
             DeleteObject(slash_pen);
             SelectObject(dc, old_b); SelectObject(dc, old_p);
             DeleteObject(pen); DeleteObject(brush);
@@ -1134,26 +1387,40 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
         case 10: draw_named_icon(dc, 14, cx, cy, color); break; // Trocar Saída de Áudio (Option B)
         case 11: draw_named_icon(dc, 6, cx, cy, color); break; // Navegador Web
         case 12: { // Gerenciador de Tarefas
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
+            HPEN pulse_pen;
+            if (!old_b) break;
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 4, 4);
-            HPEN pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
-            HGDIOBJ old_p = SelectObject(dc, pulse_pen);
-            MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
-            LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
-            LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
-            SelectObject(dc, old_p);
-            DeleteObject(pulse_pen);
+            pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
+            if (pulse_pen) {
+                HGDIOBJ old_p = SelectObject(dc, pulse_pen);
+                if (old_p && old_p != HGDI_ERROR) {
+                    MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
+                    LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
+                    LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
+                    SelectObject(dc, old_p);
+                }
+                DeleteObject(pulse_pen);
+            }
+            deck_gdi_restore_brush(dc, old_b);
             break;
         }
         case 13: { // Captura de Tela
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
-            HGDIOBJ old_p = SelectObject(dc, crop_pen);
-            RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
-            MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
-            MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
-            SelectObject(dc, old_p);
-            DeleteObject(crop_pen);
+            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
+            HPEN crop_pen;
+            if (!old_b) break;
+            crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
+            if (crop_pen) {
+                HGDIOBJ old_p = SelectObject(dc, crop_pen);
+                if (old_p && old_p != HGDI_ERROR) {
+                    RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
+                    MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
+                    MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
+                    SelectObject(dc, old_p);
+                }
+                DeleteObject(crop_pen);
+            }
+            deck_gdi_restore_brush(dc, old_b);
             break;
         }
         case 14: draw_named_icon(dc, 5, cx, cy, color); break; // Configurações
@@ -1161,35 +1428,26 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
     }
 }
 
+static const DeckMacro *macro_for_app(const DeckApp *app) {
+    char *end = NULL;
+    unsigned long macro_id;
+    if (!app || strncmp(app->path, "action:macro:", 13) != 0) return NULL;
+    macro_id = strtoul(app->path + 13, &end, 10);
+    if (!end || *end != '\0' || macro_id == 0 || macro_id > DECK_MACRO_COUNT) return NULL;
+    return macro_store_get(&g_macro_store, (unsigned int)macro_id);
+}
+
 static const wchar_t *get_key_display_title(int idx) {
     static wchar_t custom_name[DECK_TEXT_MAX];
-    if (idx >= 6 && idx <= 8) {
-        int app_idx = idx - 6;
-        if (g_config.apps[app_idx].configured && g_config.apps[app_idx].name[0]) {
-            utf8_to_wide(g_config.apps[app_idx].name, custom_name, DECK_TEXT_MAX);
-            return custom_name;
-        }
-        if (idx == 6) return L"Bloco de Notas";
-        if (idx == 7) return L"Calculadora";
-        return L"Paint";
-    }
-    if (idx >= 9 && idx < ID_KEY_COUNT) {
-        int extra_idx = idx - 9;
-        if (g_extra_apps[extra_idx].configured && g_extra_apps[extra_idx].name[0]) {
-            utf8_to_wide(g_extra_apps[extra_idx].name, custom_name, DECK_TEXT_MAX);
-            return custom_name;
-        }
-        return L"";
-    }
-    switch (idx) {
-        case 0: return L"Volume +";
-        case 1: return L"Mudo Som";
-        case 2: return L"Play / Pause";
-        case 3: return L"Anterior";
-        case 4: return L"Próximo";
-        case 5: return L"Volume -";
-        default: return L"";
-    }
+    const DeckApp *app;
+    const DeckMacro *macro;
+    if (idx < 0 || idx >= ID_KEY_COUNT) return L"";
+    app = &g_config.apps[idx];
+    if (!app->configured) return L"";
+    macro = macro_for_app(app);
+    if (macro) utf8_to_wide(macro->name, custom_name, DECK_TEXT_MAX);
+    else utf8_to_wide(app->name, custom_name, DECK_TEXT_MAX);
+    return custom_name;
 }
 
 // Draw Individual 15 Keys as Visibly Rounded Floating Cards
@@ -1235,11 +1493,12 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
 
     HICON app_icon = NULL;
     BOOL owns_icon = FALSE;
-    if (idx >= 6 && idx <= 8) {
-        int app_idx = idx - 6;
-        const DeckApp *app = &g_config.apps[app_idx];
+    if (idx >= 0 && idx < ID_KEY_COUNT) {
+        const DeckApp *app = &g_config.apps[idx];
         if (app->icon_path[0] && strncmp(app->icon_path, "icon:", 5) != 0) {
-            app_icon = (HICON)LoadImageA(NULL, app->icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
+            wchar_t wide_icon_path[DECK_PATH_WIDE_MAX];
+            utf8_to_wide(app->icon_path, wide_icon_path, DECK_PATH_WIDE_MAX);
+            app_icon = (HICON)LoadImageW(NULL, wide_icon_path, IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
             owns_icon = (app_icon != NULL);
         }
     }
@@ -1253,8 +1512,12 @@ static void draw_key(const DRAWITEMSTRUCT *draw) {
         if (idx == 1) icon_col = COLOR_MUTE_AMBER;
         else if (idx == 9) {
             int mic_muted = 0;
-            action_get_mic_mute(&mic_muted);
-            if (mic_muted) icon_col = COLOR_MIC_MUTED;
+            ActionResult mic_status = action_get_mic_mute(&mic_muted);
+            if (mic_status == ACTION_SUCCESS) {
+                if (mic_muted) icon_col = COLOR_MIC_MUTED;
+            } else {
+                icon_col = COLOR_TEXT_DIM;
+            }
         }
         draw_key_icon(dc, idx, cx, cy, icon_col);
     }
@@ -1500,6 +1763,8 @@ static void draw_browse_button(const DRAWITEMSTRUCT *draw) {
 
 // Property Inspector Preview Box (Bottom Right)
 static void draw_inspector_preview(HDC dc, RECT rect) {
+    DeckGdiScope scope;
+    deck_gdi_scope_init(&scope);
     HBRUSH bg_erase = CreateSolidBrush(COLOR_INSPECTOR);
     FillRect(dc, &rect, bg_erase);
     DeleteObject(bg_erase);
@@ -1516,8 +1781,8 @@ static void draw_inspector_preview(HDC dc, RECT rect) {
     HBRUSH glow2 = CreateSolidBrush(RGB(28, 54, 22));
     SelectObject(dc, glow2);
     Ellipse(dc, cx - 32, cy - 32, cx + 32, cy + 32);
-    DeleteObject(glow1);
-    DeleteObject(glow2);
+    deck_gdi_scope_release(dc, &scope, glow1);
+    deck_gdi_scope_release(dc, &scope, glow2);
 
     RECT card_rc = { rect.left + 2, rect.top + 2, rect.right - 2, rect.bottom - 2 };
     int radius = 18;
@@ -1525,20 +1790,23 @@ static void draw_inspector_preview(HDC dc, RECT rect) {
     HBRUSH key_br = CreateSolidBrush(COLOR_KEY_BASE);
     SelectObject(dc, key_br);
     RoundRect(dc, card_rc.left, card_rc.top, card_rc.right, card_rc.bottom, radius, radius);
-    DeleteObject(key_br);
+    deck_gdi_scope_release(dc, &scope, key_br);
 
     draw_lime_glow_border(dc, card_rc, radius);
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(null_pen);
+    deck_gdi_scope_restore(dc, &scope, old_b, old_p);
+    deck_gdi_scope_release(dc, &scope, null_pen);
 
     COLORREF icon_col = COLOR_WHITE;
     if (g_selected_key == 1) icon_col = COLOR_MUTE_AMBER;
     else if (g_selected_key == 9) {
         int mic_muted = 0;
-        action_get_mic_mute(&mic_muted);
-        if (mic_muted) icon_col = COLOR_MIC_MUTED;
+        ActionResult mic_status = action_get_mic_mute(&mic_muted);
+        if (mic_status == ACTION_SUCCESS) {
+            if (mic_muted) icon_col = COLOR_MIC_MUTED;
+        } else {
+            icon_col = COLOR_TEXT_DIM;
+        }
     }
     draw_key_icon(dc, g_selected_key, cx, card_rc.top + 24, icon_col);
 
@@ -1635,17 +1903,15 @@ static LRESULT CALLBACK icon_picker_proc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 char icon_str[32];
                 snprintf(icon_str, sizeof(icon_str), "icon:%d", icon_id);
 
-                if (g_picker_target_key >= 6 && g_picker_target_key <= 8) {
-                    int app_idx = g_picker_target_key - 6;
-                    strcpy(g_config.apps[app_idx].icon_path, icon_str);
-                    config_save(g_config_path, &g_config);
-                } else if (g_picker_target_key >= 9 && g_picker_target_key < ID_KEY_COUNT) {
-                    int extra_idx = g_picker_target_key - 9;
-                    strcpy(g_extra_apps[extra_idx].icon_path, icon_str);
+                if (g_picker_target_key >= 0 && g_picker_target_key < ID_KEY_COUNT) {
+                    strcpy(g_config.apps[g_picker_target_key].icon_path, icon_str);
+                    if (save_active_profile()) {
+                        if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+                        set_status(L"Ícone atualizado com sucesso.");
+                    } else {
+                        set_status(L"Erro ao salvar o ícone. O arquivo anterior foi preservado.");
+                    }
                 }
-
-                if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
-                set_status(L"Ícone atualizado com sucesso!");
                 DestroyWindow(hwnd);
                 return 0;
             }
@@ -1716,58 +1982,19 @@ static void show_icon_picker(HWND parent, int key_idx) {
     SetForegroundWindow(parent);
 }
 
-// Profile Switcher Implementation
-static void apply_profile(const wchar_t *profile) {
-    if (wcscmp(profile, L"Streaming / OBS") == 0) {
-        strcpy(g_config.apps[0].name, "OBS Studio");
-        strcpy(g_config.apps[0].path, "obs64.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:9");
-        g_config.apps[0].configured = 1;
+// Profile switching persists the current layout before activating another profile.
+static int apply_profile(const wchar_t *profile) {
+    int profile_id = profile_id_from_name(profile);
+    DeckConfig next_config;
 
-        strcpy(g_config.apps[1].name, "Discord");
-        strcpy(g_config.apps[1].path, "Discord.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:8");
-        g_config.apps[1].configured = 1;
+    if (!g_profile_store_ready || profile_id < 0) return 0;
+    if (!profiles_activate(&g_profile_store, profile_id, &g_config, &next_config)) return 0;
 
-        strcpy(g_config.apps[2].name, "Twitch");
-        strcpy(g_config.apps[2].path, "https://dashboard.twitch.tv");
-        strcpy(g_config.apps[2].icon_path, "icon:11");
-        g_config.apps[2].configured = 1;
-    } else if (wcscmp(profile, L"Jogos / Gaming") == 0) {
-        strcpy(g_config.apps[0].name, "Steam");
-        strcpy(g_config.apps[0].path, "steam.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:10");
-        g_config.apps[0].configured = 1;
-
-        strcpy(g_config.apps[1].name, "Discord");
-        strcpy(g_config.apps[1].path, "Discord.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:8");
-        g_config.apps[1].configured = 1;
-
-        strcpy(g_config.apps[2].name, "Spotify");
-        strcpy(g_config.apps[2].path, "spotify.exe");
-        strcpy(g_config.apps[2].icon_path, "icon:7");
-        g_config.apps[2].configured = 1;
-    } else if (wcscmp(profile, L"Produtividade") == 0) {
-        strcpy(g_config.apps[0].name, "Bloco de Notas");
-        strcpy(g_config.apps[0].path, "notepad.exe");
-        strcpy(g_config.apps[0].icon_path, "icon:1");
-        g_config.apps[0].configured = 1;
-
-        strcpy(g_config.apps[1].name, "Calculadora");
-        strcpy(g_config.apps[1].path, "calc.exe");
-        strcpy(g_config.apps[1].icon_path, "icon:2");
-        g_config.apps[1].configured = 1;
-
-        strcpy(g_config.apps[2].name, "Paint");
-        strcpy(g_config.apps[2].path, "mspaint.exe");
-        strcpy(g_config.apps[2].icon_path, "icon:3");
-        g_config.apps[2].configured = 1;
-    } else {
-        config_load(g_config_path, &g_config);
-    }
+    g_config = next_config;
+    wcscpy(g_current_profile, profile_name(profile_id));
     update_inspector_ui();
     if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
+    return 1;
 }
 
 static void show_profile_menu(HWND hwnd, int x, int y) {
@@ -1791,16 +2018,165 @@ static void show_profile_menu(HWND hwnd, int x, int y) {
     DestroyMenu(menu);
 
     if (cmd >= 4001 && cmd <= 4004) {
-        if (cmd == 4001) wcscpy(g_current_profile, L"Default Profile");
-        else if (cmd == 4002) wcscpy(g_current_profile, L"Streaming / OBS");
-        else if (cmd == 4003) wcscpy(g_current_profile, L"Produtividade");
-        else if (cmd == 4004) wcscpy(g_current_profile, L"Jogos / Gaming");
-
-        apply_profile(g_current_profile);
-        InvalidateRect(hwnd, NULL, FALSE);
-        set_status(L"Perfil alternado com sucesso.");
+        int profile_id = (int)cmd - 4001;
+        if (apply_profile(profile_name(profile_id))) {
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Perfil alternado e salvo.");
+        } else {
+            set_status(L"Não foi possível salvar ou ativar o perfil. Confira as permissões da pasta config.");
+        }
     } else if (cmd == 4005) {
         show_settings_dialog(hwnd);
+    }
+}
+
+static void show_action_library_menu(HWND hwnd, DeckLibraryCategory category) {
+    HMENU menu = CreatePopupMenu();
+    size_t count = action_library_count(category);
+    UINT command = 0;
+    POINT point;
+
+    if (!menu) {
+        set_status(L"Não foi possível abrir a biblioteca de ações.");
+        return;
+    }
+
+    if (category == DECK_LIBRARY_MULTIACTION) {
+        size_t macro_count = g_macro_store_ready ? macro_store_count(&g_macro_store) : 0;
+        AppendMenuW(menu, MF_STRING | (g_macro_store_ready ? MF_ENABLED : MF_GRAYED),
+                    ID_LIBRARY_MACRO_MANAGE, L"Gerenciar macros...");
+        AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+        if (!g_macro_store_ready) {
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Arquivo de macros inválido ou inacessível");
+        } else if (macro_count == 0) {
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Nenhuma macro. Consulte macros.cfg.example");
+        } else {
+            for (unsigned int id = 1; id <= DECK_MACRO_COUNT; ++id) {
+                const DeckMacro *macro = macro_store_get(&g_macro_store, id);
+                wchar_t macro_name[DECK_MACRO_NAME_MAX];
+                wchar_t label[DECK_MACRO_NAME_MAX + 32];
+                if (!macro) continue;
+                utf8_to_wide(macro->name, macro_name, DECK_MACRO_NAME_MAX);
+                swprintf(label, sizeof(label) / sizeof(label[0]), L"Adicionar macro: %ls", macro_name);
+                AppendMenuW(menu, MF_STRING, ID_LIBRARY_MACRO_BASE + id - 1, label);
+            }
+        }
+    } else if (count == 0) {
+        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Nenhuma ação cadastrada nesta categoria");
+    } else {
+        for (size_t i = 0; i < count; ++i) {
+            const DeckLibraryAction *action = action_library_get(category, i);
+            wchar_t label[DECK_TEXT_MAX + 32];
+            if (!action) continue;
+            swprintf(label, sizeof(label) / sizeof(label[0]), L"Adicionar: %ls", action->title);
+            AppendMenuW(menu, MF_STRING, ID_LIBRARY_ACTION_BASE + (UINT)i, label);
+        }
+    }
+
+    GetCursorPos(&point);
+    SetForegroundWindow(hwnd);
+    command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_RETURNCMD,
+                             point.x, point.y, 0, hwnd, NULL);
+    PostMessageW(hwnd, WM_NULL, 0, 0);
+    DestroyMenu(menu);
+
+    if (category == DECK_LIBRARY_MULTIACTION && command == ID_LIBRARY_MACRO_MANAGE) {
+        int editor_result;
+        if (!g_macro_store_ready) {
+            set_status(L"O arquivo de macros está inválido ou inacessível; o conteúdo original foi preservado.");
+            return;
+        }
+        editor_result = macro_editor_show(hwnd, &g_macro_store);
+        if (editor_result > 0) {
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Macros salvas. Os nomes vinculados foram atualizados.");
+        } else if (editor_result < 0) {
+            set_status(L"Não foi possível abrir o editor de macros.");
+        }
+        return;
+    }
+
+    if (category == DECK_LIBRARY_MULTIACTION) {
+        unsigned int macro_id;
+        const DeckMacro *macro;
+        DeckApp previous;
+        DeckApp *target;
+        if (command < ID_LIBRARY_MACRO_BASE ||
+            command >= ID_LIBRARY_MACRO_BASE + DECK_MACRO_COUNT ||
+            g_selected_key < 0 || g_selected_key >= ID_KEY_COUNT) {
+            if (!g_macro_store_ready) set_status(L"Arquivo de macros inválido; não foi sobrescrito.");
+            else if (macro_store_count(&g_macro_store) == 0) set_status(L"Copie macros.cfg.example para macros.cfg para começar.");
+            return;
+        }
+        macro_id = command - ID_LIBRARY_MACRO_BASE + 1;
+        macro = macro_store_get(&g_macro_store, macro_id);
+        if (!macro) {
+            set_status(L"Macro não encontrada ou inválida.");
+            return;
+        }
+        previous = g_config.apps[g_selected_key];
+        target = &g_config.apps[g_selected_key];
+        ZeroMemory(target, sizeof(*target));
+        if (strlen(macro->name) >= sizeof(target->name)) {
+            *target = previous;
+            set_status(L"Nome da macro excede o limite do slot.");
+            return;
+        }
+        strcpy(target->name, macro->name);
+        snprintf(target->path, sizeof(target->path), "action:macro:%u", macro_id);
+        strcpy(target->icon_path, "icon:15");
+        target->configured = 1;
+        if (!save_active_profile()) {
+            *target = previous;
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            set_status(L"Não foi possível salvar a macro. A configuração anterior foi restaurada.");
+            return;
+        }
+        update_inspector_ui();
+        InvalidateRect(hwnd, NULL, FALSE);
+        {
+            wchar_t status[128];
+            swprintf(status, sizeof(status) / sizeof(status[0]),
+                     L"Macro adicionada e salva na tecla %d.", g_selected_key + 1);
+            set_status(status);
+        }
+        return;
+    }
+
+    if (command >= ID_LIBRARY_ACTION_BASE &&
+        (size_t)(command - ID_LIBRARY_ACTION_BASE) < count &&
+        g_selected_key >= 0 && g_selected_key < ID_KEY_COUNT) {
+        const DeckLibraryAction *action =
+            action_library_get(category, (size_t)(command - ID_LIBRARY_ACTION_BASE));
+        if (action) {
+            DeckApp previous = g_config.apps[g_selected_key];
+            DeckApp *target = &g_config.apps[g_selected_key];
+
+            ZeroMemory(target, sizeof(*target));
+            snprintf(target->name, sizeof(target->name), "%s", action->name);
+            snprintf(target->path, sizeof(target->path), "%s", action->path);
+            snprintf(target->icon_path, sizeof(target->icon_path), "%s", action->icon_path);
+            target->configured = 1;
+
+            if (!save_active_profile()) {
+                *target = previous;
+                update_inspector_ui();
+                InvalidateRect(hwnd, NULL, FALSE);
+                set_status(L"Não foi possível salvar a ação. A configuração anterior foi restaurada.");
+                return;
+            }
+
+            update_inspector_ui();
+            InvalidateRect(hwnd, NULL, FALSE);
+            {
+                wchar_t status[128];
+                swprintf(status, sizeof(status) / sizeof(status[0]),
+                         L"Ação adicionada e salva na tecla %d.", g_selected_key + 1);
+                set_status(status);
+            }
+        }
     }
 }
 
@@ -1811,11 +2187,13 @@ static HWND g_set_chk_hotkeys;
 static HWND g_set_cmb_profile;
 static HWND g_set_sld_opacity;
 static HWND g_set_lbl_opacity;
+static int g_set_original_opacity = 100;
 
 static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CREATE: {
             HINSTANCE inst = ((LPCREATESTRUCTW)lparam)->hInstance;
+            g_set_original_opacity = g_window_opacity;
 
             g_set_chk_startup = CreateWindowW(L"BUTTON", L"Iniciar o C-Deck automaticamente com o Windows",
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
@@ -1900,29 +2278,48 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             int id = LOWORD(wparam);
             if (id == ID_SET_SAVE_BTN) {
                 int chk_start = (int)SendMessageW(g_set_chk_startup, BM_GETCHECK, 0, 0) == BST_CHECKED;
-                set_run_on_startup(chk_start);
-
-                g_minimize_to_tray = (int)SendMessageW(g_set_chk_tray, BM_GETCHECK, 0, 0) == BST_CHECKED;
-
+                int chk_tray = (int)SendMessageW(g_set_chk_tray, BM_GETCHECK, 0, 0) == BST_CHECKED;
                 int chk_hot = (int)SendMessageW(g_set_chk_hotkeys, BM_GETCHECK, 0, 0) == BST_CHECKED;
-                if (g_main_window) apply_hotkeys(g_main_window, chk_hot);
-
                 int op_pos = (int)SendMessageW(g_set_sld_opacity, TBM_GETPOS, 0, 0);
-                if (g_main_window) apply_window_opacity(g_main_window, op_pos);
-
                 int prof_sel = (int)SendMessageW(g_set_cmb_profile, CB_GETCURSEL, 0, 0);
-                if (prof_sel == 1) wcscpy(g_current_profile, L"Streaming / OBS");
-                else if (prof_sel == 2) wcscpy(g_current_profile, L"Produtividade");
-                else if (prof_sel == 3) wcscpy(g_current_profile, L"Jogos / Gaming");
-                else wcscpy(g_current_profile, L"Default Profile");
+                DeckPreferences next_preferences;
+                DeckConfig next_config;
 
-                apply_profile(g_current_profile);
-                set_status(L"Configurações atualizadas e salvas.");
+                if (!g_profile_store_ready || prof_sel < 0 || prof_sel >= DECK_PROFILE_COUNT) {
+                    MessageBoxW(hwnd, L"Não foi possível carregar o armazenamento de perfis. Nenhuma preferência foi gravada.", L"C-Deck", MB_ICONERROR);
+                    return 0;
+                }
+
+                next_preferences = g_profile_store.preferences;
+                next_preferences.active_profile = prof_sel;
+                next_preferences.minimize_to_tray = chk_tray;
+                next_preferences.enable_hotkeys = chk_hot;
+                next_preferences.window_opacity = op_pos;
+
+                if (!profiles_apply_preferences(&g_profile_store, &next_preferences, &g_config, &next_config)) {
+                    MessageBoxW(hwnd, L"Falha ao salvar perfis ou preferências. O arquivo anterior foi preservado; verifique as permissões da pasta config.", L"C-Deck", MB_ICONERROR);
+                    return 0;
+                }
+
+                set_run_on_startup(chk_start);
+                g_config = next_config;
+                g_minimize_to_tray = next_preferences.minimize_to_tray;
+                g_enable_hotkeys = next_preferences.enable_hotkeys;
+                g_window_opacity = next_preferences.window_opacity;
+                wcscpy(g_current_profile, profile_name(next_preferences.active_profile));
+
+                set_status(L"Perfis e preferências salvos com sucesso.");
+                if (g_main_window) {
+                    apply_hotkeys(g_main_window, g_enable_hotkeys);
+                    apply_window_opacity(g_main_window, g_window_opacity);
+                }
+                update_inspector_ui();
+                if (g_main_window) InvalidateRect(g_main_window, NULL, FALSE);
                 DestroyWindow(hwnd);
                 return 0;
             }
             if (id == ID_SET_CANCEL_BTN) {
-                if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+                if (g_main_window) apply_window_opacity(g_main_window, g_set_original_opacity);
                 DestroyWindow(hwnd);
                 return 0;
             }
@@ -1969,7 +2366,7 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
 
         case WM_CLOSE:
-            if (g_main_window) apply_window_opacity(g_main_window, g_window_opacity);
+            if (g_main_window) apply_window_opacity(g_main_window, g_set_original_opacity);
             DestroyWindow(hwnd);
             return 0;
 
@@ -2060,10 +2457,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             g_insp_title_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
                 0, 0, 100, 28, hwnd, (HMENU)ID_INSP_TITLE, inst, NULL);
             SendMessageW(g_insp_title_edit, WM_SETFONT, (WPARAM)g_font_btn, TRUE);
+            SendMessageW(g_insp_title_edit, EM_SETLIMITTEXT, DECK_TEXT_MAX - 1, 0);
 
             g_insp_path_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
                 0, 0, 100, 28, hwnd, (HMENU)ID_INSP_PATH, inst, NULL);
             SendMessageW(g_insp_path_edit, WM_SETFONT, (WPARAM)g_font_btn, TRUE);
+            SendMessageW(g_insp_path_edit, EM_SETLIMITTEXT, DECK_PATH_WIDE_MAX - 1, 0);
 
             g_insp_path_browse = CreateWindowW(L"BUTTON", L"...", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
                 0, 0, 32, 28, hwnd, (HMENU)ID_INSP_BROWSE_PATH, inst, NULL);
@@ -2202,12 +2601,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
                 SelectObject(dc, g_font_header);
                 SetTextColor(dc, COLOR_WHITE);
                 RECT pr_type = { insp_x + 22, topbar_h + 30, width - 20, topbar_h + 52 };
-                const wchar_t *act_hdr = (g_selected_key >= 6) ? L"Sistema: Atalho"
-                    : ((g_selected_key <= 1 || g_selected_key == 5) ? L"Sistema: Controle de Áudio"
-                    : L"Sistema: Multimídia");
+                const wchar_t *act_hdr = L"Ação configurável";
                 DrawTextW(dc, act_hdr, -1, &pr_type, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
-                if (g_selected_key >= 6) {
+                if (g_selected_key >= 0 && g_selected_key < ID_KEY_COUNT) {
                     SelectObject(dc, g_font_label);
                     SetTextColor(dc, COLOR_TEXT_MUTED);
                     RECT l1 = { insp_x + 22, topbar_h + 62, width - 22, topbar_h + 78 };
@@ -2313,39 +2710,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             }
 
             if (id >= ID_LIB_FAVORITES && id <= ID_LIB_MULTIACTION) {
+                DeckLibraryCategory category = (DeckLibraryCategory)(id - ID_LIB_FAVORITES);
                 g_selected_category = id;
-                switch (id) {
-                    case ID_LIB_FAVORITES:
-                        g_selected_key = 8;
-                        set_status(L"Categoria Favoritos: Tecla Paint e atalhos rápidos.");
-                        break;
-                    case ID_LIB_SYSTEM:
-                        g_selected_key = 6;
-                        set_status(L"Categoria Sistema: Utilitários e atalhos essenciais.");
-                        break;
-                    case ID_LIB_AUDIO:
-                        g_selected_key = 0;
-                        set_status(L"Categoria Áudio: Controle mestre de volume e mute.");
-                        break;
-                    case ID_LIB_MEDIA:
-                        g_selected_key = 2;
-                        set_status(L"Categoria Mídia: Controles de reprodução.");
-                        break;
-                    case ID_LIB_APPS:
-                        g_selected_key = 7;
-                        set_status(L"Categoria Aplicativos: Programas configurados.");
-                        break;
-                    case ID_LIB_NAVIGATION:
-                        g_selected_key = 9;
-                        set_status(L"Categoria Navegação: Explorador e sites.");
-                        break;
-                    case ID_LIB_MULTIACTION:
-                        g_selected_key = 10;
-                        set_status(L"Categoria Multi Action: Terminal e macros.");
-                        break;
-                }
-                update_inspector_ui();
                 InvalidateRect(hwnd, NULL, FALSE);
+                show_action_library_menu(hwnd, category);
                 return 0;
             }
 
@@ -2446,6 +2814,21 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             update_inspector_ui();
             return 0;
 
+        case WM_MACRO_COMPLETE:
+            if (!deck_macro_run_state_complete(&g_macro_run_state,
+                                               (uint32_t)(ULONG_PTR)lparam)) {
+                return 0; /* Ignore a late completion from an older run. */
+            }
+            if (g_macro_thread) {
+                CloseHandle(g_macro_thread);
+                g_macro_thread = NULL;
+            }
+            if ((DeckMacroResult)wparam == DECK_MACRO_OK) set_status(L"Multi Action concluída.");
+            else if ((DeckMacroResult)wparam == DECK_MACRO_CANCELLED) set_status(L"Multi Action cancelada.");
+            else set_status(L"Multi Action interrompida após uma falha. Confira os destinos e ações.");
+            update_inspector_ui();
+            return 0;
+
         case WM_TRAYICON:
             if (lparam == WM_LBUTTONDBLCLK) {
                 remove_tray_icon();
@@ -2483,10 +2866,22 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             return 0;
 
         case WM_DESTROY:
+            /* Stop completion delivery before the HWND can become invalid. */
+            deck_macro_completion_gate_close(&g_macro_completion_gate);
+            deck_macro_run_state_invalidate(&g_macro_run_state);
+            InterlockedExchange(&g_macro_cancelled, 1);
+            if (g_macro_thread) {
+                DWORD shutdown_wait = WaitForSingleObject(g_macro_thread, 1000);
+                if (shutdown_wait == WAIT_TIMEOUT) {
+                    OutputDebugStringW(L"C-Deck: macro worker exceeded the 1 s cooperative shutdown wait.\n");
+                } else if (shutdown_wait == WAIT_FAILED) {
+                    OutputDebugStringW(L"C-Deck: failed to wait for macro worker during shutdown.\n");
+                }
+                CloseHandle(g_macro_thread);
+                g_macro_thread = NULL;
+            }
             KillTimer(hwnd, ID_VOLUME_TIMER);
-            UnregisterHotKey(hwnd, ID_HOTKEY_UP);
-            UnregisterHotKey(hwnd, ID_HOTKEY_DOWN);
-            UnregisterHotKey(hwnd, ID_HOTKEY_MUTE);
+            release_hotkeys(hwnd);
             remove_tray_icon();
 
             if (g_font_title) DeleteObject(g_font_title);
@@ -2520,8 +2915,24 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     HWND hwnd;
     MSG message;
 
-    if (!config || !build_config_path(g_config_path, MAX_PATH)) return 1;
-    g_config = *config;
+    DeckConfig active_config;
+    if (!config || !deck_get_config_path_utf8(g_config_path, sizeof(g_config_path))) return 1;
+    if (profiles_load(&g_profile_store, g_config_path, config, &active_config)) {
+        g_profile_store_ready = 1;
+        g_config = active_config;
+        g_minimize_to_tray = g_profile_store.preferences.minimize_to_tray;
+        g_enable_hotkeys = g_profile_store.preferences.enable_hotkeys;
+        g_window_opacity = g_profile_store.preferences.window_opacity;
+        wcscpy(g_current_profile, profile_name(g_profile_store.preferences.active_profile));
+    } else {
+        g_profile_store_ready = 0;
+        g_config = *config;
+        wcscpy(g_current_profile, L"Default Profile");
+        g_minimize_to_tray = 1;
+        g_enable_hotkeys = 1;
+        g_window_opacity = 100;
+    }
+    g_macro_store_ready = macro_store_load(&g_macro_store, g_config_path);
 
     {
         INITCOMMONCONTROLSEX controls;
@@ -2571,11 +2982,22 @@ int interface_run(HINSTANCE instance, int show_command, const DeckConfig *config
     );
     if (!hwnd) return 1;
     g_main_window = hwnd;
+    deck_macro_completion_gate_bind(&g_macro_completion_gate, hwnd);
 
     enable_system_backdrop(hwnd);
+    apply_window_opacity(hwnd, g_window_opacity);
 
     ShowWindow(hwnd, show_command);
     UpdateWindow(hwnd);
+    if (!g_profile_store_ready) {
+        set_status(L"Armazenamento indisponível; salvamento bloqueado para preservar arquivos existentes.");
+    } else if (g_profile_store.storage_warning) {
+        set_status(L"Não foi possível inicializar o perfil selecionado; o perfil padrão foi carregado. Verifique as permissões da pasta config.");
+    } else if (g_profile_store.preferences_recovered) {
+        set_status(L"Preferências inválidas; padrões carregados. O arquivo original foi preservado.");
+    } else if (!g_macro_store_ready) {
+        set_status(L"Arquivo de macros inválido ou inacessível; o arquivo original foi preservado.");
+    }
 
     while (GetMessageW(&message, NULL, 0, 0) > 0) {
         TranslateMessage(&message);
