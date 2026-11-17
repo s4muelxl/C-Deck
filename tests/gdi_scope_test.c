@@ -131,6 +131,63 @@ static void test_failed_restore_retains_handle_for_retry(HDC dc,
     assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
 }
 
+static void test_multiple_owned_brushes_and_pens_restore_original(
+    HDC dc, HGDIOBJ original_brush, HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HBRUSH brush1 = CreateSolidBrush(RGB(12, 24, 36));
+    HBRUSH brush2 = CreateSolidBrush(RGB(48, 60, 72));
+    HPEN pen1 = CreatePen(PS_SOLID, 1, RGB(84, 96, 108));
+    HPEN pen2 = CreatePen(PS_SOLID, 2, RGB(120, 132, 144));
+    HGDIOBJ previous_brush = NULL;
+    HGDIOBJ previous_pen = NULL;
+    HGDIOBJ ignored = NULL;
+
+    assert(brush1 && brush2 && pen1 && pen2);
+    deck_gdi_scope_init(&scope);
+    assert(deck_gdi_scope_select_owned(dc, &scope, brush1, &previous_brush));
+    assert(deck_gdi_scope_select_owned(dc, &scope, pen1, &previous_pen));
+    assert(deck_gdi_scope_select_owned(dc, &scope, brush2, &ignored));
+    assert(deck_gdi_scope_select_owned(dc, &scope, pen2, &ignored));
+    assert(scope.count == 4u);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == brush2);
+    assert(GetCurrentObject(dc, OBJ_PEN) == pen2);
+
+    assert(deck_gdi_scope_restore(dc, &scope, previous_brush, previous_pen) == 0u);
+    assert(scope.count == 0u);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+    assert(GetCurrentObject(dc, OBJ_PEN) == original_pen);
+}
+
+static void test_stock_brush_and_three_owned_pens_restore_original(
+    HDC dc, HGDIOBJ original_brush, HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HPEN pens[3];
+    HGDIOBJ previous_brush;
+    HGDIOBJ previous_pen = NULL;
+    HGDIOBJ ignored = NULL;
+
+    pens[0] = CreatePen(PS_SOLID, 1, RGB(25, 50, 75));
+    pens[1] = CreatePen(PS_SOLID, 1, RGB(50, 75, 100));
+    pens[2] = CreatePen(PS_SOLID, 2, RGB(75, 100, 125));
+    assert(pens[0] && pens[1] && pens[2]);
+
+    deck_gdi_scope_init(&scope);
+    previous_brush = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
+    assert(previous_brush == original_brush);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == GetStockObject(NULL_BRUSH));
+
+    assert(deck_gdi_scope_select_owned(dc, &scope, pens[0], &previous_pen));
+    assert(deck_gdi_scope_select_owned(dc, &scope, pens[1], &ignored));
+    assert(deck_gdi_scope_select_owned(dc, &scope, pens[2], &ignored));
+    assert(scope.count == 3u);
+    assert(GetCurrentObject(dc, OBJ_PEN) == pens[2]);
+
+    assert(deck_gdi_scope_restore(dc, &scope, previous_brush, previous_pen) == 0u);
+    assert(scope.count == 0u);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+    assert(GetCurrentObject(dc, OBJ_PEN) == original_pen);
+}
+
 static void test_restore_reports_invalid_hdc(HGDIOBJ original_brush,
                                                    HGDIOBJ original_pen) {
     HDC stale_dc = CreateCompatibleDC(NULL);
@@ -210,6 +267,8 @@ int main(void) {
     test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
     test_restore_reports_invalid_hdc(original_brush, original_pen);
+    test_multiple_owned_brushes_and_pens_restore_original(dc, original_brush, original_pen);
+    test_stock_brush_and_three_owned_pens_restore_original(dc, original_brush, original_pen);
 
     DeleteDC(dc);
 
