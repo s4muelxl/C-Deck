@@ -70,6 +70,35 @@ typedef struct DeckUiShellAxisLayout {
  * deck_ui_shell_mode_resolve; layout contains the matching top bar, panels,
  * status bar and validated 5x3 grid from deck_ui_layout_compute.
  */
+
+/*
+ * Responsive navigation result. When every item cannot fit even at its
+ * minimum extent, the active item is kept visible and remaining items are
+ * admitted in source order while reserving a trailing overflow affordance.
+ */
+typedef struct DeckUiShellOverflowInput {
+    DeckUiRect bounds;
+    DeckUiShellAxis axis;
+    uint32_t item_count;
+    const int32_t *preferred_extents_dip;
+    int32_t min_extent_dip;
+    int32_t gap_dip;
+    int32_t overflow_extent_dip;
+    uint32_t active_index;
+} DeckUiShellOverflowInput;
+
+typedef struct DeckUiShellOverflowLayout {
+    DeckUiShellAxisLayout visible_layout;
+    uint32_t visible_indices[DECK_UI_SHELL_MAX_ITEMS];
+    uint32_t visible_count;
+    uint32_t hidden_indices[DECK_UI_SHELL_MAX_ITEMS];
+    uint32_t hidden_count;
+    DeckUiRect overflow_rect;
+    int overflow_visible;
+    /* Span from the leading edge to the trailing overflow affordance. */
+    int32_t total_extent_dip;
+} DeckUiShellOverflowLayout;
+
 typedef struct DeckUiShellFrame {
     DeckUiShellMode mode;
     DeckUiLayout layout;
@@ -103,6 +132,25 @@ DeckUiShellLayoutStatus deck_ui_shell_frame_compute(
     int32_t height_dip,
     int compact_requested,
     DeckUiShellFrame *frame);
+
+
+/*
+ * Lays out a measured navigation list with a real overflow affordance.
+ * If the complete list fits at minimum extents, the normal axis layout is
+ * used and no overflow item is emitted. Otherwise the active item (or item
+ * zero when there is no active item) is kept visible, followed by as many
+ * source-order items as fit. Remaining source indices are returned in
+ * hidden_indices; the caller can expose them in a menu.
+ *
+ * The overflow affordance is pinned to the trailing edge (right/bottom).
+ * Visible items use the existing proportional compression algorithm.
+ * One-item lists never create an overflow affordance. The function only
+ * computes geometry; it does not open a menu, change selection, or activate
+ * commands. Output is unchanged on any error.
+ */
+DeckUiShellLayoutStatus deck_ui_shell_overflow_layout_compute(
+    const DeckUiShellOverflowInput *input,
+    DeckUiShellOverflowLayout *layout);
 
 /*
  * Lays out measured navigation items on one axis without knowing their labels
