@@ -66,6 +66,16 @@ typedef struct DeckUiShellAxisLayout {
 } DeckUiShellAxisLayout;
 
 /*
+ * A coordinated shell result. mode is the responsive composition selected by
+ * deck_ui_shell_mode_resolve; layout contains the matching top bar, panels,
+ * status bar and validated 5x3 grid from deck_ui_layout_compute.
+ */
+typedef struct DeckUiShellFrame {
+    DeckUiShellMode mode;
+    DeckUiLayout layout;
+} DeckUiShellFrame;
+
+/*
  * Resolves the shell composition from available client width in DIP.
  * compact_requested forces compact composition at any width. Otherwise the
  * documented breakpoints select full, collapsible-inspector, sidebar-rail or
@@ -77,6 +87,22 @@ DeckUiShellModeStatus deck_ui_shell_mode_resolve(
     int32_t available_width_dip,
     int compact_requested,
     DeckUiShellMode *mode);
+
+/*
+ * Resolves the responsive composition and computes its matching native shell
+ * and 5x3 grid in one operation. Widths below the sidebar-rail breakpoint
+ * select compact automatically; compact_requested also forces compact at any
+ * width. The resolver's mode is translated to deck_ui_layout_compute's
+ * compact flag and the resulting layout mode is checked for consistency.
+ *
+ * The frame is assigned only when the complete layout succeeds. TOO_SMALL
+ * means the chosen composition cannot preserve the minimum 44 DIP key target.
+ */
+DeckUiShellLayoutStatus deck_ui_shell_frame_compute(
+    int32_t width_dip,
+    int32_t height_dip,
+    int compact_requested,
+    DeckUiShellFrame *frame);
 
 /*
  * Lays out measured navigation items on one axis without knowing their labels

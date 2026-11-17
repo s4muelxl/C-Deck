@@ -98,3 +98,28 @@ before being treated as final product behavior.
 
 Regression tests cover both sides of every threshold, the explicit compact
 override, invalid widths/preferences and output preservation.
+
+
+## Coordinated shell frame
+
+Use `deck_ui_shell_frame_compute` as the single entry point when the caller
+needs both a responsive composition and its corresponding 5x3 geometry. It
+runs the shell-mode resolver, translates the result into the existing layout
+engine's compact flag, computes the top bar/sidebar/workspace/inspector/status
+bar and grid, then verifies that both mode enums still agree.
+
+This resolves the below-900-DIP boundary explicitly: the shell resolver selects
+COMPACT and the coordinated function passes `compact_mode=1` to the grid
+layout engine. An explicit compact preference has the same effect at any width.
+If the chosen composition cannot preserve the 44-DIP key target or available
+height, the function returns TOO_SMALL and leaves the caller's frame unchanged.
+
+The lower-level `deck_ui_layout_compute` remains available for callers that
+already selected a composition. Its `compact_mode` field is now a strict
+boolean: 0 means normal width-based layout, 1 means compact, and every other
+value is INVALID_ARGUMENT. This prevents negative or corrupted preference
+values from silently forcing compact mode.
+
+Regression tests exercise both sides of all shell breakpoints, verify the
+shell/layout mode mapping and 15-slot validation, test explicit compact
+override, and verify unchanged output for too-small or invalid requests.

@@ -69,7 +69,8 @@ DeckUiLayoutStatus deck_ui_layout_compute(const DeckUiLayoutInput *input,
     memset(layout, 0, sizeof(*layout));
     layout->mode = DECK_UI_LAYOUT_MODE_UNSUPPORTED;
 
-    if (!input || input->width_dip <= 0 || input->height_dip <= 0) {
+    if (!input || input->width_dip <= 0 || input->height_dip <= 0 ||
+        (input->compact_mode != 0 && input->compact_mode != 1)) {
         return DECK_UI_LAYOUT_INVALID_ARGUMENT;
     }
 

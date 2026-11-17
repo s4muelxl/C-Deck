@@ -239,6 +239,65 @@ static void test_responsive_shell_mode_override_and_invalid_inputs(void) {
            DECK_UI_SHELL_MODE_INVALID_ARGUMENT);
 }
 
+static void test_shell_frame_keeps_mode_and_grid_policy_in_sync(void) {
+    static const struct {
+        int32_t width;
+        DeckUiShellMode shell_mode;
+        DeckUiLayoutMode layout_mode;
+    } cases[] = {
+        {899, DECK_UI_SHELL_MODE_COMPACT, DECK_UI_LAYOUT_MODE_COMPACT},
+        {900, DECK_UI_SHELL_MODE_SIDEBAR_RAIL, DECK_UI_LAYOUT_MODE_NARROW},
+        {1119, DECK_UI_SHELL_MODE_SIDEBAR_RAIL, DECK_UI_LAYOUT_MODE_NARROW},
+        {1120, DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE, DECK_UI_LAYOUT_MODE_MEDIUM},
+        {1359, DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE, DECK_UI_LAYOUT_MODE_MEDIUM},
+        {1360, DECK_UI_SHELL_MODE_FULL, DECK_UI_LAYOUT_MODE_WIDE}
+    };
+    uint32_t index;
+
+    for (index = 0u; index < (uint32_t)(sizeof(cases) / sizeof(cases[0])); ++index) {
+        DeckUiShellFrame frame;
+
+        memset(&frame, 0, sizeof(frame));
+        assert(deck_ui_shell_frame_compute(cases[index].width, 800, 0,
+                                           &frame) ==
+               DECK_UI_SHELL_LAYOUT_OK);
+        assert(frame.mode == cases[index].shell_mode);
+        assert(frame.layout.mode == cases[index].layout_mode);
+        assert(frame.layout.slot_count == DECK_UI_GRID_SLOT_COUNT);
+        assert(deck_ui_layout_validate(&frame.layout) ==
+               DECK_UI_LAYOUT_VALIDATION_OK);
+    }
+}
+
+static void test_shell_frame_compact_override_and_failure_preservation(void) {
+    DeckUiShellFrame frame;
+    DeckUiShellFrame before;
+
+    memset(&frame, 0x5A, sizeof(frame));
+    assert(deck_ui_shell_frame_compute(1920, 1080, 1, &frame) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(frame.mode == DECK_UI_SHELL_MODE_COMPACT);
+    assert(frame.layout.mode == DECK_UI_LAYOUT_MODE_COMPACT);
+    assert(frame.layout.sidebar_visible == 0);
+    assert(frame.layout.inspector_visible == 0);
+
+    memset(&frame, 0x3C, sizeof(frame));
+    before = frame;
+    assert(deck_ui_shell_frame_compute(899, 100, 0, &frame) ==
+           DECK_UI_SHELL_LAYOUT_TOO_SMALL);
+    assert(memcmp(&frame, &before, sizeof(frame)) == 0);
+
+    assert(deck_ui_shell_frame_compute(1920, 800, 2, &frame) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&frame, &before, sizeof(frame)) == 0);
+    assert(deck_ui_shell_frame_compute(0, 800, 0, &frame) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&frame, &before, sizeof(frame)) == 0);
+    assert(deck_ui_shell_frame_compute(1920, 0, 0, &frame) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&frame, &before, sizeof(frame)) == 0);
+}
+
 int main(void) {
     test_horizontal_tabs_keep_preferred_widths();
     test_horizontal_tabs_compress_deterministically();
@@ -250,6 +309,8 @@ int main(void) {
     test_maximum_item_count();
     test_responsive_shell_mode_breakpoints();
     test_responsive_shell_mode_override_and_invalid_inputs();
+    test_shell_frame_keeps_mode_and_grid_policy_in_sync();
+    test_shell_frame_compact_override_and_failure_preservation();
     puts("ui_shell_layout_test: all tests passed");
     return 0;
 }

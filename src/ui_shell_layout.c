@@ -194,3 +194,61 @@ DeckUiShellModeStatus deck_ui_shell_mode_resolve(
     *mode = resolved;
     return DECK_UI_SHELL_MODE_OK;
 }
+
+
+static DeckUiLayoutMode layout_mode_for_shell_mode(DeckUiShellMode mode) {
+    switch (mode) {
+        case DECK_UI_SHELL_MODE_FULL:
+            return DECK_UI_LAYOUT_MODE_WIDE;
+        case DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE:
+            return DECK_UI_LAYOUT_MODE_MEDIUM;
+        case DECK_UI_SHELL_MODE_SIDEBAR_RAIL:
+            return DECK_UI_LAYOUT_MODE_NARROW;
+        case DECK_UI_SHELL_MODE_COMPACT:
+            return DECK_UI_LAYOUT_MODE_COMPACT;
+        default:
+            return DECK_UI_LAYOUT_MODE_UNSUPPORTED;
+    }
+}
+
+DeckUiShellLayoutStatus deck_ui_shell_frame_compute(
+    int32_t width_dip,
+    int32_t height_dip,
+    int compact_requested,
+    DeckUiShellFrame *frame) {
+    DeckUiShellFrame next;
+    DeckUiShellMode resolved_mode;
+    DeckUiLayoutInput layout_input;
+    DeckUiLayoutStatus layout_status;
+    DeckUiLayoutMode expected_layout_mode;
+
+    if (!frame) return DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT;
+    if (deck_ui_shell_mode_resolve(width_dip, compact_requested,
+                                   &resolved_mode) !=
+        DECK_UI_SHELL_MODE_OK) {
+        return DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT;
+    }
+
+    layout_input.width_dip = width_dip;
+    layout_input.height_dip = height_dip;
+    layout_input.compact_mode =
+        resolved_mode == DECK_UI_SHELL_MODE_COMPACT ? 1 : 0;
+
+    layout_status = deck_ui_layout_compute(&layout_input, &next.layout);
+    if (layout_status == DECK_UI_LAYOUT_TOO_SMALL) {
+        return DECK_UI_SHELL_LAYOUT_TOO_SMALL;
+    }
+    if (layout_status != DECK_UI_LAYOUT_OK) {
+        return DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT;
+    }
+
+    expected_layout_mode = layout_mode_for_shell_mode(resolved_mode);
+    if (expected_layout_mode == DECK_UI_LAYOUT_MODE_UNSUPPORTED ||
+        next.layout.mode != expected_layout_mode) {
+        return DECK_UI_SHELL_LAYOUT_OUT_OF_RANGE;
+    }
+
+    next.mode = resolved_mode;
+    *frame = next;
+    return DECK_UI_SHELL_LAYOUT_OK;
+}

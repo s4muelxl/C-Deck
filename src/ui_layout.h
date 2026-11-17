@@ -58,7 +58,7 @@ typedef struct DeckUiLayoutInput {
     /* Client-area dimensions in device-independent pixels (DIP). */
     int32_t width_dip;
     int32_t height_dip;
-    /* Non-zero selects the compact layout regardless of the normal breakpoint. */
+    /* Exactly 1 selects compact; 0 selects width-based normal layout. */
     int compact_mode;
 } DeckUiLayoutInput;
 

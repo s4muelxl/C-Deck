@@ -181,6 +181,23 @@ static void test_invalid_arguments(void) {
     assert(deck_ui_layout_compute(&zero_width, NULL) == DECK_UI_LAYOUT_INVALID_ARGUMENT);
 }
 
+static void test_compact_mode_requires_boolean(void) {
+    static const int invalid_values[] = {-1, 2};
+    size_t index;
+
+    for (index = 0u;
+         index < sizeof(invalid_values) / sizeof(invalid_values[0]);
+         ++index) {
+        const DeckUiLayoutInput input = {440, 320, invalid_values[index]};
+        DeckUiLayout layout;
+
+        memset(&layout, 0xA5, sizeof(layout));
+        assert(deck_ui_layout_compute(&input, &layout) ==
+               DECK_UI_LAYOUT_INVALID_ARGUMENT);
+        assert_layout_is_empty(&layout);
+    }
+}
+
 static void test_dpi_conversion(void) {
     assert(deck_ui_dip_to_px(10, 96u) == 10);
     assert(deck_ui_dip_to_px(10, 120u) == 13);
@@ -508,6 +525,7 @@ int main(void) {
     test_compact_minimum_layout();
     test_too_small_outputs_are_empty();
     test_invalid_arguments();
+    test_compact_mode_requires_boolean();
     test_dpi_conversion();
     test_rect_scaling_preserves_shared_edges();
     test_rect_scaling_standard_dpi_values();
