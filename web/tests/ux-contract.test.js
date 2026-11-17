@@ -597,7 +597,9 @@ test('release version is consistent across website, desktop, installer and READM
   const installer = fs.readFileSync(path.join(repoDir, 'installer', 'C-Deck.iss'), 'utf8');
   const desktop = fs.readFileSync(path.join(repoDir, 'src', 'interface.c'), 'utf8');
 
-  assert.match(version, /^\\d+\\.\\d+\\.\\d+$/);
+  const versionParts = version.split('.');
+  assert.equal(versionParts.length, 3);
+  assert.ok(versionParts.every(part => part.length > 0 && [...part].every(char => char >= '0' && char <= '9')));
   assert.ok(html.includes('C-Deck Official Website v' + version));
   assert.ok(html.includes('VERSÃO ' + version));
   assert.ok(readme.includes('Versão ' + version + '.'));
