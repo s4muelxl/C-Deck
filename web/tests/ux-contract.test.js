@@ -65,10 +65,15 @@ test('the page provides a skip link and a neutral interaction palette', () => {
 });
 
 
-test('landing page copy matches the 15-slot native C11 application and avoids unsupported performance promises', () => {
+test('landing page copy matches the C-Deck 1.4.0 native capabilities and avoids unsupported performance promises', () => {
   assert.match(html, /desenvolvido em C11/);
   assert.match(html, /Win32 API/);
   assert.match(html, /configure até 15 teclas/);
+  assert.match(html, /quatro perfis independentes/i);
+  assert.match(html, /biblioteca de ações/i);
+  assert.match(html, /Multi Action/);
+  assert.match(html, /até oito macros/);
+  assert.match(html, /até 12 etapas/);
   assert.doesNotMatch(html, /C\\+\\+|3 MB RAM|0% de CPU|consumo quase zero de memória|mesmo enquanto joga em tela cheia/);
   assert.match(html, /O consumo de memória e CPU varia conforme o sistema e o uso/);
 });
@@ -587,6 +592,92 @@ test('volume slider keeps a visible keyboard focus ring in normal and forced-col
   assert.match(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*2px solid #f2f4f7/s);
   assert.doesNotMatch(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*none/s);
   assert.match(css, /@media\s*\(forced-colors:\s*active\)[\s\S]*?\.volume-slider:focus-visible\s*\{[^}]*outline-color:\s*Highlight/s);
+});
+
+
+const robots = fs.readFileSync(path.join(webDir, 'robots.txt'), 'utf8');
+const sitemap = fs.readFileSync(path.join(webDir, 'sitemap.xml'), 'utf8');
+
+test('SEO metadata describes the public stable Windows application', () => {
+  assert.match(html, /rel="canonical" href="https:\/\/c-deck\.vercel\.app\/"/);
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /name="twitter:card"/);
+  assert.match(html, /"@type":\s*"SoftwareApplication"/);
+  assert.match(html, /"softwareVersion":\s*"1\.4\.0"/);
+  assert.match(html, /"operatingSystem":\s*"Windows 10, Windows 11"/);
+});
+
+test('robots and sitemap publish the canonical site URL', () => {
+  assert.match(robots, /User-agent:\s*\*/);
+  assert.match(robots, /Sitemap:\s*https:\/\/c-deck\.vercel\.app\/sitemap\.xml/);
+  assert.match(sitemap, /<loc>https:\/\/c-deck\.vercel\.app\/<\/loc>/);
+});
+
+test('desktop and mobile navigation point to real page sections', () => {
+  const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
+  const links = [...html.matchAll(/class="(?:nav-link|mobile-nav-link)" href="#([^"]+)"/g)];
+  assert.ok(links.length >= 8);
+  for (const [, target] of links) assert.ok(ids.has(target), 'missing navigation target: ' + target);
+  assert.match(html, /<details class="mobile-nav">/);
+  assert.match(html, /<summary aria-label="Abrir navegação">/);
+});
+
+test('the landing page avoids third-party font requests and keeps responsive breakpoints', () => {
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.match(css, /font-family:\s*var\(--sans\)/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*650px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*420px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)/);
+  assert.match(css, /min-width:\s*320px/);
+});
+
+
+test('mobile navigation closes after selection and returns focus on Escape', () => {
+  const vm = require('node:vm');
+  const linkListeners = {};
+  const links = [{
+    addEventListener(name, callback) { linkListeners[name] = callback; }
+  }];
+  const menuListeners = {};
+  let summaryFocusCount = 0;
+  const summary = { focus() { summaryFocusCount += 1; } };
+  const menu = {
+    open: true,
+    querySelector: (selector) => selector === 'summary' ? summary : null,
+    querySelectorAll: (selector) => selector === 'a' ? links : [],
+    addEventListener(name, callback) { menuListeners[name] = callback; }
+  };
+  const document = {
+    readyState: 'complete',
+    activeElement: null,
+    addEventListener() {},
+    getElementById: () => null,
+    querySelectorAll: () => [],
+    querySelector: (selector) => selector === '.mobile-nav' ? menu : null
+  };
+
+  vm.runInNewContext(script, {
+    document,
+    window: {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    parseInt,
+    Math
+  });
+
+  linkListeners.click();
+  assert.equal(menu.open, false, 'selecting a navigation link closes the disclosure');
+
+  menu.open = true;
+  let prevented = false;
+  menuListeners.keydown({
+    key: 'Escape',
+    preventDefault: () => { prevented = true; }
+  });
+  assert.equal(menu.open, false, 'Escape closes the mobile navigation');
+  assert.equal(prevented, true);
+  assert.equal(summaryFocusCount, 1, 'focus returns to the menu trigger');
 });
 
 
