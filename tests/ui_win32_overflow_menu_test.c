@@ -4,6 +4,7 @@
 #include "../src/ui_win32_overflow_menu.h"
 
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
@@ -148,6 +149,15 @@ static void test_labels_and_command_ranges_are_validated(void) {
 
     assert(deck_ui_win32_overflow_menu_command_to_index(
                0x5303u, 0xFFF8u, &source_index) ==
+           DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
+    assert(source_index == 55u);
+
+    input.command_id_base = UINT_MAX;
+    assert(deck_ui_win32_overflow_menu_create(&input, &menu) ==
+           DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
+    assert(menu == NULL);
+    assert(deck_ui_win32_overflow_menu_command_to_index(
+               UINT_MAX, UINT_MAX, &source_index) ==
            DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
     assert(source_index == 55u);
 }
