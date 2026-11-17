@@ -850,13 +850,11 @@ static void layout_controls(HWND hwnd) {
 }
 
 // Draw the official faceted C-Deck logo
-static int select_owned_gdi_or_discard(HDC dc, DeckGdiScope *scope,
+static int select_owned_gdi_object(HDC dc, DeckGdiScope *scope,
                                       HGDIOBJ object, HGDIOBJ *previous_object) {
     if (!object || object == HGDI_ERROR) return 0;
-    if (deck_gdi_scope_select_owned(dc, scope, object, previous_object)) return 1;
-    /* Selection did not transfer ownership; discard the unselected object. */
-    (void)deck_gdi_scope_release(dc, scope, object);
-    return 0;
+    /* On failure the caller still owns the handle and releases it in cleanup. */
+    return deck_gdi_scope_select_owned(dc, scope, object, previous_object);
 }
 
 static void restore_draw_gdi_scope(HDC dc, DeckGdiScope *scope,
