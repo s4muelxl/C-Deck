@@ -1,7 +1,7 @@
 name: C-Deck CI
 on:
   push:
-    branches: [main]
+    branches: [main, site/c-deck-1.4-landing]
   pull_request:
     branches: [main]
 permissions:
