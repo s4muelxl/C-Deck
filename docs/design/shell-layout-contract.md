@@ -152,3 +152,5 @@ change application selection or execute commands. It is fixed-size, capped at
 Regression coverage includes active-item retention, source-order admission,
 horizontal and vertical trailing placement, compression before hiding,
 single-item behavior, too-small bounds and invalid-input output preservation.
+
+The overflow affordance has its own explicit extent and may be narrower than a text-bearing navigation item (for example, a 44-DIP icon target beside tabs with a 60-DIP minimum). It must still have a positive extent; the caller is responsible for applying the platform's target-size and accessibility requirements.
