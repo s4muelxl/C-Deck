@@ -14,6 +14,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Verify release version consistency
+        shell: pwsh
+        run: ./scripts/check-version.ps1
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64

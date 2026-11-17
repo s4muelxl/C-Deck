@@ -2358,7 +2358,7 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             SelectObject(dc, g_font_sub);
             SetTextColor(dc, COLOR_TEXT_DIM);
             RECT info_rc = { 30, 320, rc.right - 30, 338 };
-            DrawTextW(dc, L"C-Deck v1.3.1 · Código Aberto (MIT) · Desenvolvido em C para Windows", -1, &info_rc, DT_LEFT | DT_SINGLELINE);
+            DrawTextW(dc, L"C-Deck v1.4.0 · Código Aberto (MIT) · Desenvolvido em C para Windows", -1, &info_rc, DT_LEFT | DT_SINGLELINE);
 
             SelectObject(dc, old_f);
             EndPaint(hwnd, &ps);

@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.3.1.**
+**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.4.0.**
 
 O C-DECK reúne controles de áudio, comandos multimídia e atalhos para aplicativos e sites em um teclado virtual desktop estilo Stream Deck. A página em `web/` é a apresentação oficial do projeto; as ações do computador são executadas nativamente pelo aplicativo Windows.
 
@@ -29,11 +29,12 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 
 ## Baixar e executar
 
-1. Abra a aba **Actions** do repositório.
-2. Entre na execução mais recente do workflow **C-Deck CI** que terminou com sucesso.
-3. Na seção **Artifacts**, baixe `C-Deck-Windows`.
-4. Para instalação guiada, execute `C-Deck-Setup.exe`. O instalador cria um atalho no menu Iniciar e permite criar um atalho na área de trabalho.
-5. Se preferir não instalar, extraia `C-Deck-Portable.zip` para uma pasta e execute `C-Deck.exe`.
+1. Para instalação oficial, acesse [Releases](https://github.com/s4muelxl/C-Deck/releases/latest) e baixe `C-Deck-Setup.exe`.
+2. Execute o instalador. Ele cria um atalho no menu Iniciar e permite criar um atalho na área de trabalho.
+3. Para uma versão portátil de validação, abra **Actions → C-Deck CI** na branch `main`, baixe o artefato `C-Deck-Windows` e extraia `C-Deck-Portable.zip`.
+4. Execute `C-Deck.exe` mantendo-o ao lado da pasta `config`.
+
+O ZIP publicado como artefato de CI é temporário e não substitui a release oficial. A instalação oficial é distribuída pela página Releases.
 
 O pacote portátil contém:
 - `C-Deck.exe`
