@@ -45,3 +45,10 @@ As alterações ficam restritas a \`web/\` e documentação do site. O desktop c
 - A suíte verifica ausência de overflow horizontal em 10 larguras (320–1440 px), navegação móvel por seleção/Escape, canonical/JSON-LD, sitemap, robots, assets locais e erros JavaScript.
 - O workflow `C-Deck Web Visual QA` gera capturas full-page desktop (1440 px), mobile (390 px) e mobile estreito (320 px), anexadas como artefato temporário de 14 dias.
 - Playwright/Chromium é dependência exclusiva do runner; não é enviado ao site nem ao aplicativo desktop.
+
+## Verificação de produção após integração
+
+- O workflow `C-Deck Production Web Smoke` é acionado por push em `main` quando arquivos web mudam e também pode ser executado manualmente.
+- Ele aguarda a nova página responder HTTP 200 e exige o título e canonical desta versão, evitando aceitar por engano o HTML antigo ainda servido durante a propagação.
+- Também exige HTTP 200 e conteúdo esperado em `robots.txt` e `sitemap.xml`.
+- Se a Vercel não publicar ou a URL continuar servindo a versão anterior, o smoke test falha e a publicação não é declarada concluída.
