@@ -298,6 +298,158 @@ static void test_shell_frame_compact_override_and_failure_preservation(void) {
     assert(memcmp(&frame, &before, sizeof(frame)) == 0);
 }
 
+
+
+static void test_overflow_layout_keeps_active_item_visible(void) {
+    const int32_t extents[] = {100, 120, 100, 90, 110};
+    DeckUiShellOverflowInput input = {
+        {10, 20, 300, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        5u, extents, 60, 8, 44, 4u
+    };
+    DeckUiShellOverflowLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.overflow_visible == 1);
+    assert(layout.visible_count == 3u);
+    assert(layout.hidden_count == 2u);
+    assert(layout.visible_indices[0] == 0u);
+    assert(layout.visible_indices[1] == 1u);
+    assert(layout.visible_indices[2] == 4u);
+    assert(layout.hidden_indices[0] == 2u);
+    assert(layout.hidden_indices[1] == 3u);
+    assert(layout.visible_layout.active_index == 2u);
+    assert(layout.visible_layout.total_extent_dip == 248);
+    assert(layout.overflow_rect.x == 266);
+    assert(layout.overflow_rect.width == 44);
+    assert(layout.total_extent_dip == 300);
+}
+
+static void test_overflow_layout_without_active_preserves_first_items(void) {
+    const int32_t extents[] = {70, 80, 90, 100, 110};
+    DeckUiShellOverflowInput input = {
+        {-40, 8, 180, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        5u, extents, 44, 8, 44, DECK_UI_SHELL_NO_ACTIVE_ITEM
+    };
+    DeckUiShellOverflowLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.overflow_visible == 1);
+    assert(layout.visible_count == 2u);
+    assert(layout.hidden_count == 3u);
+    assert(layout.visible_indices[0] == 0u);
+    assert(layout.visible_indices[1] == 1u);
+    assert(layout.visible_layout.active_index == DECK_UI_SHELL_NO_ACTIVE_ITEM);
+    assert(layout.overflow_rect.x == 96);
+    assert(layout.overflow_rect.x + layout.overflow_rect.width == 140);
+}
+
+static void test_overflow_layout_uses_compression_before_hiding_items(void) {
+    const int32_t extents[] = {100, 100};
+    DeckUiShellOverflowInput input = {
+        {0, 0, 150, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        2u, extents, 60, 8, 44, 1u
+    };
+    DeckUiShellOverflowLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.overflow_visible == 0);
+    assert(layout.visible_count == 2u);
+    assert(layout.hidden_count == 0u);
+    assert(layout.visible_layout.compressed == 1);
+    assert(layout.visible_layout.active_index == 1u);
+    assert(layout.overflow_rect.width == 0);
+}
+
+static void test_vertical_overflow_is_pinned_to_bottom(void) {
+    const int32_t extents[] = {60, 70, 80, 90};
+    DeckUiShellOverflowInput input = {
+        {-120, 10, 216, 180}, DECK_UI_SHELL_AXIS_VERTICAL,
+        4u, extents, 44, 8, 44, 3u
+    };
+    DeckUiShellOverflowLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.overflow_visible == 1);
+    assert(layout.visible_count == 2u);
+    assert(layout.visible_indices[0] == 0u);
+    assert(layout.visible_indices[1] == 3u);
+    assert(layout.hidden_count == 2u);
+    assert(layout.visible_layout.active_index == 1u);
+    assert(layout.overflow_rect.y == 146);
+    assert(layout.overflow_rect.height == 44);
+    assert(layout.total_extent_dip == 180);
+}
+
+static void test_single_item_never_creates_overflow(void) {
+    const int32_t extents[] = {100};
+    DeckUiShellOverflowInput input = {
+        {0, 0, 80, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        1u, extents, 44, 8, 44, 0u
+    };
+    DeckUiShellOverflowLayout layout;
+
+    memset(&layout, 0, sizeof(layout));
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_OK);
+    assert(layout.overflow_visible == 0);
+    assert(layout.visible_count == 1u);
+    assert(layout.hidden_count == 0u);
+    assert(layout.visible_layout.items[0].width == 80);
+}
+
+static void test_overflow_too_small_preserves_output(void) {
+    const int32_t extents[] = {80, 80};
+    DeckUiShellOverflowInput input = {
+        {0, 0, 100, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        2u, extents, 60, 8, 44, 0u
+    };
+    DeckUiShellOverflowLayout layout;
+    DeckUiShellOverflowLayout before;
+
+    memset(&layout, 0x5A, sizeof(layout));
+    before = layout;
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_TOO_SMALL);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+}
+
+static void test_overflow_invalid_arguments_preserve_output(void) {
+    const int32_t extents[] = {80, 90};
+    DeckUiShellOverflowInput input = {
+        {0, 0, 200, 48}, DECK_UI_SHELL_AXIS_HORIZONTAL,
+        2u, extents, 40, 8, 44, 1u
+    };
+    DeckUiShellOverflowLayout layout;
+    DeckUiShellOverflowLayout before;
+
+    memset(&layout, 0x3C, sizeof(layout));
+    before = layout;
+    input.overflow_extent_dip = 39;
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+
+    input.overflow_extent_dip = 44;
+    input.active_index = 2u;
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+
+    input.active_index = DECK_UI_SHELL_NO_ACTIVE_ITEM;
+    input.bounds.width = 0;
+    assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
+           DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
+    assert(memcmp(&layout, &before, sizeof(layout)) == 0);
+}
+
 int main(void) {
     test_horizontal_tabs_keep_preferred_widths();
     test_horizontal_tabs_compress_deterministically();
@@ -311,6 +463,13 @@ int main(void) {
     test_responsive_shell_mode_override_and_invalid_inputs();
     test_shell_frame_keeps_mode_and_grid_policy_in_sync();
     test_shell_frame_compact_override_and_failure_preservation();
+    test_overflow_layout_keeps_active_item_visible();
+    test_overflow_layout_without_active_preserves_first_items();
+    test_overflow_layout_uses_compression_before_hiding_items();
+    test_vertical_overflow_is_pinned_to_bottom();
+    test_single_item_never_creates_overflow();
+    test_overflow_too_small_preserves_output();
+    test_overflow_invalid_arguments_preserve_output();
     puts("ui_shell_layout_test: all tests passed");
     return 0;
 }
