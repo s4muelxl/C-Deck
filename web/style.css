@@ -710,8 +710,8 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   .feature-card, .faq-item, .app-window { border-color: var(--line-strong); }
 }
 @media (forced-colors: active) {
-  :where(a, button):focus-visible { outline-color: Highlight; }
   .deck-key.key-active-media { border-color: Highlight; box-shadow: none; }
+  :where(a, button):focus-visible { outline-color: Highlight; }
   .volume-slider:focus-visible { outline-color: Highlight; }
   .status-dot, .online-state i { forced-color-adjust: none; background: Highlight; }
 }
