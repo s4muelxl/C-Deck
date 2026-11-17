@@ -432,7 +432,7 @@ static void test_overflow_invalid_arguments_preserve_output(void) {
 
     memset(&layout, 0x3C, sizeof(layout));
     before = layout;
-    input.overflow_extent_dip = 39;
+    input.overflow_extent_dip = 0;
     assert(deck_ui_shell_overflow_layout_compute(&input, &layout) ==
            DECK_UI_SHELL_LAYOUT_INVALID_ARGUMENT);
     assert(memcmp(&layout, &before, sizeof(layout)) == 0);
