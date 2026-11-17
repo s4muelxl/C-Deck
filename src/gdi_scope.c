@@ -8,13 +8,18 @@ void deck_gdi_scope_init(DeckGdiScope *scope) {
 int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object) {
     if (!object || object == HGDI_ERROR) return 0;
 
-    if (dc && (GetCurrentObject(dc, OBJ_BRUSH) == object ||
-               GetCurrentObject(dc, OBJ_PEN) == object)) {
-        if (!scope || scope->count > DECK_GDI_SCOPE_MAX) return 0;
+    /* A queued handle remains owned by this scope even if the caller has
+       already changed the HDC selection. Never delete it a second time. */
+    if (scope) {
+        if (scope->count > DECK_GDI_SCOPE_MAX) return 0;
         for (unsigned int i = 0; i < scope->count; ++i) {
             if (scope->deferred[i] == object) return 1;
         }
-        if (scope->count >= DECK_GDI_SCOPE_MAX) return 0;
+    }
+
+    if (dc && (GetCurrentObject(dc, OBJ_BRUSH) == object ||
+               GetCurrentObject(dc, OBJ_PEN) == object)) {
+        if (!scope || scope->count >= DECK_GDI_SCOPE_MAX) return 0;
         scope->deferred[scope->count++] = object;
         return 1;
     }

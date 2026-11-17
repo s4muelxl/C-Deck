@@ -22,6 +22,28 @@ static void test_duplicate_release_is_queued_once(HDC dc,
     assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
 }
 
+static void test_queued_handle_remains_owned_after_external_restore(
+    HDC dc, HGDIOBJ original_brush, HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HBRUSH brush = CreateSolidBrush(RGB(21, 33, 45));
+
+    assert(brush != NULL);
+    deck_gdi_scope_init(&scope);
+    assert(SelectObject(dc, brush) != HGDI_ERROR);
+    assert(deck_gdi_scope_release(dc, &scope, brush));
+    assert(scope.count == 1);
+
+    /* Simulate a caller restoring the HDC before asking to release again. */
+    assert(SelectObject(dc, original_brush) == brush);
+    assert(deck_gdi_scope_release(dc, &scope, brush));
+    assert(scope.count == 1);
+    assert(scope.deferred[0] == brush);
+
+    assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
+    assert(scope.count == 0);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+}
+
 static void test_failed_restore_retains_handle_for_retry(HDC dc,
                                                           HGDIOBJ original_brush,
                                                           HGDIOBJ original_pen) {
