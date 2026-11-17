@@ -139,13 +139,13 @@ A CI normal **não publica releases automaticamente** quando há push em `main`.
 
 Para publicar uma versão oficial:
 
-1. Conclua a revisão humana e crie uma tag versionada no commit aprovado, no formato `vX.Y.Z` (por exemplo, `v1.4.0`); o sufixo numérico deve corresponder exatamente ao arquivo `VERSION`.
+1. Conclua a revisão humana e crie uma tag versionada no HEAD integrado de `main`, no formato `vX.Y.Z` (por exemplo, `v1.4.0`); o sufixo numérico deve corresponder exatamente ao arquivo `VERSION`.
 2. No GitHub, abra **Actions → C-Deck Release → Run workflow** e selecione a própria tag como referência.
 3. Marque explicitamente `approve_release` somente depois de confirmar a revisão e a autorização da publicação.
 4. Aguarde o workflow reconstruir o aplicativo no runner Windows, executar todos os testes, gerar o pacote portátil e compilar o instalador.
 5. A release versionada só é criada se todas as etapas anteriores passarem. Se build, testes ou instalador falharem, a etapa de publicação não será executada.
 
-O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semântica `vMAJOR.MINOR.PATCH` que corresponda exatamente ao arquivo `VERSION` e a confirmação manual. O instalador publicado é `C-Deck-Setup.exe`, anexado à release daquela tag. O artefato de CI de uma Pull Request nunca é tratado como release oficial.
+O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semântica `vMAJOR.MINOR.PATCH` que corresponda exatamente ao arquivo `VERSION`, que a tag aponte para o SHA exato de `main` no momento da execução e a confirmação manual. O instalador publicado é `C-Deck-Setup.exe`, anexado à release daquela tag. O artefato de CI de uma Pull Request nunca é tratado como release oficial.
 
 ## Estrutura
 
