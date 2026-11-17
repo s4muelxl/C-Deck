@@ -2,6 +2,22 @@
 #include <assert.h>
 #include <stdio.h>
 
+static void test_stock_brush_selection_restores_previous_brush(HDC dc,
+                                                                  HGDIOBJ original_brush) {
+    HGDIOBJ previous;
+    HGDIOBJ null_brush = GetStockObject(NULL_BRUSH);
+
+    assert(null_brush != NULL && null_brush != HGDI_ERROR);
+    previous = deck_gdi_select_stock_brush(dc, null_brush);
+    assert(previous == original_brush);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == null_brush);
+    assert(deck_gdi_restore_brush(dc, previous));
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+
+    assert(deck_gdi_select_stock_brush(NULL, null_brush) == NULL);
+    assert(!deck_gdi_restore_brush(NULL, original_brush));
+}
+
 static void test_duplicate_release_is_queued_once(HDC dc,
                                                    HGDIOBJ original_brush,
                                                    HGDIOBJ original_pen) {
@@ -125,6 +141,7 @@ int main(void) {
         assert(scope.count == 0);
     }
 
+    test_stock_brush_selection_restores_previous_brush(dc, original_brush);
     test_duplicate_release_is_queued_once(dc, original_brush, original_pen);
     test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
