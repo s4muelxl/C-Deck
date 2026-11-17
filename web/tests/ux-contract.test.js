@@ -598,10 +598,10 @@ test('release version is consistent across website, desktop, installer and READM
   const desktop = fs.readFileSync(path.join(repoDir, 'src', 'interface.c'), 'utf8');
 
   assert.match(version, /^\\d+\\.\\d+\\.\\d+$/);
-  assert.match(html, new RegExp('C-Deck Official Website v' + version.replace(/\\./g, '\\\\.') ));
-  assert.match(html, new RegExp('VERSÃO ' + version.replace(/\\./g, '\\\\.') ));
-  assert.match(readme, new RegExp('Versão ' + version.replace(/\\./g, '\\\\.') + '\\\\.'));
-  assert.match(installer, new RegExp('#define AppVersion "' + version.replace(/\\./g, '\\\\.') + '"'));
-  assert.match(desktop, new RegExp('C-Deck v' + version.replace(/\\./g, '\\\\.') ));
+  assert.ok(html.includes('C-Deck Official Website v' + version));
+  assert.ok(html.includes('VERSÃO ' + version));
+  assert.ok(readme.includes('Versão ' + version + '.'));
+  assert.ok(installer.includes('#define AppVersion "' + version + '"'));
+  assert.ok(desktop.includes('C-Deck v' + version + ' · Código Aberto'));
   assert.match(html, /grade 3×3 é reduzida; o aplicativo Windows usa uma grade 5×3/);
 });
