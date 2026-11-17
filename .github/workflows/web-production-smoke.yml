@@ -1,0 +1,50 @@
+name: C-Deck Production Web Smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-production-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: c-deck-production-web-smoke
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Wait for the new production page and verify HTTP response
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://c-deck.vercel.app/"
+          CODE=""
+          for attempt in $(seq 1 24); do
+            CODE="$(curl --compressed --connect-timeout 10 --max-time 20 -sSL -o /tmp/c-deck.html -w '%{http_code}' "$URL" || true)"
+            if [ "$CODE" = "200" ] \
+              && grep -Fq 'C-Deck — Menos cliques. Mais controle.' /tmp/c-deck.html \
+              && grep -Fq 'rel="canonical" href="https://c-deck.vercel.app/"' /tmp/c-deck.html; then
+              break
+            fi
+            echo "Attempt $attempt: HTTP $CODE; waiting for Vercel production deployment."
+            sleep 10
+          done
+
+          if [ "$CODE" != "200" ] \
+            || ! grep -Fq 'C-Deck — Menos cliques. Mais controle.' /tmp/c-deck.html \
+            || ! grep -Fq 'rel="canonical" href="https://c-deck.vercel.app/"' /tmp/c-deck.html; then
+            echo "Production page did not return the expected new HTML."
+            exit 1
+          fi
+
+          ROBOTS_CODE="$(curl --compressed --connect-timeout 10 --max-time 20 -sSL -o /tmp/c-deck-robots.txt -w '%{http_code}' "$URL/robots.txt")"
+          SITEMAP_CODE="$(curl --compressed --connect-timeout 10 --max-time 20 -sSL -o /tmp/c-deck-sitemap.xml -w '%{http_code}' "$URL/sitemap.xml")"
+          test "$ROBOTS_CODE" = "200"
+          test "$SITEMAP_CODE" = "200"
+          grep -Fq 'Sitemap: https://c-deck.vercel.app/sitemap.xml' /tmp/c-deck-robots.txt
+          grep -Fq '<loc>https://c-deck.vercel.app/</loc>' /tmp/c-deck-sitemap.xml
+
+          echo "Production smoke passed: HTTP 200, expected title/canonical, robots.txt and sitemap.xml."
