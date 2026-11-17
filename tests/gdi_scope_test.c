@@ -87,6 +87,22 @@ static void test_failed_restore_retains_handle_for_retry(HDC dc,
     assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
 }
 
+static void test_restore_reports_invalid_hdc(HGDIOBJ original_brush,
+                                                   HGDIOBJ original_pen) {
+    HDC stale_dc = CreateCompatibleDC(NULL);
+    DeckGdiScope scope;
+
+    assert(stale_dc != NULL);
+    assert(DeleteDC(stale_dc));
+    deck_gdi_scope_init(&scope);
+
+    /* A non-NULL but destroyed HDC makes SelectObject return an error
+       sentinel. The restore API must report both failed selections. */
+    assert(deck_gdi_scope_restore(stale_dc, &scope,
+                                  original_brush, original_pen) >= 2u);
+    assert(scope.count == 0);
+}
+
 int main(void) {
     HDC dc = CreateCompatibleDC(NULL);
     HGDIOBJ original_brush;
@@ -147,6 +163,7 @@ int main(void) {
     test_duplicate_release_is_queued_once(dc, original_brush, original_pen);
     test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
+    test_restore_reports_invalid_hdc(original_brush, original_pen);
 
     DeleteDC(dc);
 
