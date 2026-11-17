@@ -1,4 +1,4 @@
-#include "ui_shell_layout.h"
+#include "../src/ui_shell_layout.h"
 
 #include <assert.h>
 #include <stdint.h>
