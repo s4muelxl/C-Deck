@@ -38,3 +38,10 @@ As alterações ficam restritas a \`web/\` e documentação do site. O desktop c
 - O menu móvel usa o elemento nativo `details/summary`, sem biblioteca adicional.
 - Ao escolher um destino ou pressionar Escape, o menu fecha; Escape devolve o foco ao acionador.
 - O contrato é coberto por teste unitário do script no ambiente Node.
+
+## Evidência visual automatizada
+
+- Foi adicionado `web/visual-check.cjs`, executado em Chromium headless apenas no CI.
+- A suíte verifica ausência de overflow horizontal em 10 larguras (320–1440 px), navegação móvel por seleção/Escape, canonical/JSON-LD, sitemap, robots, assets locais e erros JavaScript.
+- O workflow `C-Deck Web Visual QA` gera capturas full-page desktop (1440 px), mobile (390 px) e mobile estreito (320 px), anexadas como artefato temporário de 14 dias.
+- Playwright/Chromium é dependência exclusiva do runner; não é enviado ao site nem ao aplicativo desktop.
