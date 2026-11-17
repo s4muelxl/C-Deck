@@ -1335,26 +1335,40 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
         case 10: draw_named_icon(dc, 14, cx, cy, color); break; // Trocar Saída de Áudio (Option B)
         case 11: draw_named_icon(dc, 6, cx, cy, color); break; // Navegador Web
         case 12: { // Gerenciador de Tarefas
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
+            HPEN pulse_pen;
+            if (!old_b) break;
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 4, 4);
-            HPEN pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
-            HGDIOBJ old_p = SelectObject(dc, pulse_pen);
-            MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
-            LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
-            LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
-            SelectObject(dc, old_p);
-            DeleteObject(pulse_pen);
+            pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
+            if (pulse_pen) {
+                HGDIOBJ old_p = SelectObject(dc, pulse_pen);
+                if (old_p && old_p != HGDI_ERROR) {
+                    MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
+                    LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
+                    LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
+                    SelectObject(dc, old_p);
+                }
+                DeleteObject(pulse_pen);
+            }
+            deck_gdi_restore_brush(dc, old_b);
             break;
         }
         case 13: { // Captura de Tela
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
-            HGDIOBJ old_p = SelectObject(dc, crop_pen);
-            RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
-            MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
-            MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
-            SelectObject(dc, old_p);
-            DeleteObject(crop_pen);
+            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
+            HPEN crop_pen;
+            if (!old_b) break;
+            crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
+            if (crop_pen) {
+                HGDIOBJ old_p = SelectObject(dc, crop_pen);
+                if (old_p && old_p != HGDI_ERROR) {
+                    RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
+                    MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
+                    MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
+                    SelectObject(dc, old_p);
+                }
+                DeleteObject(crop_pen);
+            }
+            deck_gdi_restore_brush(dc, old_b);
             break;
         }
         case 14: draw_named_icon(dc, 5, cx, cy, color); break; // Configurações
