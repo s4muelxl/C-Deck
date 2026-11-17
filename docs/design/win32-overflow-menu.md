@@ -24,7 +24,10 @@ runtime, graphics framework or third-party dependency.
   mnemonic.
 - The caller reserves a 16-ID command range that fits in the low word of
   WM_COMMAND. Each menu item ID is command_id_base + source_index, so the
-  original model index survives filtering and ordering.
+  original model index survives filtering and ordering. The base is limited
+  to 1..0xFFF0; range arithmetic is performed in 64 bits before checking the
+  16-bit Windows command-ID boundary, so a large UINT cannot wrap into an
+  apparently valid low-word range.
 
 The input is rejected if an index is out of range, duplicated, has no usable
 label, or would produce an ambiguous command identifier. A partially built
