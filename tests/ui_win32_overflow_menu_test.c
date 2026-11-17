@@ -109,8 +109,15 @@ static void test_labels_and_command_ranges_are_validated(void) {
     HMENU menu = NULL;
     uint32_t source_index = 55u;
 
-    memset(long_label, L'x', DECK_UI_WIN32_OVERFLOW_MENU_LABEL_MAX_CHARS + 1u);
-    long_label[DECK_UI_WIN32_OVERFLOW_MENU_LABEL_MAX_CHARS + 1u] = L'\0';
+    {
+        size_t index;
+        for (index = 0u;
+             index < DECK_UI_WIN32_OVERFLOW_MENU_LABEL_MAX_CHARS + 1u;
+             ++index) {
+            long_label[index] = L'x';
+        }
+        long_label[DECK_UI_WIN32_OVERFLOW_MENU_LABEL_MAX_CHARS + 1u] = L'\0';
+    }
 
     input.hidden_indices = hidden;
     input.hidden_count = 1u;
