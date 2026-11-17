@@ -32,3 +32,9 @@ As alterações ficam restritas a \`web/\` e documentação do site. O desktop c
 - O workflow \`C-Deck Web UX\` executa \`node --check web/main.js\` e \`node --test web/tests/ux-contract.test.js\`.
 - A produção-base foi confirmada como \`READY\` pela API de deployments da Vercel.
 - A inspeção HTTP/renderizada direta da URL pública não pôde ser executada neste ambiente de trabalho por indisponibilidade de resolução DNS/rede. O status \`READY\` confirma o estado da plataforma, mas não substitui a checagem HTTP externa e a inspeção visual final após o deploy.
+
+## Iteração de interação móvel
+
+- O menu móvel usa o elemento nativo `details/summary`, sem biblioteca adicional.
+- Ao escolher um destino ou pressionar Escape, o menu fecha; Escape devolve o foco ao acionador.
+- O contrato é coberto por teste unitário do script no ambiente Node.
