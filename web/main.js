@@ -17,6 +17,42 @@
   // --- Web Audio Context for Subtle Haptic Sound ---
   let audioCtx = null;
   let soundEnabled = true;
+  let audioLifecycleInitialized = false;
+
+  function ignoreAudioPromise(promise) {
+    if (promise && typeof promise.catch === 'function') {
+      promise.catch(() => {});
+    }
+  }
+
+  function initAudioLifecycle() {
+    if (audioLifecycleInitialized) return;
+    audioLifecycleInitialized = true;
+
+    if (document && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden || !audioCtx || audioCtx.state === 'closed') return;
+        try {
+          ignoreAudioPromise(audioCtx.suspend());
+        } catch (e) {
+          // Audio suspension is best-effort; simulator controls remain usable.
+        }
+      });
+    }
+
+    if (window && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', () => {
+        const context = audioCtx;
+        audioCtx = null;
+        if (!context || context.state === 'closed') return;
+        try {
+          ignoreAudioPromise(context.close());
+        } catch (e) {
+          // The browser may already have closed the audio device.
+        }
+      });
+    }
+  }
 
   function playKeySound(type = 'click') {
     if (!soundEnabled) return;
@@ -24,7 +60,13 @@
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       if (!audioCtx) audioCtx = new AudioContextClass();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state === 'suspended') {
+        try {
+          ignoreAudioPromise(audioCtx.resume());
+        } catch (e) {
+          // A blocked audio device must not break simulator interactions.
+        }
+      }
 
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
@@ -95,6 +137,16 @@
   const playGlyph = document.getElementById('play-glyph');
   const playLabel = document.getElementById('play-label');
   const soundToggleBtn = document.getElementById('demo-sound-toggle');
+  const demoResetBtn = document.getElementById('demo-reset');
+
+  function getIdleStatusMessage() {
+    if (state.playing && state.muted) {
+      return 'REPRODUÇÃO SIMULADA ATIVA · MUDO ATIVO';
+    }
+    if (state.playing) return 'REPRODUÇÃO SIMULADA ATIVA';
+    if (state.muted) return 'PRONTO · MUDO ATIVO · DEMONSTRAÇÃO';
+    return 'PRONTO · MODO DEMONSTRAÇÃO';
+  }
 
   function setStatus(message) {
     if (!statusEl) return;
@@ -105,11 +157,7 @@
 
     if (state.statusTimer) clearTimeout(state.statusTimer);
     state.statusTimer = setTimeout(() => {
-      if (statusEl) {
-        statusEl.textContent = state.muted
-          ? 'PRONTO · [ MUDO ATIVO ]'
-          : 'PRONTO · C++ WIN32 NATIVO';
-      }
+      if (statusEl) statusEl.textContent = getIdleStatusMessage();
     }, 2800);
   }
 
@@ -120,16 +168,27 @@
       volumeValueEl.innerHTML = `<span class="mute-flag">MUTADO</span> ${state.volume}%`;
       volumeTrackEl.style.width = `${state.volume}%`;
       volumeTrackEl.classList.add('is-muted');
-      if (muteBtn) muteBtn.classList.add('key-active-mute');
+      if (muteBtn) {
+        muteBtn.classList.add('key-active-mute');
+        muteBtn.setAttribute('aria-pressed', 'true');
+        muteBtn.setAttribute('aria-label', 'Ativar áudio (simulação)');
+      }
     } else {
       volumeValueEl.textContent = `${state.volume}%`;
       volumeTrackEl.style.width = `${state.volume}%`;
       volumeTrackEl.classList.remove('is-muted');
-      if (muteBtn) muteBtn.classList.remove('key-active-mute');
+      if (muteBtn) {
+        muteBtn.classList.remove('key-active-mute');
+        muteBtn.setAttribute('aria-pressed', 'false');
+        muteBtn.setAttribute('aria-label', 'Silenciar áudio (simulação)');
+      }
     }
 
-    if (volumeSliderEl && document.activeElement !== volumeSliderEl) {
-      volumeSliderEl.value = state.volume;
+    if (volumeSliderEl) {
+      if (document.activeElement !== volumeSliderEl) {
+        volumeSliderEl.value = state.volume;
+      }
+      volumeSliderEl.setAttribute('aria-valuetext', `${state.volume}%${state.muted ? ', sem áudio' : ''}`);
     }
   }
 
@@ -141,14 +200,14 @@
     }
     state.volume = Math.max(0, Math.min(100, state.volume + delta));
     updateVolumeUI();
-    setStatus(`Volume ajustado para ${state.volume}%`);
+    setStatus(`Simulação: volume ajustado para ${state.volume}%`);
   }
 
   function toggleMute() {
     playKeySound('mute');
     state.muted = !state.muted;
     updateVolumeUI();
-    setStatus(state.muted ? 'Áudio silenciado (Mudo ativado)' : `Áudio restaurado em ${state.volume}%`);
+    setStatus(state.muted ? 'Simulação: áudio silenciado' : `Simulação: áudio restaurado em ${state.volume}%`);
   }
 
   function togglePlayPause() {
@@ -156,22 +215,55 @@
     state.playing = !state.playing;
     if (playGlyph) playGlyph.innerHTML = state.playing ? SVG_ICONS.pause : SVG_ICONS.play;
     if (playLabel) playLabel.textContent = state.playing ? 'PAUSAR' : 'PLAY / PAUSE';
-    if (playBtn) playBtn.classList.toggle('key-active-media', state.playing);
-    setStatus(state.playing ? 'Comando enviado: Reproduzir faixa' : 'Comando enviado: Pausar reprodução');
+    if (playBtn) {
+      playBtn.classList.toggle('key-active-media', state.playing);
+      playBtn.setAttribute('aria-pressed', state.playing ? 'true' : 'false');
+      playBtn.setAttribute('aria-label', state.playing ? 'Pausar reprodução simulada' : 'Iniciar reprodução simulada');
+    }
+    setStatus(state.playing ? 'Simulação: reprodução iniciada' : 'Simulação: reprodução pausada');
   }
 
   function triggerMediaSkip(direction) {
     playKeySound('media');
-    setStatus(direction === 'next' ? 'Comando enviado: Próxima faixa »' : 'Comando enviado: « Faixa anterior');
+    setStatus(direction === 'next' ? 'Simulação: próxima faixa' : 'Simulação: faixa anterior');
+  }
+
+  function resetDemo() {
+    dismissToast();
+    state.volume = 72;
+    state.muted = false;
+    state.playing = false;
+
+    if (playGlyph) playGlyph.innerHTML = SVG_ICONS.play;
+    if (playLabel) playLabel.textContent = 'PLAY / PAUSE';
+    if (playBtn) {
+      playBtn.classList.remove('key-active-media');
+      playBtn.setAttribute('aria-pressed', 'false');
+      playBtn.setAttribute('aria-label', 'Iniciar reprodução simulada');
+    }
+
+    updateVolumeUI();
+    setStatus('Demonstração reiniciada · valores iniciais restaurados');
   }
 
   function launchApp(name, target, isWeb) {
     playKeySound('launch');
-    setStatus(isWeb ? `Abrindo navegador padrão: ${name}` : `Iniciando aplicativo: ${name}`);
-    showToast(isWeb ? `Abrindo: ${target}` : `Executando: ${target}`, isWeb ? 'web' : 'app');
+    setStatus(isWeb ? `Simulação: abrir site ${name}` : `Simulação: abrir aplicativo ${name}`);
+    showToast(`Demonstração local · ${name}`, isWeb ? 'web' : 'app');
   }
 
   // Interactive Mini Toast inside Demo
+  let toastTimer = null;
+
+  function dismissToast() {
+    const toast = document.getElementById('demo-toast');
+    if (toast) toast.classList.remove('visible');
+    if (toastTimer !== null) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+  }
+
   function showToast(text, type) {
     let toast = document.getElementById('demo-toast');
     if (!toast) {
@@ -181,16 +273,82 @@
       const windowEl = document.querySelector('.app-window');
       if (windowEl) windowEl.appendChild(toast);
     }
+    if (toastTimer !== null) clearTimeout(toastTimer);
     toast.textContent = text;
     toast.setAttribute('data-type', type || 'info');
     toast.classList.add('visible');
-    setTimeout(() => {
+    toastTimer = setTimeout(() => {
       toast.classList.remove('visible');
+      toastTimer = null;
     }, 2200);
+  }
+
+
+  // --- Roving keyboard focus for the illustrative 3x3 web simulator ---
+  const GRID_KEY_IDS = [
+    'key-vol-down', 'key-mute', 'key-vol-up',
+    'key-prev', 'key-play', 'key-next',
+    'key-app-1', 'key-app-2', 'key-app-3'
+  ];
+
+  function initGridKeyboardNavigation() {
+    const buttons = GRID_KEY_IDS.map((id) => document.getElementById(id));
+    if (buttons.some((button) => !button)) return;
+
+    // The first key is the stable entry point; avoid reading mutable DOM state.
+    let activeIndex = 0;
+
+    function setRovingTabStop(index, moveFocus) {
+      activeIndex = index;
+      buttons.forEach((button, buttonIndex) => {
+        button.setAttribute('tabindex', buttonIndex === index ? '0' : '-1');
+      });
+      if (moveFocus && typeof buttons[index].focus === 'function') {
+        buttons[index].focus();
+      }
+    }
+
+    buttons.forEach((button, index) => {
+      button.setAttribute('tabindex', index === activeIndex ? '0' : '-1');
+      button.addEventListener('focus', () => setRovingTabStop(index, false));
+      button.addEventListener('keydown', (event) => {
+        let nextIndex = index;
+        const row = Math.floor(index / 3);
+        const column = index % 3;
+
+        switch (event.key) {
+          case 'ArrowLeft':
+            if (column > 0) nextIndex = index - 1;
+            break;
+          case 'ArrowRight':
+            if (column < 2) nextIndex = index + 1;
+            break;
+          case 'ArrowUp':
+            if (row > 0) nextIndex = index - 3;
+            break;
+          case 'ArrowDown':
+            if (row < 2) nextIndex = index + 3;
+            break;
+          case 'Home':
+            nextIndex = (event.ctrlKey || event.metaKey) ? 0 : row * 3;
+            break;
+          case 'End':
+            nextIndex = (event.ctrlKey || event.metaKey) ? buttons.length - 1 : row * 3 + 2;
+            break;
+          default:
+            return;
+        }
+
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        setRovingTabStop(nextIndex, true);
+      });
+    });
   }
 
   // --- Setup Simulator Listeners ---
   function initSimulator() {
+    initAudioLifecycle();
+
     const volDownBtn = document.getElementById('key-vol-down');
     const volUpBtn = document.getElementById('key-vol-up');
     const prevBtn = document.getElementById('key-prev');
@@ -202,6 +360,7 @@
     if (playBtn) playBtn.addEventListener('click', togglePlayPause);
     if (prevBtn) prevBtn.addEventListener('click', () => triggerMediaSkip('prev'));
     if (nextBtn) nextBtn.addEventListener('click', () => triggerMediaSkip('next'));
+    if (demoResetBtn) demoResetBtn.addEventListener('click', resetDemo);
 
     // Slots
     const slot1Btn = document.getElementById('key-app-1');
@@ -217,7 +376,7 @@
         state.volume = parseInt(e.target.value, 10) || 0;
         if (state.muted) state.muted = false;
         updateVolumeUI();
-        setStatus(`Volume: ${state.volume}%`);
+        setStatus(`Simulação: volume ${state.volume}%`);
       });
       volumeSliderEl.addEventListener('change', () => {
         playKeySound('volume');
@@ -228,13 +387,15 @@
     if (soundToggleBtn) {
       soundToggleBtn.addEventListener('click', () => {
         soundEnabled = !soundEnabled;
-        soundToggleBtn.textContent = soundEnabled ? '🔊 SOM: ON' : '🔇 SOM: OFF';
+        soundToggleBtn.textContent = soundEnabled ? 'SOM: ON' : 'SOM: OFF';
+        soundToggleBtn.setAttribute('aria-label', soundEnabled ? 'Desativar efeitos sonoros' : 'Ativar efeitos sonoros');
         soundToggleBtn.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
         soundToggleBtn.classList.toggle('sound-muted', !soundEnabled);
         if (soundEnabled) playKeySound('click');
       });
     }
 
+    initGridKeyboardNavigation();
     updateVolumeUI();
   }
 
@@ -243,7 +404,12 @@
     const faqItems = document.querySelectorAll('.faq-item');
     faqItems.forEach((item) => {
       const trigger = item.querySelector('.faq-question');
-      if (!trigger) return;
+      const answer = item.querySelector('.faq-answer');
+      if (!trigger || !answer) return;
+
+      const initiallyOpen = item.classList.contains('active');
+      trigger.setAttribute('aria-expanded', initiallyOpen ? 'true' : 'false');
+      answer.hidden = !initiallyOpen;
 
       trigger.addEventListener('click', () => {
         const isOpen = item.classList.contains('active');
@@ -251,12 +417,15 @@
           if (other !== item) {
             other.classList.remove('active');
             const otherBtn = other.querySelector('.faq-question');
+            const otherAnswer = other.querySelector('.faq-answer');
             if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+            if (otherAnswer) otherAnswer.hidden = true;
           }
         });
 
         item.classList.toggle('active', !isOpen);
         trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+        answer.hidden = isOpen;
         playKeySound('click');
       });
     });
