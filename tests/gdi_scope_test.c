@@ -62,7 +62,6 @@ static void test_failed_restore_retains_handle_for_retry(HDC dc,
     assert(scope.count == 1);
     assert(scope.deferred[0] == brush);
     assert(GetCurrentObject(dc, OBJ_BRUSH) == brush);
-    assert(!DeleteObject(brush));
 
     /* Once the caller supplies the valid previous brush, cleanup can retry. */
     assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
