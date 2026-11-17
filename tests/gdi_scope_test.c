@@ -16,6 +16,8 @@ static void test_stock_brush_selection_restores_previous_brush(HDC dc,
 
     assert(deck_gdi_select_stock_brush(NULL, null_brush) == NULL);
     assert(!deck_gdi_restore_brush(NULL, original_brush));
+    assert(!deck_gdi_restore_brush(dc, NULL));
+    assert(!deck_gdi_restore_brush(dc, HGDI_ERROR));
 }
 
 static void test_duplicate_release_is_queued_once(HDC dc,
