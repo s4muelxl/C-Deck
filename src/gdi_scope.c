@@ -46,6 +46,36 @@ int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object) {
     return DeleteObject(object) ? 1 : 0;
 }
 
+int deck_gdi_scope_select_owned(HDC dc, DeckGdiScope *scope,
+                                HGDIOBJ object, HGDIOBJ *previous_object) {
+    HGDIOBJ previous = NULL;
+    int already_queued = 0;
+
+    if (!dc || !scope || !object || object == HGDI_ERROR ||
+        scope->count > DECK_GDI_SCOPE_MAX) {
+        return 0;
+    }
+
+    for (unsigned int i = 0; i < scope->count; ++i) {
+        if (scope->deferred[i] == object) {
+            already_queued = 1;
+            break;
+        }
+    }
+    if (!already_queued && scope->count >= DECK_GDI_SCOPE_MAX) return 0;
+
+    if (!deck_gdi_select_object_checked(dc, object, &previous)) return 0;
+    if (!deck_gdi_scope_release(dc, scope, object)) {
+        /* The preflight above makes this path defensive; restore ownership
+           to the caller if queueing unexpectedly cannot be completed. */
+        (void)deck_gdi_select_object_checked(dc, previous, NULL);
+        return 0;
+    }
+
+    if (previous_object) *previous_object = previous;
+    return 1;
+}
+
 unsigned int deck_gdi_scope_restore(HDC dc, DeckGdiScope *scope,
                                     HGDIOBJ previous_brush, HGDIOBJ previous_pen) {
     HGDIOBJ pending[DECK_GDI_SCOPE_MAX];
