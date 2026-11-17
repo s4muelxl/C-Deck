@@ -892,20 +892,20 @@ static void draw_logo(HDC dc, int ox, int oy) {
     deck_gdi_scope_init(&scope);
 
     white_brush = CreateSolidBrush(COLOR_WHITE);
-    if (!white_brush || !select_owned_gdi_or_discard(dc, &scope, white_brush, &old_b)) goto cleanup;
+    if (!white_brush || !select_owned_gdi_object(dc, &scope, white_brush, &old_b)) goto cleanup;
 
     null_pen = CreatePen(PS_NULL, 0, 0);
-    if (!null_pen || !select_owned_gdi_or_discard(dc, &scope, null_pen, &old_p)) goto cleanup;
+    if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
     Polygon(dc, ribbon_pts, 12);
 
     shadow_brush = CreateSolidBrush(RGB(185, 192, 204));
     if (!shadow_brush ||
-        !select_owned_gdi_or_discard(dc, &scope, shadow_brush, &ignored_previous)) goto cleanup;
+        !select_owned_gdi_object(dc, &scope, shadow_brush, &ignored_previous)) goto cleanup;
     Polygon(dc, shadow_pts, 6);
 
     lime_brush = CreateSolidBrush(COLOR_ACCENT_LIME);
     if (!lime_brush ||
-        !select_owned_gdi_or_discard(dc, &scope, lime_brush, &ignored_previous)) goto cleanup;
+        !select_owned_gdi_object(dc, &scope, lime_brush, &ignored_previous)) goto cleanup;
     Polygon(dc, lime_pts, 4);
 
 cleanup:
@@ -933,17 +933,17 @@ static void draw_lime_glow_border(HDC dc, RECT rc, int radius) {
     if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
 
     glow_pen1 = CreatePen(PS_SOLID, 1, RGB(40, 75, 14));
-    if (!glow_pen1 || !select_owned_gdi_or_discard(dc, &scope, glow_pen1, &old_p)) goto cleanup;
+    if (!glow_pen1 || !select_owned_gdi_object(dc, &scope, glow_pen1, &old_p)) goto cleanup;
     RoundRect(dc, rc.left - 2, rc.top - 2, rc.right + 2, rc.bottom + 2, radius + 4, radius + 4);
 
     glow_pen2 = CreatePen(PS_SOLID, 1, RGB(80, 150, 18));
     if (!glow_pen2 ||
-        !select_owned_gdi_or_discard(dc, &scope, glow_pen2, &ignored_previous)) goto cleanup;
+        !select_owned_gdi_object(dc, &scope, glow_pen2, &ignored_previous)) goto cleanup;
     RoundRect(dc, rc.left - 1, rc.top - 1, rc.right + 1, rc.bottom + 1, radius + 2, radius + 2);
 
     lime_pen = CreatePen(PS_SOLID, 2, COLOR_ACCENT_LIME);
     if (!lime_pen ||
-        !select_owned_gdi_or_discard(dc, &scope, lime_pen, &ignored_previous)) goto cleanup;
+        !select_owned_gdi_object(dc, &scope, lime_pen, &ignored_previous)) goto cleanup;
     RoundRect(dc, rc.left, rc.top, rc.right, rc.bottom, radius, radius);
 
 cleanup:
@@ -1350,9 +1350,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             pen = CreatePen(PS_SOLID, 1, color);
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             brush = CreateSolidBrush(color);
-            if (!brush || !select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
             MoveToEx(dc, cx + 6, cy - 3, NULL); LineTo(dc, cx + 6, cy + 4);
@@ -1364,13 +1364,13 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             pen = CreatePen(PS_SOLID, 1, COLOR_MUTE_AMBER);
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             brush = CreateSolidBrush(COLOR_MUTE_AMBER);
-            if (!brush || !select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
             slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
             if (!slash_pen ||
-                !select_owned_gdi_or_discard(dc, &scope, slash_pen, &ignored_previous)) goto cleanup;
+                !select_owned_gdi_object(dc, &scope, slash_pen, &ignored_previous)) goto cleanup;
             MoveToEx(dc, cx - 9, cy + 9, NULL); LineTo(dc, cx + 9, cy - 9);
             break;
         }
@@ -1379,9 +1379,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             RECT p1 = { cx + 2, cy - 9, cx + 5, cy + 10 };
             RECT p2 = { cx + 7, cy - 9, cx + 10, cy + 10 };
             pen = CreatePen(PS_SOLID, 1, color);
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             brush = CreateSolidBrush(color);
-            if (!brush || !select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, play, 3);
             FillRect(dc, &p1, brush);
             FillRect(dc, &p2, brush);
@@ -1393,9 +1393,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             brush = CreateSolidBrush(color);
             if (!brush) goto cleanup;
             FillRect(dc, &bar, brush);
-            if (!select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             null_pen = CreatePen(PS_NULL, 0, 0);
-            if (!null_pen || !select_owned_gdi_or_discard(dc, &scope, null_pen, &old_p)) goto cleanup;
+            if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
             Polygon(dc, tri, 3);
             break;
         }
@@ -1403,9 +1403,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
             POINT tri[3] = { { cx - 7, cy - 9 }, { cx + 6, cy }, { cx - 7, cy + 9 } };
             RECT bar = { cx + 8, cy - 9, cx + 10, cy + 10 };
             brush = CreateSolidBrush(color);
-            if (!brush || !select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             null_pen = CreatePen(PS_NULL, 0, 0);
-            if (!null_pen || !select_owned_gdi_or_discard(dc, &scope, null_pen, &old_p)) goto cleanup;
+            if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
             Polygon(dc, tri, 3);
             FillRect(dc, &bar, brush);
             break;
@@ -1416,9 +1416,9 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
             pen = CreatePen(PS_SOLID, 1, color);
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             brush = CreateSolidBrush(color);
-            if (!brush || !select_owned_gdi_or_discard(dc, &scope, brush, &old_b)) goto cleanup;
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
             break;
@@ -1432,7 +1432,7 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
         case 12: { // Gerenciador de Tarefas
             pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
             if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 4, 4);
             MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
             LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
@@ -1442,7 +1442,7 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
         case 13: { // Captura de Tela
             pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
             if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
-            if (!pen || !select_owned_gdi_or_discard(dc, &scope, pen, &old_p)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
             MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
             MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
