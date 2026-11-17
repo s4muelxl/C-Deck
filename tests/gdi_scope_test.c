@@ -111,6 +111,11 @@ int main(void) {
         if (i == 0) before = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     }
 
+    /* Measure the repeated allocation/release loop separately from the
+       targeted recovery fixtures below, each of which checks its own scope. */
+    after = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    assert(after <= before + 1u);
+
     {
         DeckGdiScope scope;
         HBRUSH unselected = CreateSolidBrush(RGB(1, 2, 3));
@@ -124,8 +129,6 @@ int main(void) {
     test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
 
-    after = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-    assert(after <= before + 1u);
     DeleteDC(dc);
 
     puts("GDI selected-object restore, retry and resource lifetime: OK");
