@@ -588,3 +588,41 @@ test('volume slider keeps a visible keyboard focus ring in normal and forced-col
   assert.doesNotMatch(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*none/s);
   assert.match(css, /@media\s*\(forced-colors:\s*active\)[\s\S]*?\.volume-slider:focus-visible\s*\{[^}]*outline-color:\s*Highlight/s);
 });
+
+
+const robots = fs.readFileSync(path.join(webDir, 'robots.txt'), 'utf8');
+const sitemap = fs.readFileSync(path.join(webDir, 'sitemap.xml'), 'utf8');
+
+test('SEO metadata describes the public stable Windows application', () => {
+  assert.match(html, /rel="canonical" href="https:\/\/c-deck\.vercel\.app\/"/);
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /name="twitter:card"/);
+  assert.match(html, /"@type":\s*"SoftwareApplication"/);
+  assert.match(html, /"softwareVersion":\s*"1\.3\.1"/);
+  assert.match(html, /"operatingSystem":\s*"Windows 10, Windows 11"/);
+});
+
+test('robots and sitemap publish the canonical site URL', () => {
+  assert.match(robots, /User-agent:\s*\*/);
+  assert.match(robots, /Sitemap:\s*https:\/\/c-deck\.vercel\.app\/sitemap\.xml/);
+  assert.match(sitemap, /<loc>https:\/\/c-deck\.vercel\.app\/<\/loc>/);
+});
+
+test('desktop and mobile navigation point to real page sections', () => {
+  const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
+  const links = [...html.matchAll(/class="(?:nav-link|mobile-nav-link)" href="#([^"]+)"/g)];
+  assert.ok(links.length >= 8);
+  for (const [, target] of links) assert.ok(ids.has(target), 'missing navigation target: ' + target);
+  assert.match(html, /<details class="mobile-nav">/);
+  assert.match(html, /<summary aria-label="Abrir navegação">/);
+});
+
+test('the landing page avoids third-party font requests and keeps responsive breakpoints', () => {
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.match(css, /font-family:\s*var\(--sans\)/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*650px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*420px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*360px\)/);
+  assert.match(css, /min-width:\s*320px/);
+});
