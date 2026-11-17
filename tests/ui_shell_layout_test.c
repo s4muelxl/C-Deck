@@ -196,6 +196,49 @@ static void test_maximum_item_count(void) {
     assert(layout.items[15].x + layout.items[15].width <= 400);
 }
 
+
+static void test_responsive_shell_mode_breakpoints(void) {
+    static const struct {
+        int32_t width;
+        DeckUiShellMode expected;
+    } cases[] = {
+        {1360, DECK_UI_SHELL_MODE_FULL},
+        {1359, DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE},
+        {1120, DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE},
+        {1119, DECK_UI_SHELL_MODE_SIDEBAR_RAIL},
+        {900, DECK_UI_SHELL_MODE_SIDEBAR_RAIL},
+        {899, DECK_UI_SHELL_MODE_COMPACT},
+        {1, DECK_UI_SHELL_MODE_COMPACT}
+    };
+    DeckUiShellMode mode = DECK_UI_SHELL_MODE_FULL;
+    uint32_t index;
+
+    for (index = 0u; index < (uint32_t)(sizeof(cases) / sizeof(cases[0])); ++index) {
+        assert(deck_ui_shell_mode_resolve(cases[index].width, 0, &mode) ==
+               DECK_UI_SHELL_MODE_OK);
+        assert(mode == cases[index].expected);
+    }
+}
+
+static void test_responsive_shell_mode_override_and_invalid_inputs(void) {
+    DeckUiShellMode mode = DECK_UI_SHELL_MODE_SIDEBAR_RAIL;
+
+    assert(deck_ui_shell_mode_resolve(1920, 1, &mode) == DECK_UI_SHELL_MODE_OK);
+    assert(mode == DECK_UI_SHELL_MODE_COMPACT);
+
+    mode = DECK_UI_SHELL_MODE_SIDEBAR_RAIL;
+    assert(deck_ui_shell_mode_resolve(0, 0, &mode) ==
+           DECK_UI_SHELL_MODE_INVALID_ARGUMENT);
+    assert(mode == DECK_UI_SHELL_MODE_SIDEBAR_RAIL);
+
+    assert(deck_ui_shell_mode_resolve(1200, 2, &mode) ==
+           DECK_UI_SHELL_MODE_INVALID_ARGUMENT);
+    assert(mode == DECK_UI_SHELL_MODE_SIDEBAR_RAIL);
+
+    assert(deck_ui_shell_mode_resolve(1200, 0, NULL) ==
+           DECK_UI_SHELL_MODE_INVALID_ARGUMENT);
+}
+
 int main(void) {
     test_horizontal_tabs_keep_preferred_widths();
     test_horizontal_tabs_compress_deterministically();
@@ -205,6 +248,8 @@ int main(void) {
     test_invalid_dimensions_and_item_limits();
     test_large_extents_and_overflow_boundaries();
     test_maximum_item_count();
+    test_responsive_shell_mode_breakpoints();
+    test_responsive_shell_mode_override_and_invalid_inputs();
     puts("ui_shell_layout_test: all tests passed");
     return 0;
 }

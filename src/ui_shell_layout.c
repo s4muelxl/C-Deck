@@ -166,3 +166,31 @@ DeckUiShellLayoutStatus deck_ui_shell_axis_layout_compute(
     *layout = next;
     return DECK_UI_SHELL_LAYOUT_OK;
 }
+
+DeckUiShellModeStatus deck_ui_shell_mode_resolve(
+    int32_t available_width_dip,
+    int compact_requested,
+    DeckUiShellMode *mode) {
+    DeckUiShellMode resolved;
+
+    if (!mode || available_width_dip <= 0 ||
+        (compact_requested != 0 && compact_requested != 1)) {
+        return DECK_UI_SHELL_MODE_INVALID_ARGUMENT;
+    }
+
+    if (compact_requested ||
+        available_width_dip < DECK_UI_SHELL_MODE_SIDEBAR_RAIL_MIN_WIDTH_DIP) {
+        resolved = DECK_UI_SHELL_MODE_COMPACT;
+    } else if (available_width_dip <
+               DECK_UI_SHELL_MODE_INSPECTOR_MIN_WIDTH_DIP) {
+        resolved = DECK_UI_SHELL_MODE_SIDEBAR_RAIL;
+    } else if (available_width_dip <
+               DECK_UI_SHELL_MODE_FULL_MIN_WIDTH_DIP) {
+        resolved = DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE;
+    } else {
+        resolved = DECK_UI_SHELL_MODE_FULL;
+    }
+
+    *mode = resolved;
+    return DECK_UI_SHELL_MODE_OK;
+}

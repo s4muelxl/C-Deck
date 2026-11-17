@@ -70,3 +70,31 @@ paint the returned rectangles with the existing GDI renderer.
 
 No web runtime, Direct2D migration, heap allocation, or additional dependency
 is introduced.
+
+## Responsive shell composition policy
+
+`deck_ui_shell_mode_resolve` maps the available client width (in DIP) to a
+presentation composition using the initial breakpoints from
+`command-center-native.md`:
+
+- **1360 DIP and above — FULL:** complete top navigation, sidebar and inspector.
+- **1120–1359 DIP — INSPECTOR_COLLAPSIBLE:** full sidebar; inspector may be
+  collapsed to preserve workspace width.
+- **900–1119 DIP — SIDEBAR_RAIL:** sidebar becomes an icon rail and the
+  inspector is treated as a temporary panel.
+- **Below 900 DIP — COMPACT:** secondary navigation and inspector are hidden;
+  the grid/profile remain the primary workspace.
+
+An explicit compact preference overrides the width-derived mode. Widths must be
+positive; the preference must be exactly 0 or 1. Invalid arguments return
+`DECK_UI_SHELL_MODE_INVALID_ARGUMENT` without modifying the output.
+
+This resolver chooses composition only. It does not measure text, position
+controls, guarantee that a 5×3 grid fits, or change application state. The
+caller must still run the grid and axis layout contracts and enforce the
+window's supported minimum size. These thresholds are initial design values;
+they require a Windows visual smoke test at 100%, 125%, 150% and 200% DPI
+before being treated as final product behavior.
+
+Regression tests cover both sides of every threshold, the explicit compact
+override, invalid widths/preferences and output preservation.

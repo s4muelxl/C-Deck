@@ -20,6 +20,25 @@ typedef enum DeckUiShellAxis {
     DECK_UI_SHELL_AXIS_VERTICAL
 } DeckUiShellAxis;
 
+typedef enum DeckUiShellMode {
+    DECK_UI_SHELL_MODE_FULL = 0,
+    DECK_UI_SHELL_MODE_INSPECTOR_COLLAPSIBLE,
+    DECK_UI_SHELL_MODE_SIDEBAR_RAIL,
+    DECK_UI_SHELL_MODE_COMPACT
+} DeckUiShellMode;
+
+typedef enum DeckUiShellModeStatus {
+    DECK_UI_SHELL_MODE_OK = 0,
+    DECK_UI_SHELL_MODE_INVALID_ARGUMENT
+} DeckUiShellModeStatus;
+
+/* Initial responsive breakpoints from command-center-native.md, all in DIP. */
+enum {
+    DECK_UI_SHELL_MODE_FULL_MIN_WIDTH_DIP = 1360,
+    DECK_UI_SHELL_MODE_INSPECTOR_MIN_WIDTH_DIP = 1120,
+    DECK_UI_SHELL_MODE_SIDEBAR_RAIL_MIN_WIDTH_DIP = 900
+};
+
 typedef enum DeckUiShellLayoutStatus {
     DECK_UI_SHELL_LAYOUT_OK = 0,
     DECK_UI_SHELL_LAYOUT_TOO_SMALL,
@@ -45,6 +64,19 @@ typedef struct DeckUiShellAxisLayout {
     int32_t total_extent_dip;
     int compressed;
 } DeckUiShellAxisLayout;
+
+/*
+ * Resolves the shell composition from available client width in DIP.
+ * compact_requested forces compact composition at any width. Otherwise the
+ * documented breakpoints select full, collapsible-inspector, sidebar-rail or
+ * compact composition. This is a presentation policy only: downstream grid
+ * and axis layout contracts must still validate that the chosen composition
+ * fits. The output is unchanged on invalid input.
+ */
+DeckUiShellModeStatus deck_ui_shell_mode_resolve(
+    int32_t available_width_dip,
+    int compact_requested,
+    DeckUiShellMode *mode);
 
 /*
  * Lays out measured navigation items on one axis without knowing their labels
