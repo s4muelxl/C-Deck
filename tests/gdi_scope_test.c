@@ -17,8 +17,9 @@ static void test_duplicate_release_is_queued_once(HDC dc,
 
     assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
     assert(scope.count == 0);
+    /* Successful restore plus an empty deferred list proves ownership was released.
+       Do not query a freed HGDIOBJ: Windows may recycle its numeric handle. */
     assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
-    assert(GetObjectType(brush) == 0);
 }
 
 static void test_failed_restore_retains_handle_for_retry(HDC dc,
@@ -47,7 +48,6 @@ static void test_failed_restore_retains_handle_for_retry(HDC dc,
     assert(deck_gdi_scope_restore(dc, &scope, original_brush, original_pen) == 0u);
     assert(scope.count == 0);
     assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
-    assert(GetObjectType(brush) == 0);
 }
 
 int main(void) {
