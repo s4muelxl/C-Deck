@@ -1,7 +1,7 @@
 name: C-Deck Web UX
 on:
   push:
-    branches: [codex/c-deck-1.4-design]
+    branches: [codex/c-deck-1.4-design, site/c-deck-1.4-landing, site/c-deck-1.4-landing-final]
     paths:
       - 'web/**'
       - 'docs/design/**'

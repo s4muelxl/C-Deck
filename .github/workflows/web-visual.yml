@@ -1,0 +1,50 @@
+name: C-Deck Web Visual QA
+on:
+  push:
+    branches: [site/c-deck-1.4-landing, site/c-deck-1.4-landing-final]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-visual.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-visual.yml'
+permissions:
+  contents: read
+concurrency:
+  group: c-deck-web-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install Playwright for CI only
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start local static site
+        run: |
+          mkdir -p artifacts
+          python3 -m http.server 4173 --directory web > /tmp/c-deck-web.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c-deck-web.log
+          exit 1
+      - name: Check desktop, tablet and mobile layouts
+        run: node web/visual-check.cjs
+      - name: Upload responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-deck-web-visual-evidence
+          path: artifacts/*.png
+          if-no-files-found: warn
+          retention-days: 14

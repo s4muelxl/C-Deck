@@ -431,14 +431,37 @@
     });
   }
 
-  // Initialize once DOM is ready
+    // --- Native mobile navigation: close after selection and return focus on Escape ---
+  function initMobileNavigation() {
+    const menu = document.querySelector('.mobile-nav');
+    if (!menu) return;
+
+    const summary = menu.querySelector('summary');
+    const links = menu.querySelectorAll('a');
+    links.forEach((link) => {
+      link.addEventListener('click', () => {
+        menu.open = false;
+      });
+    });
+
+    menu.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !menu.open) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      menu.open = false;
+      if (summary && typeof summary.focus === 'function') summary.focus();
+    });
+  }
+
+// Initialize once DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initSimulator();
       initFAQ();
+      initMobileNavigation();
     });
   } else {
     initSimulator();
     initFAQ();
+    initMobileNavigation();
   }
 })();
