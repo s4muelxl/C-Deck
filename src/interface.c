@@ -850,63 +850,108 @@ static void layout_controls(HWND hwnd) {
 }
 
 // Draw the official faceted C-Deck logo
+static int select_owned_gdi_object(HDC dc, DeckGdiScope *scope,
+                                      HGDIOBJ object, HGDIOBJ *previous_object) {
+    if (!object || object == HGDI_ERROR) return 0;
+    /* On failure the caller still owns the handle and releases it in cleanup. */
+    return deck_gdi_scope_select_owned(dc, scope, object, previous_object);
+}
+
+static void restore_draw_gdi_scope(HDC dc, DeckGdiScope *scope,
+                                   HGDIOBJ previous_brush, HGDIOBJ previous_pen,
+                                   const wchar_t *diagnostic) {
+    if (deck_gdi_scope_restore(dc, scope, previous_brush, previous_pen) != 0u) {
+        OutputDebugStringW(diagnostic);
+    }
+}
+
+// Draw the official faceted C-Deck logo.
 static void draw_logo(HDC dc, int ox, int oy) {
     POINT ribbon_pts[] = {
         { ox + 21, oy + 1 }, { ox + 9,  oy + 1 }, { ox + 1,  oy + 8 }, { ox + 1,  oy + 15 },
         { ox + 9,  oy + 23 }, { ox + 21, oy + 23 }, { ox + 21, oy + 18 }, { ox + 11, oy + 18 },
         { ox + 6,  oy + 14 }, { ox + 6,  oy + 10 }, { ox + 11, oy + 6 }, { ox + 21, oy + 6 }
     };
-    HBRUSH white_brush = CreateSolidBrush(COLOR_WHITE);
-    HPEN null_pen = CreatePen(PS_NULL, 0, 0);
-    HGDIOBJ old_b = SelectObject(dc, white_brush);
-    HGDIOBJ old_p = SelectObject(dc, null_pen);
-    Polygon(dc, ribbon_pts, 12);
-
     POINT shadow_pts[] = {
         { ox + 1,  oy + 15 }, { ox + 9,  oy + 23 }, { ox + 21, oy + 23 },
         { ox + 21, oy + 18 }, { ox + 11, oy + 18 }, { ox + 6,  oy + 14 }
     };
-    HBRUSH shadow_brush = CreateSolidBrush(RGB(185, 192, 204));
-    SelectObject(dc, shadow_brush);
-    Polygon(dc, shadow_pts, 6);
-    SelectObject(dc, old_b);
-    DeleteObject(shadow_brush);
-
     POINT lime_pts[] = {
         { ox + 15, oy + 23 }, { ox + 22, oy + 23 }, { ox + 28, oy + 18 }, { ox + 21, oy + 18 }
     };
-    HBRUSH lime_brush = CreateSolidBrush(COLOR_ACCENT_LIME);
-    SelectObject(dc, lime_brush);
-    Polygon(dc, lime_pts, 4);
-    SelectObject(dc, old_b);
-    DeleteObject(lime_brush);
+    DeckGdiScope scope;
+    HBRUSH white_brush = NULL;
+    HBRUSH shadow_brush = NULL;
+    HBRUSH lime_brush = NULL;
+    HPEN null_pen = NULL;
+    HGDIOBJ old_b = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ ignored_previous = NULL;
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(white_brush);
-    DeleteObject(null_pen);
+    if (!dc) return;
+    deck_gdi_scope_init(&scope);
+
+    white_brush = CreateSolidBrush(COLOR_WHITE);
+    if (!white_brush || !select_owned_gdi_object(dc, &scope, white_brush, &old_b)) goto cleanup;
+
+    null_pen = CreatePen(PS_NULL, 0, 0);
+    if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
+    Polygon(dc, ribbon_pts, 12);
+
+    shadow_brush = CreateSolidBrush(RGB(185, 192, 204));
+    if (!shadow_brush ||
+        !select_owned_gdi_object(dc, &scope, shadow_brush, &ignored_previous)) goto cleanup;
+    Polygon(dc, shadow_pts, 6);
+
+    lime_brush = CreateSolidBrush(COLOR_ACCENT_LIME);
+    if (!lime_brush ||
+        !select_owned_gdi_object(dc, &scope, lime_brush, &ignored_previous)) goto cleanup;
+    Polygon(dc, lime_pts, 4);
+
+cleanup:
+    if (white_brush) (void)deck_gdi_scope_release(dc, &scope, white_brush);
+    if (shadow_brush) (void)deck_gdi_scope_release(dc, &scope, shadow_brush);
+    if (lime_brush) (void)deck_gdi_scope_release(dc, &scope, lime_brush);
+    if (null_pen) (void)deck_gdi_scope_release(dc, &scope, null_pen);
+    restore_draw_gdi_scope(dc, &scope, old_b, old_p,
+                           L"C-Deck: draw_logo could not restore every GDI object.\n");
 }
 
-// Glowing Lime Selection Border with smooth rounded corners
+// Glowing lime selection border with safe ownership of all temporary pens.
 static void draw_lime_glow_border(HDC dc, RECT rc, int radius) {
-    HPEN glow_pen1 = CreatePen(PS_SOLID, 1, RGB(40, 75, 14));
-    HGDIOBJ old_p = SelectObject(dc, glow_pen1);
-    HGDIOBJ old_b = SelectObject(dc, GetStockObject(NULL_BRUSH));
+    DeckGdiScope scope;
+    HPEN glow_pen1 = NULL;
+    HPEN glow_pen2 = NULL;
+    HPEN lime_pen = NULL;
+    HGDIOBJ old_b = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ ignored_previous = NULL;
+
+    if (!dc) return;
+    deck_gdi_scope_init(&scope);
+
+    if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
+
+    glow_pen1 = CreatePen(PS_SOLID, 1, RGB(40, 75, 14));
+    if (!glow_pen1 || !select_owned_gdi_object(dc, &scope, glow_pen1, &old_p)) goto cleanup;
     RoundRect(dc, rc.left - 2, rc.top - 2, rc.right + 2, rc.bottom + 2, radius + 4, radius + 4);
 
-    HPEN glow_pen2 = CreatePen(PS_SOLID, 1, RGB(80, 150, 18));
-    SelectObject(dc, glow_pen2);
+    glow_pen2 = CreatePen(PS_SOLID, 1, RGB(80, 150, 18));
+    if (!glow_pen2 ||
+        !select_owned_gdi_object(dc, &scope, glow_pen2, &ignored_previous)) goto cleanup;
     RoundRect(dc, rc.left - 1, rc.top - 1, rc.right + 1, rc.bottom + 1, radius + 2, radius + 2);
 
-    HPEN lime_pen = CreatePen(PS_SOLID, 2, COLOR_ACCENT_LIME);
-    SelectObject(dc, lime_pen);
+    lime_pen = CreatePen(PS_SOLID, 2, COLOR_ACCENT_LIME);
+    if (!lime_pen ||
+        !select_owned_gdi_object(dc, &scope, lime_pen, &ignored_previous)) goto cleanup;
     RoundRect(dc, rc.left, rc.top, rc.right, rc.bottom, radius, radius);
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(glow_pen1);
-    DeleteObject(glow_pen2);
-    DeleteObject(lime_pen);
+cleanup:
+    if (glow_pen1) (void)deck_gdi_scope_release(dc, &scope, glow_pen1);
+    if (glow_pen2) (void)deck_gdi_scope_release(dc, &scope, glow_pen2);
+    if (lime_pen) (void)deck_gdi_scope_release(dc, &scope, lime_pen);
+    restore_draw_gdi_scope(dc, &scope, old_b, old_p,
+                           L"C-Deck: draw_lime_glow_border could not restore every GDI object.\n");
 }
 
 // Vector Category Icons (Left Sidebar)
@@ -1278,8 +1323,17 @@ cleanup:
 
 // Drawing for 15 Keys in Canvas Grid
 static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
-    // Check if custom icon is chosen via Icon Picker
     const DeckApp *app = (idx >= 0 && idx < ID_KEY_COUNT) ? &g_config.apps[idx] : NULL;
+    DeckGdiScope scope;
+    HGDIOBJ old_b = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ ignored_previous = NULL;
+    HPEN pen = NULL;
+    HPEN slash_pen = NULL;
+    HPEN null_pen = NULL;
+    HBRUSH brush = NULL;
+
+    if (!dc) return;
 
     if (app && strncmp(app->icon_path, "icon:", 5) == 0) {
         int icon_id = atoi(app->icon_path + 5);
@@ -1287,145 +1341,124 @@ static void draw_key_icon(HDC dc, int idx, int cx, int cy, COLORREF color) {
         return;
     }
 
-    // Default icon mappings
+    deck_gdi_scope_init(&scope);
+
     switch (idx) {
         case 0: { // Volume +
-            HPEN pen = CreatePen(PS_SOLID, 1, color);
-            HBRUSH brush = CreateSolidBrush(color);
-            HGDIOBJ old_p = SelectObject(dc, pen);
-            HGDIOBJ old_b = SelectObject(dc, brush);
             POINT cone[6] = {
                 { cx - 10, cy - 4 }, { cx - 6, cy - 4 }, { cx - 1, cy - 9 },
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
+            pen = CreatePen(PS_SOLID, 1, color);
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
+            brush = CreateSolidBrush(color);
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
             MoveToEx(dc, cx + 6, cy - 3, NULL); LineTo(dc, cx + 6, cy + 4);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(pen); DeleteObject(brush);
             break;
         }
         case 1: { // Mudo Áudio
-            HPEN pen = CreatePen(PS_SOLID, 1, COLOR_MUTE_AMBER);
-            HBRUSH brush = CreateSolidBrush(COLOR_MUTE_AMBER);
-            HGDIOBJ old_p = SelectObject(dc, pen);
-            HGDIOBJ old_b = SelectObject(dc, brush);
             POINT cone[6] = {
                 { cx - 10, cy - 4 }, { cx - 6, cy - 4 }, { cx - 1, cy - 9 },
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
+            pen = CreatePen(PS_SOLID, 1, COLOR_MUTE_AMBER);
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
+            brush = CreateSolidBrush(COLOR_MUTE_AMBER);
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
-            HPEN slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
-            HGDIOBJ old_slash = SelectObject(dc, slash_pen);
+            slash_pen = CreatePen(PS_SOLID, 2, COLOR_MUTE_AMBER);
+            if (!slash_pen ||
+                !select_owned_gdi_object(dc, &scope, slash_pen, &ignored_previous)) goto cleanup;
             MoveToEx(dc, cx - 9, cy + 9, NULL); LineTo(dc, cx + 9, cy - 9);
-            SelectObject(dc, old_slash);
-            DeleteObject(slash_pen);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(pen); DeleteObject(brush);
             break;
         }
         case 2: { // Play / Pause
-            HPEN pen = CreatePen(PS_SOLID, 1, color);
-            HBRUSH brush = CreateSolidBrush(color);
-            HGDIOBJ old_p = SelectObject(dc, pen);
-            HGDIOBJ old_b = SelectObject(dc, brush);
             POINT play[3] = { { cx - 11, cy - 9 }, { cx - 2, cy }, { cx - 11, cy + 9 } };
-            Polygon(dc, play, 3);
             RECT p1 = { cx + 2, cy - 9, cx + 5, cy + 10 };
             RECT p2 = { cx + 7, cy - 9, cx + 10, cy + 10 };
+            pen = CreatePen(PS_SOLID, 1, color);
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
+            brush = CreateSolidBrush(color);
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
+            Polygon(dc, play, 3);
             FillRect(dc, &p1, brush);
             FillRect(dc, &p2, brush);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(pen); DeleteObject(brush);
             break;
         }
         case 3: { // Anterior
-            HBRUSH brush = CreateSolidBrush(color);
             RECT bar = { cx - 10, cy - 9, cx - 8, cy + 10 };
-            FillRect(dc, &bar, brush);
             POINT tri[3] = { { cx - 6, cy }, { cx + 7, cy - 9 }, { cx + 7, cy + 9 } };
-            HGDIOBJ old_b = SelectObject(dc, brush);
-            HPEN null_p = CreatePen(PS_NULL, 0, 0);
-            HGDIOBJ old_p = SelectObject(dc, null_p);
+            brush = CreateSolidBrush(color);
+            if (!brush) goto cleanup;
+            FillRect(dc, &bar, brush);
+            if (!select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
+            null_pen = CreatePen(PS_NULL, 0, 0);
+            if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
             Polygon(dc, tri, 3);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(brush); DeleteObject(null_p);
             break;
         }
         case 4: { // Próximo
-            HBRUSH brush = CreateSolidBrush(color);
             POINT tri[3] = { { cx - 7, cy - 9 }, { cx + 6, cy }, { cx - 7, cy + 9 } };
-            HGDIOBJ old_b = SelectObject(dc, brush);
-            HPEN null_p = CreatePen(PS_NULL, 0, 0);
-            HGDIOBJ old_p = SelectObject(dc, null_p);
-            Polygon(dc, tri, 3);
             RECT bar = { cx + 8, cy - 9, cx + 10, cy + 10 };
+            brush = CreateSolidBrush(color);
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
+            null_pen = CreatePen(PS_NULL, 0, 0);
+            if (!null_pen || !select_owned_gdi_object(dc, &scope, null_pen, &old_p)) goto cleanup;
+            Polygon(dc, tri, 3);
             FillRect(dc, &bar, brush);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(brush); DeleteObject(null_p);
             break;
         }
         case 5: { // Volume -
-            HPEN pen = CreatePen(PS_SOLID, 1, color);
-            HBRUSH brush = CreateSolidBrush(color);
-            HGDIOBJ old_p = SelectObject(dc, pen);
-            HGDIOBJ old_b = SelectObject(dc, brush);
             POINT cone[6] = {
                 { cx - 10, cy - 4 }, { cx - 6, cy - 4 }, { cx - 1, cy - 9 },
                 { cx - 1,  cy + 9 }, { cx - 6, cy + 4 }, { cx - 10, cy + 4 }
             };
+            pen = CreatePen(PS_SOLID, 1, color);
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
+            brush = CreateSolidBrush(color);
+            if (!brush || !select_owned_gdi_object(dc, &scope, brush, &old_b)) goto cleanup;
             Polygon(dc, cone, 6);
             MoveToEx(dc, cx + 3, cy, NULL); LineTo(dc, cx + 9, cy);
-            SelectObject(dc, old_b); SelectObject(dc, old_p);
-            DeleteObject(pen); DeleteObject(brush);
             break;
         }
         case 6: draw_named_icon(dc, 1, cx, cy, color); break; // Bloco de Notas
         case 7: draw_named_icon(dc, 2, cx, cy, color); break; // Calculadora
         case 8: draw_named_icon(dc, 3, cx, cy, color); break; // Paint
-        case 9: draw_named_icon(dc, 13, cx, cy, color); break; // Mudo Microfone (Option B)
-        case 10: draw_named_icon(dc, 14, cx, cy, color); break; // Trocar Saída de Áudio (Option B)
+        case 9: draw_named_icon(dc, 13, cx, cy, color); break; // Mudo Microfone
+        case 10: draw_named_icon(dc, 14, cx, cy, color); break; // Trocar Saída de Áudio
         case 11: draw_named_icon(dc, 6, cx, cy, color); break; // Navegador Web
         case 12: { // Gerenciador de Tarefas
-            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
-            HPEN pulse_pen;
-            if (!old_b) break;
+            pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 4, 4);
-            pulse_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
-            if (pulse_pen) {
-                HGDIOBJ old_p = SelectObject(dc, pulse_pen);
-                if (old_p && old_p != HGDI_ERROR) {
-                    MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
-                    LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
-                    LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
-                    SelectObject(dc, old_p);
-                }
-                DeleteObject(pulse_pen);
-            }
-            deck_gdi_restore_brush(dc, old_b);
+            MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx - 4, cy);
+            LineTo(dc, cx - 2, cy - 5); LineTo(dc, cx + 1, cy + 5);
+            LineTo(dc, cx + 3, cy - 2); LineTo(dc, cx + 9, cy);
             break;
         }
         case 13: { // Captura de Tela
-            HGDIOBJ old_b = deck_gdi_select_stock_brush(dc, GetStockObject(NULL_BRUSH));
-            HPEN crop_pen;
-            if (!old_b) break;
-            crop_pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
-            if (crop_pen) {
-                HGDIOBJ old_p = SelectObject(dc, crop_pen);
-                if (old_p && old_p != HGDI_ERROR) {
-                    RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
-                    MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
-                    MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
-                    SelectObject(dc, old_p);
-                }
-                DeleteObject(crop_pen);
-            }
-            deck_gdi_restore_brush(dc, old_b);
+            pen = CreatePen(PS_SOLID, 1, RGB(255, 215, 60));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), &old_b)) goto cleanup;
+            if (!pen || !select_owned_gdi_object(dc, &scope, pen, &old_p)) goto cleanup;
+            RoundRect(dc, cx - 9, cy - 7, cx + 9, cy + 7, 3, 3);
+            MoveToEx(dc, cx - 3, cy, NULL); LineTo(dc, cx + 4, cy);
+            MoveToEx(dc, cx, cy - 3, NULL); LineTo(dc, cx, cy + 4);
             break;
         }
         case 14: draw_named_icon(dc, 5, cx, cy, color); break; // Configurações
         default: draw_named_icon(dc, 0, cx, cy, color); break;
     }
+
+cleanup:
+    if (pen) (void)deck_gdi_scope_release(dc, &scope, pen);
+    if (slash_pen) (void)deck_gdi_scope_release(dc, &scope, slash_pen);
+    if (null_pen) (void)deck_gdi_scope_release(dc, &scope, null_pen);
+    if (brush) (void)deck_gdi_scope_release(dc, &scope, brush);
+    restore_draw_gdi_scope(dc, &scope, old_b, old_p,
+                           L"C-Deck: draw_key_icon could not restore every GDI object.\n");
 }
 
 static const DeckMacro *macro_for_app(const DeckApp *app) {
@@ -2358,7 +2391,7 @@ static LRESULT CALLBACK settings_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             SelectObject(dc, g_font_sub);
             SetTextColor(dc, COLOR_TEXT_DIM);
             RECT info_rc = { 30, 320, rc.right - 30, 338 };
-            DrawTextW(dc, L"C-Deck v1.3.1 · Código Aberto (MIT) · Desenvolvido em C para Windows", -1, &info_rc, DT_LEFT | DT_SINGLELINE);
+            DrawTextW(dc, L"C-Deck v1.4.0 · Código Aberto (MIT) · Desenvolvido em C para Windows", -1, &info_rc, DT_LEFT | DT_SINGLELINE);
 
             SelectObject(dc, old_f);
             EndPaint(hwnd, &ps);

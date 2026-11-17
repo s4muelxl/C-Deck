@@ -65,10 +65,10 @@ test('the page provides a skip link and a neutral interaction palette', () => {
 });
 
 
-test('landing page copy matches the verified C11 build and avoids unsupported performance promises', () => {
+test('landing page copy matches the 15-slot native C11 application and avoids unsupported performance promises', () => {
   assert.match(html, /desenvolvido em C11/);
   assert.match(html, /Win32 API/);
-  assert.match(html, /até três atalhos/);
+  assert.match(html, /configure até 15 teclas/);
   assert.doesNotMatch(html, /C\\+\\+|3 MB RAM|0% de CPU|consumo quase zero de memória|mesmo enquanto joga em tela cheia/);
   assert.match(html, /O consumo de memória e CPU varia conforme o sistema e o uso/);
 });
@@ -587,4 +587,23 @@ test('volume slider keeps a visible keyboard focus ring in normal and forced-col
   assert.match(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*2px solid #f2f4f7/s);
   assert.doesNotMatch(css, /\.volume-slider:focus-visible\s*\{[^}]*outline:\s*none/s);
   assert.match(css, /@media\s*\(forced-colors:\s*active\)[\s\S]*?\.volume-slider:focus-visible\s*\{[^}]*outline-color:\s*Highlight/s);
+});
+
+
+test('release version is consistent across website, desktop, installer and README', () => {
+  const repoDir = path.resolve(webDir, '..');
+  const version = fs.readFileSync(path.join(repoDir, 'VERSION'), 'utf8').trim();
+  const readme = fs.readFileSync(path.join(repoDir, 'README.md'), 'utf8');
+  const installer = fs.readFileSync(path.join(repoDir, 'installer', 'C-Deck.iss'), 'utf8');
+  const desktop = fs.readFileSync(path.join(repoDir, 'src', 'interface.c'), 'utf8');
+
+  const versionParts = version.split('.');
+  assert.equal(versionParts.length, 3);
+  assert.ok(versionParts.every(part => part.length > 0 && [...part].every(char => char >= '0' && char <= '9')));
+  assert.ok(html.includes('C-Deck Official Website v' + version));
+  assert.ok(html.includes('VERSÃO ' + version));
+  assert.ok(readme.includes('Versão ' + version + '.'));
+  assert.ok(installer.includes('#define AppVersion "' + version + '"'));
+  assert.ok(desktop.includes('C-Deck v' + version + ' · Código Aberto'));
+  assert.match(html, /grade 3×3 é reduzida; o aplicativo Windows usa uma grade 5×3/);
 });

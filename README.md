@@ -1,6 +1,6 @@
 # C-DECK
 
-**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.3.1.**
+**Painel de atalhos e controles estilo Stream Deck para Windows, desenvolvido em C11 e Win32 API. Versão 1.4.0.**
 
 O C-DECK reúne controles de áudio, comandos multimídia e atalhos para aplicativos e sites em um teclado virtual desktop estilo Stream Deck. A página em `web/` é a apresentação oficial do projeto; as ações do computador são executadas nativamente pelo aplicativo Windows.
 
@@ -29,11 +29,12 @@ O projeto usa duas versões oficiais da marca: o símbolo C geométrico para íc
 
 ## Baixar e executar
 
-1. Abra a aba **Actions** do repositório.
-2. Entre na execução mais recente do workflow **C-Deck CI** que terminou com sucesso.
-3. Na seção **Artifacts**, baixe `C-Deck-Windows`.
-4. Para instalação guiada, execute `C-Deck-Setup.exe`. O instalador cria um atalho no menu Iniciar e permite criar um atalho na área de trabalho.
-5. Se preferir não instalar, extraia `C-Deck-Portable.zip` para uma pasta e execute `C-Deck.exe`.
+1. Para instalação oficial, acesse [Releases](https://github.com/s4muelxl/C-Deck/releases/latest) e baixe `C-Deck-Setup.exe`.
+2. Execute o instalador. Ele cria um atalho no menu Iniciar e permite criar um atalho na área de trabalho.
+3. Para uma versão portátil de validação, abra **Actions → C-Deck CI** na branch `main`, baixe o artefato `C-Deck-Windows` e extraia `C-Deck-Portable.zip`.
+4. Execute `C-Deck.exe` mantendo-o ao lado da pasta `config`.
+
+O ZIP publicado como artefato de CI é temporário e não substitui a release oficial. A instalação oficial é distribuída pela página Releases.
 
 O pacote portátil contém:
 - `C-Deck.exe`
@@ -138,13 +139,13 @@ A CI normal **não publica releases automaticamente** quando há push em `main`.
 
 Para publicar uma versão oficial:
 
-1. Conclua a revisão humana e crie uma tag versionada no commit aprovado, no formato `vX.Y.Z` (por exemplo, `v1.4.0`).
+1. Conclua a revisão humana e crie uma tag versionada no HEAD integrado de `main`, no formato `vX.Y.Z` (por exemplo, `v1.4.0`); o sufixo numérico deve corresponder exatamente ao arquivo `VERSION`.
 2. No GitHub, abra **Actions → C-Deck Release → Run workflow** e selecione a própria tag como referência.
 3. Marque explicitamente `approve_release` somente depois de confirmar a revisão e a autorização da publicação.
 4. Aguarde o workflow reconstruir o aplicativo no runner Windows, executar todos os testes, gerar o pacote portátil e compilar o instalador.
 5. A release versionada só é criada se todas as etapas anteriores passarem. Se build, testes ou instalador falharem, a etapa de publicação não será executada.
 
-O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semântica `vMAJOR.MINOR.PATCH` e a confirmação manual. O instalador publicado é `C-Deck-Setup.exe`, anexado à release daquela tag. O artefato de CI de uma Pull Request nunca é tratado como release oficial.
+O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semântica `vMAJOR.MINOR.PATCH` que corresponda exatamente ao arquivo `VERSION`, que a tag aponte para o SHA exato de `main` no momento da execução e a confirmação manual. O instalador publicado é `C-Deck-Setup.exe`, anexado à release daquela tag. O artefato de CI de uma Pull Request nunca é tratado como release oficial.
 
 ## Estrutura
 
@@ -162,7 +163,7 @@ O workflow exige simultaneamente uma referência Git do tipo tag, uma tag semân
 - `src/macro_completion_gate.c` / `src/macro_completion_gate.h`: gate Win32 com SRWLOCK que impede o worker de postar mensagens para uma janela já encerrada.
 - `src/hotkeys.c` / `src/hotkeys.h`: reconciliação do conjunto desejado com as combinações efetivamente registradas, isolada das chamadas Win32.
 - `src/hotkeys_win32.c` / `src/hotkeys_win32.h`: adaptador Win32 de `RegisterHotKey` / `UnregisterHotKey`, com captura de `GetLastError` e liberação idempotente quando a combinação já não está registrada.
-- `src/gdi_scope.c` / `src/gdi_scope.h`: escopo de recursos GDI que adia a exclusão de brushes/pens selecionados, oferece `deck_gdi_scope_select_owned()` para selecionar e enfileirar um objeto próprio em uma única operação, deduplica handles já enfileirados mesmo se o chamador alterar o HDC antes de repetir a liberação e mantém handles pendentes quando a restauração ou `DeleteObject` falha. O módulo reconhece `NULL` e `HGDI_ERROR` como sentinelas de falha de `SelectObject` e permite nova tentativa depois de reparar o estado do HDC. Os ícones vetoriais e os ícones de categoria verificam a criação de cada pen/brush e cada seleção no HDC; em falha de alocação ou seleção, interrompem o desenho e restauram os objetos anteriores antes de liberar recursos. Os ícones que usam `NULL_BRUSH` restauram o brush anterior explicitamente. A suíte GDI cobre seleção própria com ownership, HDC inválido, retenção e nova tentativa de liberação.
+- `src/gdi_scope.c` / `src/gdi_scope.h`: escopo de recursos GDI que adia a exclusão de brushes/pens selecionados, oferece `deck_gdi_scope_select_owned()` para selecionar e enfileirar um objeto próprio em uma única operação, deduplica handles já enfileirados mesmo se o chamador alterar o HDC antes de repetir a liberação e mantém handles pendentes quando a restauração ou `DeleteObject` falha. O módulo reconhece `NULL` e `HGDI_ERROR` como sentinelas de falha de `SelectObject` e permite nova tentativa depois de reparar o estado do HDC. Os ícones vetoriais, os ícones de categoria, `draw_key_icon()`, `draw_logo()` e `draw_lime_glow_border()` verificam a criação de cada pen/brush e cada seleção no HDC; em falha de alocação ou seleção, interrompem o desenho e restauram os objetos anteriores antes de liberar recursos. O logo mantém a seleção original enquanto alterna entre os brushes de cada faceta; a borda de destaque restaura o `NULL_BRUSH` e os três pens; os ícones padrão restauram pen e brush inclusive nos casos de mute, mídia, tarefas e captura de tela. A suíte GDI cobre seleção própria com ownership, múltiplos brushes/pens, HDC inválido, retenção e nova tentativa de liberação.
 - `config/macros.cfg.example`: modelo versionado; `config/macros.cfg` é o arquivo editável do usuário.
 - `config/apps.cfg`: ações do perfil padrão; arquivos dos demais perfis e preferências são gerados no primeiro uso.
 - `tests/`: testes de configuração, migração, perfis, preferências, biblioteca, macros, resolução de caminhos Win32 longos/Unicode, conversão estrita de destinos UTF-8 para UTF-16 e despacho testável do launcher `ShellExecuteW` sem iniciar processos reais, ciclo de vida e fluxo automatizado do editor modal, política de fallback de endpoints de captura de microfone e limpeza de interfaces COM parciais, registro de hotkeys com mocks, integração real do adaptador Win32 (conflito `ERROR_HOTKEY_ALREADY_REGISTERED` e liberação idempotente) e ciclo de vida GDI, incluindo retenção e nova tentativa de exclusão quando a restauração de objetos selecionados falha.
