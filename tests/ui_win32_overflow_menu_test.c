@@ -169,37 +169,46 @@ static void test_resolve_hidden_command_rejects_stale_menu_results(void) {
     const uint32_t duplicate_indices[] = {4u, 4u};
     const uint32_t invalid_indices[] = {DECK_UI_SHELL_MAX_ITEMS};
     const UINT command_base = 0x5400u;
+    const uint16_t enabled_mask =
+        (uint16_t)((1u << 7u) | (1u << 4u) | (1u << 1u));
+    const uint16_t disabled_mask =
+        (uint16_t)((1u << 7u) | (1u << 1u));
     uint32_t source_index = 55u;
 
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 4u, command_base, current_hidden, 3u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_OK);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_OK);
     assert(source_index == 4u);
 
     source_index = 55u;
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 4u, command_base, after_resize, 2u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND);
+    assert(source_index == 55u);
+
+    assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
+               command_base + 4u, command_base, current_hidden, 3u,
+               disabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_DISABLED);
     assert(source_index == 55u);
 
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 4u, command_base, NULL, 0u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND);
     assert(source_index == 55u);
 
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 4u, command_base, duplicate_indices, 2u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
     assert(source_index == 55u);
 
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 4u, command_base, invalid_indices, 1u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_INVALID_ARGUMENT);
     assert(source_index == 55u);
 
     assert(deck_ui_win32_overflow_menu_resolve_hidden_command(
                command_base + 20u, command_base, current_hidden, 3u,
-               &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_NOT_FOUND);
+               enabled_mask, &source_index) == DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_NOT_FOUND);
     assert(source_index == 55u);
 }
 

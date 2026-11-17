@@ -146,6 +146,7 @@ DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_resolve_hidden_command
     UINT command_id_base,
     const uint32_t *current_hidden_indices,
     uint32_t current_hidden_count,
+    uint16_t current_enabled_mask,
     uint32_t *source_index) {
     uint32_t resolved;
     uint32_t position;
@@ -179,6 +180,9 @@ DeckUiWin32OverflowMenuStatus deck_ui_win32_overflow_menu_resolve_hidden_command
     }
 
     if (!is_still_hidden) return DECK_UI_WIN32_OVERFLOW_MENU_STALE_COMMAND;
+    if ((current_enabled_mask & (uint16_t)(1u << resolved)) == 0u) {
+        return DECK_UI_WIN32_OVERFLOW_MENU_COMMAND_DISABLED;
+    }
 
     *source_index = resolved;
     return DECK_UI_WIN32_OVERFLOW_MENU_OK;

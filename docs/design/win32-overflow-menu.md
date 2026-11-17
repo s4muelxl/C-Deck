@@ -48,7 +48,8 @@ commands. The production WndProc remains the owner of the menu lifecycle:
 5. Resolve the returned command ID with
    deck_ui_win32_overflow_menu_resolve_hidden_command, passing the current
    hidden_indices list. The helper rejects a command if a resize or model
-   update made that item visible or removed it while the popup was open.
+   update made that item visible, removed it or disabled it while the popup was
+   open.
 6. Emit a navigation intent only when the helper returns OK. Do not execute
    the slot action.
 7. Call DestroyMenu on every path after creation.
@@ -63,8 +64,8 @@ tests/ui_win32_overflow_menu_test.c runs on the Windows CI runner. It creates
 and inspects a real popup-menu handle without displaying a window, verifies
 Unicode labels, original source IDs, enabled/disabled states, reverse mapping,
 invalid/duplicate indices, ampersand escaping, control-character rejection,
-UTF-16 surrogate validation, label bounds, stale-command rejection and 16-bit
-command-range validation.
+UTF-16 surrogate validation, label bounds, stale-command and current-enabled-state rejection, plus 16-bit command-range
+validation.
 
 This is a resource/API contract test, not a manual visual inspection of the
 popup on a desktop session. The adapter is not yet connected to the production
