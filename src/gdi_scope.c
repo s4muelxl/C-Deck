@@ -5,6 +5,19 @@ void deck_gdi_scope_init(DeckGdiScope *scope) {
     if (scope) memset(scope, 0, sizeof(*scope));
 }
 
+HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush) {
+    HGDIOBJ previous;
+    if (!dc || !stock_brush || stock_brush == HGDI_ERROR) return NULL;
+    previous = SelectObject(dc, stock_brush);
+    if (!previous || previous == HGDI_ERROR) return NULL;
+    return previous;
+}
+
+int deck_gdi_restore_brush(HDC dc, HGDIOBJ previous_brush) {
+    if (!dc || !previous_brush || previous_brush == HGDI_ERROR) return 0;
+    return SelectObject(dc, previous_brush) != HGDI_ERROR;
+}
+
 int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object) {
     if (!object || object == HGDI_ERROR) return 0;
 
