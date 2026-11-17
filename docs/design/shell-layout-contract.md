@@ -123,3 +123,32 @@ values from silently forcing compact mode.
 Regression tests exercise both sides of all shell breakpoints, verify the
 shell/layout mode mapping and 15-slot validation, test explicit compact
 override, and verify unchanged output for too-small or invalid requests.
+
+
+## Overflow-aware navigation
+
+`deck_ui_shell_overflow_layout_compute` adds a deterministic overflow
+policy for top-bar tabs and contextual sidebar lists when the complete list
+cannot fit even at its minimum item extents.
+
+- The active item is always retained. If there is no active item, the first
+  source item is retained.
+- Remaining items are admitted in source order while their minimum extents and
+  gaps fit beside the overflow affordance.
+- Visible items are passed through the existing proportional compression
+  algorithm; hidden source indices are returned in their original order.
+- The overflow affordance is pinned to the trailing edge (right for horizontal
+  navigation, bottom for vertical navigation).
+- If the complete list can fit at minimum extents, the existing compression
+  layout is used and no overflow affordance is reserved.
+- A single-item list never creates an overflow affordance.
+
+The result is geometry only. The caller remains responsible for drawing the
+overflow control, opening a menu containing the returned hidden indices,
+preserving semantic labels and wiring keyboard access. The helper does not
+change application selection or execute commands. It is fixed-size, capped at
+16 items, allocation-free and transactional on errors.
+
+Regression coverage includes active-item retention, source-order admission,
+horizontal and vertical trailing placement, compression before hiding,
+single-item behavior, too-small bounds and invalid-input output preservation.
