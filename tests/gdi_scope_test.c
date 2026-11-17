@@ -82,8 +82,6 @@ int main(void) {
     assert(original_brush != NULL && original_brush != HGDI_ERROR);
     assert(original_pen != NULL && original_pen != HGDI_ERROR);
 
-    before = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-
     for (unsigned int i = 0; i < 500; ++i) {
         DeckGdiScope scope;
         HBRUSH brush = CreateSolidBrush(RGB((i * 13u) & 0xffu,
@@ -108,6 +106,9 @@ int main(void) {
         assert(scope.count == 0);
         assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
         assert(GetCurrentObject(dc, OBJ_PEN) == original_pen);
+
+        /* The first GDI operations may initialize process-local caches. */
+        if (i == 0) before = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
     }
 
     {
