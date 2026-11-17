@@ -992,27 +992,50 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
     DeleteObject(brush);
 }
 
-// Built-in Vector Icon Library for Gallery & Keys
-static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
+static int select_icon_object(HDC dc, DeckGdiScope static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color) {
     DeckGdiScope scope;
+    HPEN pen = NULL;
+    HBRUSH brush = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ old_b = NULL;
+
+    if (!dc) return;
     deck_gdi_scope_init(&scope);
-    HPEN pen = CreatePen(PS_SOLID, 1, color);
-    HBRUSH brush = CreateSolidBrush(color);
-    HGDIOBJ old_p = SelectObject(dc, pen);
-    HGDIOBJ old_b = SelectObject(dc, brush);
+
+    pen = CreatePen(PS_SOLID, 1, color);
+    if (!pen) goto cleanup;
+    brush = CreateSolidBrush(color);
+    if (!brush) goto cleanup;
+
+    if (!select_icon_object(dc, &scope, pen, 0, &old_p)) goto cleanup;
+    if (!select_icon_object(dc, &scope, brush, 0, &old_b)) goto cleanup;
+
+#define ICON_CREATE_BRUSH(name, value) \
+    HBRUSH name = CreateSolidBrush(value); \
+    if (!(name)) goto cleanup
+#define ICON_CREATE_PEN(name, width, value) \
+    HPEN name = CreatePen(PS_SOLID, width, value); \
+    if (!(name)) goto cleanup
+#define ICON_SELECT_OWNED(object) do { \
+    if (!select_icon_object(dc, &scope, (HGDIOBJ)(object), 1, NULL)) goto cleanup; \
+    if (!deck_gdi_scope_release(dc, &scope, (HGDIOBJ)(object))) goto cleanup; \
+} while (0)
+#define ICON_SELECT_STOCK(object) do { \
+    if (!deck_gdi_select_object_checked(dc, (HGDIOBJ)(object), NULL)) goto cleanup; \
+} while (0)
 
     switch (icon_id) {
         case 1: { // Bloco de Notas
-            HBRUSH paper_br = CreateSolidBrush(RGB(240, 244, 250));
-            SelectObject(dc, paper_br);
+            ICON_CREATE_BRUSH(paper_br, RGB(240, 244, 250));
+            ICON_SELECT_OWNED(paper_br);
             RoundRect(dc, cx - 11, cy - 13, cx + 11, cy + 13, 4, 4);
             deck_gdi_scope_release(dc, &scope, paper_br);
-            HBRUSH blue_br = CreateSolidBrush(RGB(74, 144, 226));
+            ICON_CREATE_BRUSH(blue_br, RGB(74, 144, 226));
             RECT hdr = { cx - 11, cy - 13, cx + 11, cy - 7 };
             FillRect(dc, &hdr, blue_br);
             deck_gdi_scope_release(dc, &scope, blue_br);
-            HPEN line_pen = CreatePen(PS_SOLID, 1, RGB(180, 192, 208));
-            SelectObject(dc, line_pen);
+            ICON_CREATE_PEN(line_pen, 1, RGB(180, 192, 208));
+            ICON_SELECT_OWNED(line_pen);
             MoveToEx(dc, cx - 7, cy - 2, NULL); LineTo(dc, cx + 7, cy - 2);
             MoveToEx(dc, cx - 7, cy + 3, NULL); LineTo(dc, cx + 7, cy + 3);
             MoveToEx(dc, cx - 7, cy + 8, NULL); LineTo(dc, cx + 4, cy + 8);
@@ -1020,19 +1043,19 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 2: { // Calculadora
-            HBRUSH calc_br = CreateSolidBrush(RGB(50, 58, 72));
-            HPEN calc_pen = CreatePen(PS_SOLID, 1, RGB(75, 88, 108));
-            SelectObject(dc, calc_br);
-            SelectObject(dc, calc_pen);
+            ICON_CREATE_BRUSH(calc_br, RGB(50, 58, 72));
+            ICON_CREATE_PEN(calc_pen, 1, RGB(75, 88, 108));
+            ICON_SELECT_OWNED(calc_br);
+            ICON_SELECT_OWNED(calc_pen);
             RoundRect(dc, cx - 10, cy - 13, cx + 10, cy + 13, 6, 6);
             deck_gdi_scope_release(dc, &scope, calc_br);
             deck_gdi_scope_release(dc, &scope, calc_pen);
-            HBRUSH lcd_br = CreateSolidBrush(RGB(145, 168, 188));
+            ICON_CREATE_BRUSH(lcd_br, RGB(145, 168, 188));
             RECT lcd = { cx - 7, cy - 10, cx + 7, cy - 5 };
             FillRect(dc, &lcd, lcd_br);
             deck_gdi_scope_release(dc, &scope, lcd_br);
-            HBRUSH btn_br = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, btn_br);
+            ICON_CREATE_BRUSH(btn_br, COLOR_WHITE);
+            ICON_SELECT_OWNED(btn_br);
             for (int r = 0; r < 2; ++r) {
                 for (int c = 0; c < 3; ++c) {
                     RECT b = { cx - 6 + c * 5, cy - 1 + r * 5, cx - 3 + c * 5, cy + 2 + r * 5 };
@@ -1043,31 +1066,31 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 3: { // Paint
-            HBRUSH pal_br = CreateSolidBrush(RGB(244, 246, 250));
-            SelectObject(dc, pal_br);
+            ICON_CREATE_BRUSH(pal_br, RGB(244, 246, 250));
+            ICON_SELECT_OWNED(pal_br);
             Ellipse(dc, cx - 13, cy - 9, cx + 13, cy + 9);
             deck_gdi_scope_release(dc, &scope, pal_br);
-            HBRUSH hole_br = CreateSolidBrush(RGB(25, 28, 35));
-            SelectObject(dc, hole_br);
+            ICON_CREATE_BRUSH(hole_br, RGB(25, 28, 35));
+            ICON_SELECT_OWNED(hole_br);
             Ellipse(dc, cx + 4, cy + 1, cx + 8, cy + 5);
             deck_gdi_scope_release(dc, &scope, hole_br);
-            HBRUSH r_br = CreateSolidBrush(RGB(245, 60, 60));
-            SelectObject(dc, r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); deck_gdi_scope_release(dc, &scope, r_br);
-            HBRUSH y_br = CreateSolidBrush(RGB(255, 205, 30));
-            SelectObject(dc, y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); deck_gdi_scope_release(dc, &scope, y_br);
-            HBRUSH g_br = CreateSolidBrush(COLOR_ACCENT_LIME);
-            SelectObject(dc, g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); deck_gdi_scope_release(dc, &scope, g_br);
-            HBRUSH b_br = CreateSolidBrush(RGB(40, 140, 255));
-            SelectObject(dc, b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); deck_gdi_scope_release(dc, &scope, b_br);
-            HPEN brush_pen = CreatePen(PS_SOLID, 2, RGB(195, 140, 85));
-            SelectObject(dc, brush_pen);
+            ICON_CREATE_BRUSH(r_br, RGB(245, 60, 60));
+            ICON_SELECT_OWNED(r_br); Ellipse(dc, cx - 8, cy - 5, cx - 4, cy - 1); deck_gdi_scope_release(dc, &scope, r_br);
+            ICON_CREATE_BRUSH(y_br, RGB(255, 205, 30));
+            ICON_SELECT_OWNED(y_br); Ellipse(dc, cx - 3, cy - 8, cx + 1, cy - 4); deck_gdi_scope_release(dc, &scope, y_br);
+            ICON_CREATE_BRUSH(g_br, COLOR_ACCENT_LIME);
+            ICON_SELECT_OWNED(g_br); Ellipse(dc, cx + 3, cy - 7, cx + 7, cy - 3); deck_gdi_scope_release(dc, &scope, g_br);
+            ICON_CREATE_BRUSH(b_br, RGB(40, 140, 255));
+            ICON_SELECT_OWNED(b_br); Ellipse(dc, cx - 7, cy + 2, cx - 3, cy + 6); deck_gdi_scope_release(dc, &scope, b_br);
+            ICON_CREATE_PEN(brush_pen, 2, RGB(195, 140, 85));
+            ICON_SELECT_OWNED(brush_pen);
             MoveToEx(dc, cx + 9, cy - 12, NULL); LineTo(dc, cx - 2, cy + 6);
             deck_gdi_scope_release(dc, &scope, brush_pen);
             break;
         }
         case 4: { // Pasta
-            HBRUSH f_br = CreateSolidBrush(RGB(240, 244, 250));
-            SelectObject(dc, f_br);
+            ICON_CREATE_BRUSH(f_br, RGB(240, 244, 250));
+            ICON_SELECT_OWNED(f_br);
             POINT tab[4] = { { cx - 11, cy - 9 }, { cx - 4, cy - 9 }, { cx - 2, cy - 6 }, { cx - 11, cy - 6 } };
             Polygon(dc, tab, 4);
             RoundRect(dc, cx - 12, cy - 6, cx + 12, cy + 8, 4, 4);
@@ -1075,10 +1098,10 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 5: { // Terminal / Prompt
-            HBRUSH kb_br = CreateSolidBrush(RGB(20, 24, 30));
-            HPEN kb_pen = CreatePen(PS_SOLID, 1, COLOR_ACCENT_LIME);
-            SelectObject(dc, kb_br);
-            SelectObject(dc, kb_pen);
+            ICON_CREATE_BRUSH(kb_br, RGB(20, 24, 30));
+            ICON_CREATE_PEN(kb_pen, 1, COLOR_ACCENT_LIME);
+            ICON_SELECT_OWNED(kb_br);
+            ICON_SELECT_OWNED(kb_pen);
             RoundRect(dc, cx - 12, cy - 9, cx + 12, cy + 9, 3, 3);
             MoveToEx(dc, cx - 8, cy - 4, NULL); LineTo(dc, cx - 4, cy); LineTo(dc, cx - 8, cy + 4);
             MoveToEx(dc, cx - 2, cy + 4, NULL); LineTo(dc, cx + 4, cy + 4);
@@ -1087,9 +1110,9 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 6: { // Navegador Web (Globe)
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN globe_pen = CreatePen(PS_SOLID, 1, RGB(90, 180, 255));
-            SelectObject(dc, globe_pen);
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
+            ICON_CREATE_PEN(globe_pen, 1, RGB(90, 180, 255));
+            ICON_SELECT_OWNED(globe_pen);
             Ellipse(dc, cx - 9, cy - 9, cx + 9, cy + 9);
             MoveToEx(dc, cx - 9, cy, NULL); LineTo(dc, cx + 9, cy);
             Ellipse(dc, cx - 4, cy - 9, cx + 4, cy + 9);
@@ -1097,7 +1120,7 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 7: { // Spotify / Música (Nota musical)
-            SelectObject(dc, brush);
+            
             Ellipse(dc, cx - 8, cy + 3, cx - 2, cy + 8);
             Ellipse(dc, cx + 3, cy, cx + 9, cy + 5);
             RECT st1 = { cx - 4, cy - 7, cx - 2, cy + 5 }; FillRect(dc, &st1, brush);
@@ -1107,11 +1130,11 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 8: { // Discord
-            HBRUSH d_br = CreateSolidBrush(RGB(88, 101, 242));
-            SelectObject(dc, d_br);
+            ICON_CREATE_BRUSH(d_br, RGB(88, 101, 242));
+            ICON_SELECT_OWNED(d_br);
             RoundRect(dc, cx - 11, cy - 8, cx + 11, cy + 8, 6, 6);
-            HBRUSH eye_br = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, eye_br);
+            ICON_CREATE_BRUSH(eye_br, COLOR_WHITE);
+            ICON_SELECT_OWNED(eye_br);
             Ellipse(dc, cx - 6, cy - 2, cx - 2, cy + 2);
             Ellipse(dc, cx + 2, cy - 2, cx + 6, cy + 2);
             deck_gdi_scope_release(dc, &scope, eye_br);
@@ -1119,8 +1142,8 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 9: { // OBS Studio (Stream Camera)
-            HBRUSH cam_br = CreateSolidBrush(RGB(50, 60, 75));
-            SelectObject(dc, cam_br);
+            ICON_CREATE_BRUSH(cam_br, RGB(50, 60, 75));
+            ICON_SELECT_OWNED(cam_br);
             RoundRect(dc, cx - 10, cy - 7, cx + 4, cy + 7, 4, 4);
             POINT lens[3] = { { cx + 5, cy - 5 }, { cx + 11, cy - 8 }, { cx + 11, cy + 8 } };
             Polygon(dc, lens, 3);
@@ -1128,11 +1151,11 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 10: { // Steam (Game Controller)
-            HBRUSH pad_br = CreateSolidBrush(RGB(35, 45, 60));
-            SelectObject(dc, pad_br);
+            ICON_CREATE_BRUSH(pad_br, RGB(35, 45, 60));
+            ICON_SELECT_OWNED(pad_br);
             RoundRect(dc, cx - 12, cy - 6, cx + 12, cy + 7, 8, 8);
-            HPEN plus_p = CreatePen(PS_SOLID, 1, COLOR_WHITE);
-            SelectObject(dc, plus_p);
+            ICON_CREATE_PEN(plus_p, 1, COLOR_WHITE);
+            ICON_SELECT_OWNED(plus_p);
             MoveToEx(dc, cx - 7, cy, NULL); LineTo(dc, cx - 3, cy);
             MoveToEx(dc, cx - 5, cy - 2, NULL); LineTo(dc, cx - 5, cy + 3);
             deck_gdi_scope_release(dc, &scope, plus_p);
@@ -1140,8 +1163,8 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 11: { // Twitch (Chat box)
-            HBRUSH tw_br = CreateSolidBrush(RGB(145, 71, 255));
-            SelectObject(dc, tw_br);
+            ICON_CREATE_BRUSH(tw_br, RGB(145, 71, 255));
+            ICON_SELECT_OWNED(tw_br);
             POINT box[6] = { { cx - 10, cy - 9 }, { cx + 10, cy - 9 }, { cx + 10, cy + 5 }, { cx + 4, cy + 5 }, { cx, cy + 9 }, { cx - 10, cy + 5 } };
             Polygon(dc, box, 6);
             RECT e1 = { cx - 5, cy - 4, cx - 3, cy + 1 }; FillRect(dc, &e1, brush);
@@ -1150,12 +1173,12 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 12: { // YouTube (Play badge)
-            HBRUSH yt_br = CreateSolidBrush(RGB(255, 30, 30));
-            SelectObject(dc, yt_br);
+            ICON_CREATE_BRUSH(yt_br, RGB(255, 30, 30));
+            ICON_SELECT_OWNED(yt_br);
             RoundRect(dc, cx - 11, cy - 7, cx + 11, cy + 7, 6, 6);
             POINT play_p[3] = { { cx - 3, cy - 4 }, { cx + 4, cy }, { cx - 3, cy + 4 } };
-            HBRUSH white_b = CreateSolidBrush(COLOR_WHITE);
-            SelectObject(dc, white_b);
+            ICON_CREATE_BRUSH(white_b, COLOR_WHITE);
+            ICON_SELECT_OWNED(white_b);
             Polygon(dc, play_p, 3);
             deck_gdi_scope_release(dc, &scope, white_b);
             deck_gdi_scope_release(dc, &scope, yt_br);
@@ -1167,18 +1190,18 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             COLORREF m_col = (mic_status == ACTION_SUCCESS)
                 ? (mic_muted ? COLOR_MIC_MUTED : color)
                 : COLOR_TEXT_DIM;
-            HPEN m_pen = CreatePen(PS_SOLID, 1, m_col);
-            HBRUSH m_br = CreateSolidBrush(m_col);
-            SelectObject(dc, m_pen);
-            SelectObject(dc, m_br);
+            ICON_CREATE_PEN(m_pen, 1, m_col);
+            ICON_CREATE_BRUSH(m_br, m_col);
+            ICON_SELECT_OWNED(m_pen);
+            ICON_SELECT_OWNED(m_br);
             RoundRect(dc, cx - 3, cy - 9, cx + 3, cy + 2, 4, 4);
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
             Arc(dc, cx - 6, cy - 5, cx + 6, cy + 5, cx + 6, cy, cx - 6, cy);
             MoveToEx(dc, cx, cy + 5, NULL); LineTo(dc, cx, cy + 9);
             MoveToEx(dc, cx - 4, cy + 9, NULL); LineTo(dc, cx + 4, cy + 9);
             if (mic_muted) {
-                HPEN slash = CreatePen(PS_SOLID, 2, COLOR_MIC_MUTED);
-                SelectObject(dc, slash);
+                ICON_CREATE_PEN(slash, 2, COLOR_MIC_MUTED);
+                ICON_SELECT_OWNED(slash);
                 MoveToEx(dc, cx - 8, cy + 8, NULL); LineTo(dc, cx + 8, cy - 8);
                 deck_gdi_scope_release(dc, &scope, slash);
             }
@@ -1187,13 +1210,13 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
             break;
         }
         case 14: { // Headset / Fone de Ouvido
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HPEN h_pen = CreatePen(PS_SOLID, 2, color);
-            SelectObject(dc, h_pen);
+            ICON_SELECT_STOCK(GetStockObject(NULL_BRUSH));
+            ICON_CREATE_PEN(h_pen, 2, color);
+            ICON_SELECT_OWNED(h_pen);
             Arc(dc, cx - 9, cy - 10, cx + 9, cy + 4, cx + 9, cy - 2, cx - 9, cy - 2);
             deck_gdi_scope_release(dc, &scope, h_pen);
-            HBRUSH cup = CreateSolidBrush(color);
-            SelectObject(dc, cup);
+            ICON_CREATE_BRUSH(cup, color);
+            ICON_SELECT_OWNED(cup);
             RoundRect(dc, cx - 11, cy - 3, cx - 7, cy + 6, 3, 3);
             RoundRect(dc, cx + 7, cy - 3, cx + 11, cy + 6, 3, 3);
             deck_gdi_scope_release(dc, &scope, cup);
@@ -1205,14 +1228,31 @@ static void draw_named_icon(HDC dc, int icon_id, int cx, int cy, COLORREF color)
                 { cx + 4, cy + 7 }, { cx, cy + 4 }, { cx - 4, cy + 7 }, { cx - 3, cy + 2 },
                 { cx - 7, cy - 2 }, { cx - 2, cy - 2 }
             };
-            SelectObject(dc, brush);
+            
             Polygon(dc, star, 10);
             break;
         }
         default: {
-            HPEN plus_pen = CreatePen(PS_SOLID, 1, RGB(65, 72, 85));
-            SelectObject(dc, plus_pen);
+            ICON_CREATE_PEN(plus_pen, 1, RGB(65, 72, 85));
+            ICON_SELECT_OWNED(plus_pen);
             MoveToEx(dc, cx - 4, cy, NULL); LineTo(dc, cx + 5, cy);
+            MoveToEx(dc, cx, cy - 4, NULL); LineTo(dc, cx, cy + 5);
+            deck_gdi_scope_release(dc, &scope, plus_pen);
+            break;
+        }
+    }
+
+cleanup:
+    if (deck_gdi_scope_restore(dc, &scope, old_b, old_p) != 0u) {
+        OutputDebugStringW(L"C-Deck: draw_named_icon could not restore every GDI object.\n");
+    }
+    if (pen) (void)deck_gdi_scope_release(dc, &scope, pen);
+    if (brush) (void)deck_gdi_scope_release(dc, &scope, brush);
+#undef ICON_CREATE_BRUSH
+#undef ICON_CREATE_PEN
+#undef ICON_SELECT_OWNED
+#undef ICON_SELECT_STOCK
+}NULL); LineTo(dc, cx + 5, cy);
             MoveToEx(dc, cx, cy - 4, NULL); LineTo(dc, cx, cy + 5);
             deck_gdi_scope_release(dc, &scope, plus_pen);
             break;

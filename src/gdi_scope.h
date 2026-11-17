@@ -11,6 +11,8 @@ typedef struct DeckGdiScope {
 } DeckGdiScope;
 
 void deck_gdi_scope_init(DeckGdiScope *scope);
+/* Selects an object and validates both SelectObject failure sentinels. */
+int deck_gdi_select_object_checked(HDC dc, HGDIOBJ object, HGDIOBJ *previous_object);
 /* Selects a stock brush and returns the previous brush, or NULL on failure. */
 HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush);
 /* Restores a previously selected brush without taking ownership of it. */

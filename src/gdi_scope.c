@@ -5,19 +5,23 @@ void deck_gdi_scope_init(DeckGdiScope *scope) {
     if (scope) memset(scope, 0, sizeof(*scope));
 }
 
-HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush) {
+int deck_gdi_select_object_checked(HDC dc, HGDIOBJ object, HGDIOBJ *previous_object) {
     HGDIOBJ previous;
-    if (!dc || !stock_brush || stock_brush == HGDI_ERROR) return NULL;
-    previous = SelectObject(dc, stock_brush);
-    if (!previous || previous == HGDI_ERROR) return NULL;
-    return previous;
+    if (!dc || !object || object == HGDI_ERROR) return 0;
+    previous = SelectObject(dc, object);
+    if (!previous || previous == HGDI_ERROR) return 0;
+    if (previous_object) *previous_object = previous;
+    return 1;
+}
+
+HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush) {
+    HGDIOBJ previous = NULL;
+    return deck_gdi_select_object_checked(dc, stock_brush, &previous) ? previous : NULL;
 }
 
 int deck_gdi_restore_brush(HDC dc, HGDIOBJ previous_brush) {
-    HGDIOBJ replaced;
     if (!dc || !previous_brush || previous_brush == HGDI_ERROR) return 0;
-    replaced = SelectObject(dc, previous_brush);
-    return replaced != NULL && replaced != HGDI_ERROR;
+    return deck_gdi_select_object_checked(dc, previous_brush, NULL);
 }
 
 int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object) {

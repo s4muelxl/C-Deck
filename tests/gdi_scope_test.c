@@ -18,6 +18,16 @@ static void test_stock_brush_selection_restores_previous_brush(HDC dc,
     assert(!deck_gdi_restore_brush(NULL, original_brush));
     assert(!deck_gdi_restore_brush(dc, NULL));
     assert(!deck_gdi_restore_brush(dc, HGDI_ERROR));
+
+    {
+        HDC stale_dc = CreateCompatibleDC(NULL);
+        assert(stale_dc != NULL);
+        assert(DeleteDC(stale_dc));
+        assert(!deck_gdi_select_object_checked(stale_dc, null_brush, NULL));
+        assert(!deck_gdi_select_object_checked(dc, NULL, NULL));
+        assert(!deck_gdi_select_object_checked(dc, HGDI_ERROR, NULL));
+        assert(!deck_gdi_restore_brush(stale_dc, original_brush));
+    }
 }
 
 static void test_duplicate_release_is_queued_once(HDC dc,
