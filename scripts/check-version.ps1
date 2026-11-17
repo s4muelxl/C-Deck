@@ -7,7 +7,7 @@ if ($version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 $checks = @(
-    @{ Path = "README.md"; Pattern = "Versão $version\." },
+    @{ Path = "README.md"; Pattern = "Versão $([regex]::Escape($version))\." },
     @{ Path = "installer/C-Deck.iss"; Pattern = '#define AppVersion "' + [regex]::Escape($version) + '"' },
     @{ Path = "src/interface.c"; Pattern = "C-Deck v$([regex]::Escape($version)) · Código Aberto" },
     @{ Path = "web/index.html"; Pattern = "C-Deck Official Website v$([regex]::Escape($version))" },
