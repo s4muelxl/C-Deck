@@ -911,10 +911,22 @@ static void draw_lime_glow_border(HDC dc, RECT rc, int radius) {
 
 // Vector Category Icons (Left Sidebar)
 static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
-    HPEN pen = CreatePen(PS_SOLID, 1, color);
-    HBRUSH brush = CreateSolidBrush(color);
-    HGDIOBJ old_p = SelectObject(dc, pen);
-    HGDIOBJ old_b = SelectObject(dc, brush);
+    DeckGdiScope scope;
+    HPEN pen = NULL;
+    HBRUSH brush = NULL;
+    HGDIOBJ old_p = NULL;
+    HGDIOBJ old_b = NULL;
+
+    if (!dc) return;
+    deck_gdi_scope_init(&scope);
+
+    pen = CreatePen(PS_SOLID, 1, color);
+    if (!pen) goto cleanup;
+    brush = CreateSolidBrush(color);
+    if (!brush) goto cleanup;
+
+    if (!deck_gdi_scope_select_owned(dc, &scope, pen, &old_p)) goto cleanup;
+    if (!deck_gdi_scope_select_owned(dc, &scope, brush, &old_b)) goto cleanup;
 
     switch (id) {
         case ID_LIB_FAVORITES: {
@@ -923,12 +935,12 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
                 { cx + 4, cy + 7 }, { cx, cy + 4 }, { cx - 4, cy + 7 }, { cx - 3, cy + 2 },
                 { cx - 7, cy - 2 }, { cx - 2, cy - 2 }
             };
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Polygon(dc, star, 10);
             break;
         }
         case ID_LIB_SYSTEM: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Ellipse(dc, cx - 6, cy - 6, cx + 6, cy + 6);
             Ellipse(dc, cx - 2, cy - 2, cx + 2, cy + 2);
             for (int a = 0; a < 6; ++a) {
@@ -961,7 +973,7 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
             RECT q2 = { cx + 1, cy - 6, cx + 6, cy - 1 };
             RECT q3 = { cx - 6, cy + 1, cx - 1, cy + 6 };
             RECT q4 = { cx + 1, cy + 1, cx + 6, cy + 6 };
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             RoundRect(dc, q1.left, q1.top, q1.right, q1.bottom, 2, 2);
             RoundRect(dc, q2.left, q2.top, q2.right, q2.bottom, 2, 2);
             RoundRect(dc, q3.left, q3.top, q3.right, q3.bottom, 2, 2);
@@ -969,27 +981,27 @@ static void draw_category_icon(HDC dc, int id, int cx, int cy, COLORREF color) {
             break;
         }
         case ID_LIB_NAVIGATION: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             Ellipse(dc, cx - 7, cy - 7, cx + 7, cy + 7);
             POINT needle1[3] = { { cx, cy }, { cx + 4, cy - 4 }, { cx - 1, cy - 3 } };
             POINT needle2[3] = { { cx, cy }, { cx - 4, cy + 4 }, { cx + 1, cy + 3 } };
-            SelectObject(dc, brush);
+            if (!deck_gdi_select_object_checked(dc, brush, NULL)) goto cleanup;
             Polygon(dc, needle1, 3);
             Polygon(dc, needle2, 3);
             break;
         }
         case ID_LIB_MULTIACTION: {
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if (!deck_gdi_select_object_checked(dc, GetStockObject(NULL_BRUSH), NULL)) goto cleanup;
             RoundRect(dc, cx - 6, cy - 3, cx + 2, cy + 6, 2, 2);
             RoundRect(dc, cx - 2, cy - 6, cx + 6, cy + 2, 2, 2);
             break;
         }
     }
 
-    SelectObject(dc, old_b);
-    SelectObject(dc, old_p);
-    DeleteObject(pen);
-    DeleteObject(brush);
+cleanup:
+    if (pen) (void)deck_gdi_scope_release(dc, &scope, pen);
+    if (brush) (void)deck_gdi_scope_release(dc, &scope, brush);
+    (void)deck_gdi_scope_restore(dc, &scope, old_b, old_p);
 }
 
 static int select_icon_object(HDC dc, DeckGdiScope *scope,
