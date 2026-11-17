@@ -14,8 +14,10 @@ HGDIOBJ deck_gdi_select_stock_brush(HDC dc, HGDIOBJ stock_brush) {
 }
 
 int deck_gdi_restore_brush(HDC dc, HGDIOBJ previous_brush) {
+    HGDIOBJ replaced;
     if (!dc || !previous_brush || previous_brush == HGDI_ERROR) return 0;
-    return SelectObject(dc, previous_brush) != HGDI_ERROR;
+    replaced = SelectObject(dc, previous_brush);
+    return replaced != NULL && replaced != HGDI_ERROR;
 }
 
 int deck_gdi_scope_release(HDC dc, DeckGdiScope *scope, HGDIOBJ object) {
