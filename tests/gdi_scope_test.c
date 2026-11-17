@@ -30,6 +30,40 @@ static void test_stock_brush_selection_restores_previous_brush(HDC dc,
     }
 }
 
+static void test_owned_selection_is_queued_and_restored(HDC dc,
+                                                            HGDIOBJ original_brush,
+                                                            HGDIOBJ original_pen) {
+    DeckGdiScope scope;
+    HBRUSH brush = CreateSolidBrush(RGB(13, 27, 41));
+    HGDIOBJ previous = NULL;
+
+    assert(brush != NULL);
+    deck_gdi_scope_init(&scope);
+    assert(deck_gdi_scope_select_owned(dc, &scope, brush, &previous));
+    assert(previous == original_brush);
+    assert(scope.count == 1u && scope.deferred[0] == brush);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == brush);
+
+    assert(deck_gdi_scope_restore(dc, &scope, previous, original_pen) == 0u);
+    assert(scope.count == 0u);
+    assert(GetCurrentObject(dc, OBJ_BRUSH) == original_brush);
+}
+
+static void test_owned_selection_rejects_invalid_hdc(void) {
+    HDC stale_dc = CreateCompatibleDC(NULL);
+    HBRUSH brush = CreateSolidBrush(RGB(17, 29, 43));
+    DeckGdiScope scope;
+
+    assert(stale_dc != NULL && brush != NULL);
+    assert(DeleteDC(stale_dc));
+    deck_gdi_scope_init(&scope);
+
+    assert(!deck_gdi_scope_select_owned(stale_dc, &scope, brush, NULL));
+    assert(scope.count == 0u);
+    /* Selection failed, so ownership remains with the caller. */
+    assert(deck_gdi_scope_release(NULL, &scope, brush));
+}
+
 static void test_duplicate_release_is_queued_once(HDC dc,
                                                    HGDIOBJ original_brush,
                                                    HGDIOBJ original_pen) {
@@ -170,6 +204,8 @@ int main(void) {
     }
 
     test_stock_brush_selection_restores_previous_brush(dc, original_brush);
+    test_owned_selection_is_queued_and_restored(dc, original_brush, original_pen);
+    test_owned_selection_rejects_invalid_hdc();
     test_duplicate_release_is_queued_once(dc, original_brush, original_pen);
     test_queued_handle_remains_owned_after_external_restore(dc, original_brush, original_pen);
     test_failed_restore_retains_handle_for_retry(dc, original_brush, original_pen);
