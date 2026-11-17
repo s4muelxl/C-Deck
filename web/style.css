@@ -697,6 +697,8 @@ section[id] { scroll-margin-top: 96px; }
 .footer-link { color: #dbe1e8; font-size: 11px; font-weight: 700; }
 .footer-link:hover { color: var(--signature); }
 
+.window-status { color: #dbe1e8; }
+
 /* Keyboard, contrast and motion preferences */
 a:focus-visible, button:focus-visible, input:focus-visible {
   outline: 2px solid var(--accent);

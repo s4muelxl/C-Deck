@@ -626,3 +626,51 @@ test('the landing page avoids third-party font requests and keeps responsive bre
   assert.match(css, /@media\s*\(max-width:\s*360px\)/);
   assert.match(css, /min-width:\s*320px/);
 });
+
+
+test('mobile navigation closes after selection and returns focus on Escape', () => {
+  const vm = require('node:vm');
+  const linkListeners = {};
+  const links = [{
+    addEventListener(name, callback) { linkListeners[name] = callback; }
+  }];
+  const menuListeners = {};
+  let summaryFocusCount = 0;
+  const summary = { focus() { summaryFocusCount += 1; } };
+  const menu = {
+    open: true,
+    querySelector: (selector) => selector === 'summary' ? summary : null,
+    querySelectorAll: (selector) => selector === 'a' ? links : [],
+    addEventListener(name, callback) { menuListeners[name] = callback; }
+  };
+  const document = {
+    readyState: 'complete',
+    activeElement: null,
+    addEventListener() {},
+    getElementById: () => null,
+    querySelectorAll: () => [],
+    querySelector: (selector) => selector === '.mobile-nav' ? menu : null
+  };
+
+  vm.runInNewContext(script, {
+    document,
+    window: {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    parseInt,
+    Math
+  });
+
+  linkListeners.click();
+  assert.equal(menu.open, false, 'selecting a navigation link closes the disclosure');
+
+  menu.open = true;
+  let prevented = false;
+  menuListeners.keydown({
+    key: 'Escape',
+    preventDefault: () => { prevented = true; }
+  });
+  assert.equal(menu.open, false, 'Escape closes the mobile navigation');
+  assert.equal(prevented, true);
+  assert.equal(summaryFocusCount, 1, 'focus returns to the menu trigger');
+});
