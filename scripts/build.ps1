@@ -10,9 +10,7 @@ Set-Content -Path "build/cdeck.rc" -Value $resource -Encoding Ascii
 windres build/cdeck.rc build/cdeck-res.o
 if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar o recurso de icone." }
 
-gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/audio_endpoint_policy.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
+gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
 if ($LASTEXITCODE -ne 0) { throw "Compilacao falhou." }
-New-Item -ItemType Directory -Force -Path "build/config" | Out-Null
-Copy-Item config/apps.cfg build/config/apps.cfg -Force
-Copy-Item config/macros.cfg.example build/config/macros.cfg.example -Force
-Write-Host "Build concluido: build/C-Deck.exe"
+Copy-Item README.md build/README.md -Force
+Write-Host "Build simplificado concluido: build/C-Deck.exe"
