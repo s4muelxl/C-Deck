@@ -1,6 +1,10 @@
 name: C-Deck Release
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       approve_release:
@@ -18,27 +22,41 @@ concurrency:
 
 jobs:
   release:
-    if: github.ref_type == 'tag' && inputs.approve_release == true
+    if: github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && inputs.approve_release == true)
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Validate release
+        id: meta
         shell: pwsh
         env:
+          RELEASE_REF: ${{ github.ref }}
           RELEASE_TAG: ${{ github.ref_name }}
           APPROVE_RELEASE: ${{ inputs.approve_release }}
         run: |
-          if ($env:APPROVE_RELEASE -ne "true") { throw "Explicit approval is required." }
-          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Invalid release tag." }
           $version = (Get-Content -Raw VERSION).Trim()
-          if ($env:RELEASE_TAG -ne "v$version") { throw "Tag and VERSION do not match." }
-          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
-          if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
-            throw "The release tag must point to the current main commit."
+          if ($version -notmatch '^\\d+\\.\\d+\\.\\d+$') { throw "VERSION must use MAJOR.MINOR.PATCH." }
+          if ($env:RELEASE_REF -eq "refs/heads/main") {
+            $tag = "v$version"
+            git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
+            if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
+              throw "The release must be built from the current main commit."
+            }
+          } else {
+            if ($env:APPROVE_RELEASE -ne "true") { throw "Explicit approval is required." }
+            $tag = $env:RELEASE_TAG
+            if ($tag -ne "v$version") { throw "Tag and VERSION do not match." }
+            git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
+            if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
+              throw "The release tag must point to the current main commit."
+            }
           }
           ./scripts/check-version.ps1
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -59,7 +77,7 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          $compiler = "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
           if (-not (Test-Path $compiler)) { choco install innosetup --yes --no-progress }
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found." }
           & $compiler installer/C-Deck.iss
@@ -67,9 +85,10 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          name: C-Deck ${{ github.ref_name }}
-          body: "Instalador do C-Deck para Windows."
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: main
+          name: C-Deck ${{ steps.meta.outputs.tag }}
+          body: "C-Deck 1.5.0 — interface compacta, seis ações nativas, C11/Win32. Instalador para Windows 10/11 x64."
           files: build/installer/C-Deck-Setup.exe
           fail_on_unmatched_files: true
           overwrite_files: false
