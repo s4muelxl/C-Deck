@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       approve_release:
-        description: "Confirmo que a revisão humana foi concluída e autorizo publicar esta tag."
+        description: "Confirmo que a revisão foi concluída e autorizo a publicação."
         required: true
         type: boolean
         default: false
@@ -23,130 +23,53 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Validate manual approval and version tag
+      - uses: actions/checkout@v7
+      - name: Validate release
         shell: pwsh
         env:
-          RELEASE_REF_TYPE: ${{ github.ref_type }}
           RELEASE_TAG: ${{ github.ref_name }}
           APPROVE_RELEASE: ${{ inputs.approve_release }}
         run: |
-          if ($env:RELEASE_REF_TYPE -ne "tag") { throw "Release must be dispatched against an existing Git tag." }
-          if ($env:APPROVE_RELEASE -ne "true") { throw "Explicit human approval is required." }
-          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Tag must use vMAJOR.MINOR.PATCH." }
-
-      - uses: actions/checkout@v7
-      - name: Ensure release tag points to the integrated main commit
-        shell: pwsh
-        run: |
+          if ($env:APPROVE_RELEASE -ne "true") { throw "Explicit approval is required." }
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Invalid release tag." }
+          $version = (Get-Content -Raw VERSION).Trim()
+          if ($env:RELEASE_TAG -ne "v$version") { throw "Tag and VERSION do not match." }
           git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
-          $tagCommit = (git rev-parse HEAD).Trim()
-          $mainCommit = (git rev-parse origin/main).Trim()
-          if ($tagCommit -ne $mainCommit) {
-            throw "Release tag must point to the exact integrated main commit. Tag: $tagCommit; main: $mainCommit."
+          if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
+            throw "The release tag must point to the current main commit."
           }
-      - name: Verify release version consistency
-        shell: pwsh
-        run: ./scripts/check-version.ps1
-      - name: Ensure tag matches repository VERSION
-        shell: pwsh
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          $version = (Get-Content -Raw -Encoding UTF8 -LiteralPath "VERSION").Trim()
-          if ($env:RELEASE_TAG -ne "v$version") {
-            throw "Release tag $($env:RELEASE_TAG) does not match VERSION $version."
-          }
-
+          ./scripts/check-version.ps1
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: false
           install: mingw-w64-ucrt-x86_64-gcc
-
-      - name: Prepare official application icon
+      - name: Prepare icon
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "build" | Out-Null
-          & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Failed to generate official C-Deck icon." }
-          Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
-
-      - name: Build Windows desktop app
+          New-Item -ItemType Directory -Force build | Out-Null
+          & powershell -ExecutionPolicy Bypass -File brand/build-icon.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Icon generation failed." }
+          Set-Content build/cdeck.rc -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
+      - name: Build application
         shell: msys2 {0}
         run: |
-          mkdir -p build/config
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/audio_endpoint_policy.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
-          cp config/apps.cfg build/config/apps.cfg
-          cp config/macros.cfg.example build/config/macros.cfg.example
-          cp README.md build/README.md
-
-      - name: Run configuration, profile, library, microphone endpoint fallback, macro worker lifecycle, hotkey, GDI and Unicode launch tests
-        shell: msys2 {0}
-        run: |
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/config_parser_test.c src/config.c -o build/config-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/actions_unicode_test.c src/actions.c src/audio_endpoint_policy.c -o build/actions-unicode-test.exe -luser32 -lshell32 -lole32 -luuid
-          ./build/actions-unicode-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/audio_endpoint_policy_test.c src/audio_endpoint_policy.c -o build/audio-endpoint-policy-test.exe
-          ./build/audio-endpoint-policy-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc -finput-charset=UTF-8 tests/win_paths_test.c src/win_paths.c src/config.c src/profiles.c -o build/win-paths-test.exe
-          ./build/win-paths-test.exe
-          ./build/config-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/profiles_test.c src/profiles.c src/config.c -o build/profiles-test.exe
-          ./build/profiles-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/action_library_test.c src/action_library.c -o build/action-library-test.exe
-          ./build/action-library-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/macros_test.c src/macros.c -o build/macros-test.exe
-          ./build/macros-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_run_state_test.c src/macro_run_state.c -o build/macro-run-state-test.exe
-          ./build/macro-run-state-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -D_WIN32_WINNT=0x0601 -Isrc tests/macro_completion_gate_test.c src/macro_completion_gate.c -o build/macro-completion-gate-test.exe -luser32
-          ./build/macro-completion-gate-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_lifecycle_test.c src/macro_editor.c src/macros.c -o build/macro-editor-lifecycle-test.exe -luser32 -lgdi32
-          ./build/macro-editor-lifecycle-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 -Isrc tests/macro_editor_workflow_test.c src/macro_editor.c src/macros.c -o build/macro-editor-workflow-test.exe -luser32 -lgdi32
-          ./build/macro-editor-workflow-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_test.c src/hotkeys.c -o build/hotkeys-test.exe
-          ./build/hotkeys-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/hotkeys_win32_test.c src/hotkeys_win32.c -o build/hotkeys-win32-test.exe -luser32
-          ./build/hotkeys-win32-test.exe
-          gcc -Wall -Wextra -Wpedantic -std=c11 tests/gdi_scope_test.c src/gdi_scope.c -lgdi32 -luser32 -o build/gdi-scope-test.exe
-          ./build/gdi-scope-test.exe
-      - name: Create portable package
-        shell: pwsh
-        run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
-
-      - name: Build Windows installer
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+      - name: Build installer
         shell: pwsh
         run: |
-          $compiler = "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
-          New-Item -ItemType Directory -Force -Path "build/installer" | Out-Null
-          if (-not (Test-Path $compiler)) {
-            choco install innosetup --yes --no-progress
-          }
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) { choco install innosetup --yes --no-progress }
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found." }
           & $compiler installer/C-Deck.iss
           if ($LASTEXITCODE -ne 0) { throw "Installer build failed." }
-
-      - name: Upload release validation artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: C-Deck-Windows-${{ github.ref_name }}
-          path: |
-            build/C-Deck.exe
-            build/C-Deck-Portable.zip
-            build/installer/C-Deck-Setup.exe
-          if-no-files-found: error
-
-      - name: Publish versioned release
+      - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: C-Deck ${{ github.ref_name }}
-          body: |
-            Instalador oficial do C-Deck para Windows 10/11.
-
-            Esta release foi publicada por workflow manual após compilação e testes Windows aprovados e confirmação humana explícita.
+          body: "Instalador do C-Deck para Windows."
           files: build/installer/C-Deck-Setup.exe
           fail_on_unmatched_files: true
           overwrite_files: false

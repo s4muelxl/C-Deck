@@ -1,65 +1,81 @@
-# C-DECK
+# C-Deck
 
-**Painel de controles rápidos para Windows, desenvolvido em C11 e Win32 API.**
+**Painel de atalhos e controles de áudio para Windows.**
 
-O C-Deck é uma aplicação acadêmica simples com seis botões: três controles de áudio e três atalhos para programas do Windows.
+Versão 1.4.0.
 
-## Funcionalidades
+O C-Deck é um aplicativo desktop desenvolvido em C11 com a API Win32. Ele reúne seis ações em uma única janela:
 
-1. **Volume +** — aumenta o volume principal em 5%.
-2. **Volume -** — diminui o volume principal em 5%.
-3. **Mudo** — ativa ou desativa o som.
-4. **Bloco de Notas** — abre o Notepad.
-5. **Calculadora** — abre a Calculadora do Windows.
-6. **Paint** — abre o Microsoft Paint.
+- **Volume +** — aumenta o volume em 5%.
+- **Volume -** — diminui o volume em 5%.
+- **Mudo** — ativa ou desativa o áudio.
+- **Bloco de Notas** — abre o Notepad.
+- **Calculadora** — abre a Calculadora do Windows.
+- **Paint** — abre o Paint.
 
-O programa usa a API Win32 para criar a janela e os botões, a API Core Audio para controlar o volume e `ShellExecuteW` para abrir os aplicativos.
+## Tecnologias
 
-## Código
+- C11
+- Windows API (Win32)
+- Windows Core Audio
+- MinGW-w64 GCC
+- Inno Setup
 
-Toda a lógica do aplicativo está em **um único arquivo: `src/main.c`**.
-
-- `get_audio_volume()`: acessa o dispositivo de áudio padrão.
-- `change_volume()`: altera o volume em passos de 5%.
-- `toggle_mute()`: alterna entre som ligado e mudo.
-- `open_application()`: abre um programa do Windows.
-- `window_procedure()`: cria os botões e trata os cliques.
-- `WinMain()`: inicia a janela e o loop principal.
-
-## Divisão da apresentação
-
-| Integrante | Conteúdo |
-|---|---|
-| 1 — Interface | `WinMain()`, janela, botões e eventos `WM_COMMAND` |
-| 2 — Áudio | `get_audio_volume()`, `change_volume()` e `toggle_mute()` |
-| 3 — Aplicativos | `open_application()` e os três atalhos |
-
-## Compilar no Windows
-
-Requisitos: Windows 10/11 e MinGW-w64 GCC com `windres` no PATH.
-
-Na raiz do projeto, execute:
-
-```powershell
-.\scripts\build.ps1
-```
-
-O executável será gerado em `build/C-Deck.exe`.
-
-## Estrutura principal
+## Organização
 
 ```text
 C-Deck/
 ├── src/
 │   └── main.c
 ├── scripts/
-│   └── build.ps1
+│   ├── build.ps1
+│   └── check-version.ps1
 ├── installer/
+│   ├── C-Deck.iss
+│   └── C-Deck.manifest
 ├── brand/
 ├── web/
 └── README.md
 ```
 
+Toda a lógica do aplicativo está em `src/main.c`. As funções principais são:
+
+| Função | Responsabilidade |
+|---|---|
+| `get_audio_volume()` | Acessa o dispositivo de áudio padrão |
+| `change_volume()` | Ajusta o volume em passos de 5% |
+| `toggle_mute()` | Alterna o estado de mudo |
+| `open_application()` | Abre um programa do Windows |
+| `window_procedure()` | Cria a interface e trata os cliques |
+| `WinMain()` | Inicializa a aplicação |
+
+## Compilar
+
+Requisitos: Windows 10/11 e MinGW-w64 com GCC e `windres` disponíveis no PATH.
+
+Na pasta do projeto, execute:
+
+```powershell
+.\scripts\build.ps1
+```
+
+O executável será criado em `build/C-Deck.exe`.
+
+## Instalador
+
+O instalador é gerado pelo GitHub Actions usando Inno Setup. Ele instala o executável e o README, cria um atalho opcional na área de trabalho e permite abrir o aplicativo ao final.
+
+## Divisão da apresentação
+
+| Integrante | Conteúdo |
+|---|---|
+| 1 — Interface | Janela, botões e eventos |
+| 2 — Áudio | Volume e mudo |
+| 3 — Aplicativos | Abertura dos três programas |
+
 ## Licença
 
 MIT. Consulte [LICENSE](LICENSE).
+
+**Repositório:** https://github.com/s4muelxl/C-Deck  
+**Página do projeto:** https://c-deck.vercel.app/
