@@ -46,26 +46,12 @@ Name: "{autodesktop}\C-Deck"; Filename: "{app}\{#AppExeName}"; Tasks: desktopico
 Filename: "{app}\{#AppExeName}"; Description: "Abrir C-Deck"; Flags: postinstall nowait skipifsilent
 
 [Code]
-// Close running instance of C-Deck before replacing files
 function InitializeSetup(): Boolean;
 var
   Wnd: HWND;
-  CloseMsg: UINT;
-  I: Integer;
 begin
   Result := True;
   Wnd := FindWindowByClassName('CDeckMainWindow');
   if Wnd <> 0 then
-  begin
-    CloseMsg := RegisterWindowMessage('CDeck_CloseMessage');
-    if CloseMsg <> 0 then
-      PostMessage(Wnd, CloseMsg, 0, 0);
-    PostMessage(Wnd, $0111 { WM_COMMAND }, 3002 { ID_TRAY_EXIT }, 0);
-    for I := 0 to 10 do
-    begin
-      Sleep(100);
-      if FindWindowByClassName('CDeckMainWindow') = 0 then
-        Break;
-    end;
-  end;
+    PostMessage(Wnd, $0010 { WM_CLOSE }, 0, 0);
 end;
