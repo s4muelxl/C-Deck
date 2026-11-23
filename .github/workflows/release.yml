@@ -39,7 +39,61 @@ jobs:
           APPROVE_RELEASE: ${{ inputs.approve_release }}
         run: |
           $version = (Get-Content -Raw VERSION).Trim()
-          if ($version -notmatch '^\\d+\\.\\d+\\.\\d+$') { throw "VERSION must use MAJOR.MINOR.PATCH." }
+          if ($version -notmatch '^\d+\.\d+\.\d+) { throw "VERSION must use MAJOR.MINOR.PATCH." }
+          if ($env:RELEASE_REF -eq "refs/heads/main") {
+            $tag = "v$version"
+            git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
+            if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
+              throw "The release must be built from the current main commit."
+            }
+          } else {
+            if ($env:APPROVE_RELEASE -ne "true") { throw "Explicit approval is required." }
+            $tag = $env:RELEASE_TAG
+            if ($tag -ne "v$version") { throw "Tag and VERSION do not match." }
+            git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
+            if ((git rev-parse HEAD).Trim() -ne (git rev-parse origin/main).Trim()) {
+              throw "The release tag must point to the current main commit."
+            }
+          }
+          ./scripts/check-version.ps1
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Prepare icon
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          & powershell -ExecutionPolicy Bypass -File brand/build-icon.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Icon generation failed." }
+          Set-Content build/cdeck.rc -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
+      - name: Build application
+        shell: msys2 {0}
+        run: |
+          windres build/cdeck.rc build/cdeck-res.o
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
+          if (-not (Test-Path $compiler)) { choco install innosetup --yes --no-progress }
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found." }
+          & $compiler installer/C-Deck.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed." }
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: main
+          name: C-Deck ${{ steps.meta.outputs.tag }}
+          body: "C-Deck 1.5.0 — interface compacta, seis ações nativas, C11/Win32. Instalador para Windows 10/11 x64."
+          files: build/installer/C-Deck-Setup.exe
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          make_latest: true
+) { throw "VERSION must use MAJOR.MINOR.PATCH." }
           if ($env:RELEASE_REF -eq "refs/heads/main") {
             $tag = "v$version"
             git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
