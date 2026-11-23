@@ -67,6 +67,6 @@ test('website identifies the six-action native app and the demo as illustrative'
   assert.match(html, /C11/);
   assert.match(html, /Win32 API/);
   assert.match(html, /seis ações/);
-  assert.match(html, /Demonstração local e ilustrativa/);
+  assert.match(html, /A demonstração do site é apenas visual/);
   assert.doesNotMatch(html, /15 Teclas Configuráveis|grade 5×3|configure até 15 teclas/);
 });
