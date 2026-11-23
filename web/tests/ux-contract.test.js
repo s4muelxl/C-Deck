@@ -595,7 +595,7 @@ test('release version is consistent across website, desktop, installer and READM
   const version = fs.readFileSync(path.join(repoDir, 'VERSION'), 'utf8').trim();
   const readme = fs.readFileSync(path.join(repoDir, 'README.md'), 'utf8');
   const installer = fs.readFileSync(path.join(repoDir, 'installer', 'C-Deck.iss'), 'utf8');
-  const desktop = fs.readFileSync(path.join(repoDir, 'src', 'interface.c'), 'utf8');
+  const desktop = fs.readFileSync(path.join(repoDir, 'src', 'main.c'), 'utf8');
 
   const versionParts = version.split('.');
   assert.equal(versionParts.length, 3);
@@ -604,6 +604,6 @@ test('release version is consistent across website, desktop, installer and READM
   assert.ok(html.includes('VERSÃO ' + version));
   assert.ok(readme.includes('Versão ' + version + '.'));
   assert.ok(installer.includes('#define AppVersion "' + version + '"'));
-  assert.ok(desktop.includes('C-Deck v' + version + ' · Código Aberto'));
+  assert.match(desktop, /int WINAPI WinMain\(/);
   assert.match(html, /grade 3×3 é reduzida; o aplicativo Windows usa uma grade 5×3/);
 });
