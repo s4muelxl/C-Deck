@@ -55,7 +55,7 @@ jobs:
         shell: msys2 {0}
         run: |
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
       - name: Build installer
         shell: pwsh
         run: |
