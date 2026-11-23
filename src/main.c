@@ -120,12 +120,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
 
     window_class.lpfnWndProc = window_procedure;
     window_class.hInstance = instance;
-    window_class.lpszClassName = L"CDeckSimpleWindow";
+    window_class.lpszClassName = L"CDeckMainWindow";
     window_class.hCursor = LoadCursorW(NULL, IDC_ARROW);
     window_class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     if (!RegisterClassW(&window_class)) { CoUninitialize(); return 1; }
 
-    window = CreateWindowW(L"CDeckSimpleWindow", L"C-Deck",
+    window = CreateWindowW(L"CDeckMainWindow", L"C-Deck",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT, 535, 315, NULL, NULL, instance, NULL);
     if (!window) { CoUninitialize(); return 1; }
