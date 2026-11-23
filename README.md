@@ -49,6 +49,10 @@ Toda a lógica do aplicativo está em `src/main.c`. As funções principais são
 | `window_procedure()` | Cria a interface e trata os cliques |
 | `WinMain()` | Inicializa a aplicação |
 
+## Código explicado
+
+Consulte [`docs/CODE-EXPLICADO.md`](docs/CODE-EXPLICADO.md) para ver o código-fonte completo de `src/main.c`, com explicação por função e roteiro de apresentação.
+
 ## Compilar
 
 Requisitos: Windows 10/11 e MinGW-w64 com GCC e `windres` disponíveis no PATH.
