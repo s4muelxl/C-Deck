@@ -186,7 +186,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     window_class.lpfnWndProc = window_procedure;
     window_class.hInstance = instance;
     window_class.lpszClassName = L"CDeckMainWindow";
-    window_class.hCursor = LoadCursorW(NULL, IDC_ARROW);
+    window_class.hCursor = LoadCursorW(NULL, MAKEINTRESOURCEW(32512));
     window_class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     if (!RegisterClassW(&window_class)) { CoUninitialize(); return 1; }
 
