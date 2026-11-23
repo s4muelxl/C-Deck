@@ -1,9 +1,9 @@
 #define COBJMACROS
 #include <windows.h>
 #include <shellapi.h>
+#include <initguid.h>
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
-#include <initguid.h>
 #include <objbase.h>
 
 #define ID_VOLUME_UP 101
