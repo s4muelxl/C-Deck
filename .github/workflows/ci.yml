@@ -14,6 +14,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run website contract tests
+        shell: pwsh
+        run: node --test web/tests/ux-contract.test.js
       - name: Verify release version consistency
         shell: pwsh
         run: ./scripts/check-version.ps1
@@ -33,7 +39,7 @@ jobs:
         shell: msys2 {0}
         run: |
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
       - name: Package portable version
         shell: pwsh
         run: |
