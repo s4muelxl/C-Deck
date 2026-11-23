@@ -1,8 +1,8 @@
 # C-DECK
 
-**Painel de controles rápidos para Windows, desenvolvido em C11 e Win32 API. Versão 1.4.0.**
+**Painel de controles rápidos para Windows, desenvolvido em C11 e Win32 API.**
 
-O C-Deck foi simplificado para uma versão acadêmica fácil de demonstrar e explicar. O aplicativo tem apenas seis botões: três controles de áudio e três atalhos para programas do Windows.
+O C-Deck é uma aplicação acadêmica simples com seis botões: três controles de áudio e três atalhos para programas do Windows.
 
 ## Funcionalidades
 
@@ -15,28 +15,28 @@ O C-Deck foi simplificado para uma versão acadêmica fácil de demonstrar e exp
 
 O programa usa a API Win32 para criar a janela e os botões, a API Core Audio para controlar o volume e `ShellExecuteW` para abrir os aplicativos.
 
-## Como o código funciona
+## Código
 
-Todo o aplicativo acadêmico está em **um único arquivo: `src/main.c`**.
+Toda a lógica do aplicativo está em **um único arquivo: `src/main.c`**.
 
-- `get_audio_volume()`: encontra o dispositivo de áudio padrão do Windows.
+- `get_audio_volume()`: acessa o dispositivo de áudio padrão.
 - `change_volume()`: altera o volume em passos de 5%.
 - `toggle_mute()`: alterna entre som ligado e mudo.
 - `open_application()`: abre um programa do Windows.
-- `window_procedure()`: cria os seis botões e recebe os cliques.
-- `WinMain()`: inicia o programa e mantém a janela aberta.
+- `window_procedure()`: cria os botões e trata os cliques.
+- `WinMain()`: inicia a janela e o loop principal.
 
-## Divisão para apresentação
+## Divisão da apresentação
 
-| Integrante | O que explica |
+| Integrante | Conteúdo |
 |---|---|
-| 1 — Interface | `WinMain()`, criação da janela, botões e `WM_COMMAND` |
+| 1 — Interface | `WinMain()`, janela, botões e eventos `WM_COMMAND` |
 | 2 — Áudio | `get_audio_volume()`, `change_volume()` e `toggle_mute()` |
 | 3 — Aplicativos | `open_application()` e os três atalhos |
 
 ## Compilar no Windows
 
-Requisitos: Windows 10/11 e MinGW-w64 GCC no PATH.
+Requisitos: Windows 10/11 e MinGW-w64 GCC com `windres` no PATH.
 
 Na raiz do projeto, execute:
 
@@ -45,10 +45,6 @@ Na raiz do projeto, execute:
 ```
 
 O executável será gerado em `build/C-Deck.exe`.
-
-## Executar
-
-Abra `build/C-Deck.exe`. Não é necessário configurar perfis, macros ou arquivos de atalhos.
 
 ## Estrutura principal
 
@@ -59,12 +55,10 @@ C-Deck/
 ├── scripts/
 │   └── build.ps1
 ├── installer/
-│   └── C-Deck.iss
+├── brand/
 ├── web/
 └── README.md
 ```
-
-Os módulos e testes avançados que existiam na versão anterior foram mantidos no repositório para referência e compatibilidade com os testes antigos, mas não são compilados nem utilizados pelo aplicativo acadêmico simplificado.
 
 ## Licença
 
