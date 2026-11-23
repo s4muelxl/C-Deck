@@ -39,7 +39,7 @@ jobs:
           APPROVE_RELEASE: ${{ inputs.approve_release }}
         run: |
           $version = (Get-Content -Raw VERSION).Trim()
-          if ($version -notmatch '^\d+\.\d+\.\d+) { throw "VERSION must use MAJOR.MINOR.PATCH." }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must use MAJOR.MINOR.PATCH." }
           if ($env:RELEASE_REF -eq "refs/heads/main") {
             $tag = "v$version"
             git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main --depth=1
