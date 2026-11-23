@@ -21,4 +21,10 @@ foreach ($check in $checks) {
     }
 }
 
-Write-Host "C-Deck version metadata is consistent: $version"
+foreach ($source in @("src/main.c", "src/interface.c", "src/interface.h", "src/audio.c", "src/audio.h", "src/apps.c", "src/apps.h")) {
+    if (-not (Test-Path (Join-Path $root $source))) {
+        throw "Required source file missing: $source"
+    }
+}
+
+Write-Host "C-Deck version and source structure are consistent: $version"

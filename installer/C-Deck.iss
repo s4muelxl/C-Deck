@@ -1,5 +1,5 @@
 #define AppName "C-Deck"
-#define AppVersion "1.4.0"
+#define AppVersion "1.5.0"
 #define AppPublisher "C-Deck"
 #define AppExeName "C-Deck.exe"
 
