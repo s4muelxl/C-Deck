@@ -1,17 +1,19 @@
 # C-Deck
 
-**Painel de atalhos e controles de áudio para Windows.**
+**Painel compacto de atalhos para Windows.**
 
-Versão 1.4.0.
+Versão 1.5.0.
 
-O C-Deck é um aplicativo desktop desenvolvido em C11 com a API Win32. Ele reúne seis ações em uma única janela:
+O C-Deck é um aplicativo desktop feito em **C11 e Win32**. A janela tem seis botões, organizados em duas colunas e três linhas:
 
-- **Volume +** — aumenta o volume em 5%.
-- **Volume -** — diminui o volume em 5%.
-- **Mudo** — ativa ou desativa o áudio.
-- **Bloco de Notas** — abre o Notepad.
-- **Calculadora** — abre a Calculadora do Windows.
-- **Paint** — abre o Paint.
+| Botão | Ação |
+|---|---|
+| Volume + | Aumenta o volume em 5% |
+| Volume - | Diminui o volume em 5% |
+| Mudo | Ativa ou desativa o áudio |
+| Bloco de Notas | Abre o Notepad |
+| Calculadora | Abre a Calculadora |
+| Paint | Abre o Paint |
 
 ## Tecnologias
 
@@ -21,41 +23,29 @@ O C-Deck é um aplicativo desktop desenvolvido em C11 com a API Win32. Ele reún
 - MinGW-w64 GCC
 - Inno Setup
 
-## Organização
+## Estrutura do projeto
 
 ```text
 C-Deck/
 ├── src/
-│   └── main.c
+│   ├── main.c          # Inicialização do programa
+│   ├── interface.c/h   # Janela, botões e cliques
+│   ├── audio.c/h       # Volume e mudo
+│   └── apps.c/h        # Abertura dos programas
 ├── scripts/
 │   ├── build.ps1
 │   └── check-version.ps1
 ├── installer/
-│   ├── C-Deck.iss
-│   └── C-Deck.manifest
-├── brand/
+├── docs/
 ├── web/
 └── README.md
 ```
 
-Toda a lógica do aplicativo está em `src/main.c`. As funções principais são:
+Cada parte tem uma responsabilidade direta. Não há banco de dados, plugins, rede ou configurações adicionais.
 
-| Função | Responsabilidade |
-|---|---|
-| `get_audio_volume()` | Acessa o dispositivo de áudio padrão |
-| `change_volume()` | Ajusta o volume em passos de 5% |
-| `toggle_mute()` | Alterna o estado de mudo |
-| `open_application()` | Abre um programa do Windows |
-| `window_procedure()` | Cria a interface e trata os cliques |
-| `WinMain()` | Inicializa a aplicação |
+## Compilar no Windows
 
-## Código explicado
-
-Consulte [`docs/CODE-EXPLICADO.md`](docs/CODE-EXPLICADO.md) para ver o código-fonte completo de `src/main.c`, com explicação por função e roteiro de apresentação.
-
-## Compilar
-
-Requisitos: Windows 10/11 e MinGW-w64 com GCC e `windres` disponíveis no PATH.
+Requisitos: Windows 10/11 e MinGW-w64 com GCC e `windres` no PATH.
 
 Na pasta do projeto, execute:
 
@@ -67,15 +57,17 @@ O executável será criado em `build/C-Deck.exe`.
 
 ## Instalador
 
-O instalador é gerado pelo GitHub Actions usando Inno Setup. Ele instala o executável e o README, cria um atalho opcional na área de trabalho e permite abrir o aplicativo ao final.
+O GitHub Actions compila o aplicativo e cria `C-Deck-Setup.exe` com Inno Setup. O instalador inclui o executável e este README.
 
-## Divisão da apresentação
+## Divisão para apresentação
 
-| Integrante | Conteúdo |
-|---|---|
-| 1 — Interface | Janela, botões e eventos |
-| 2 — Áudio | Volume e mudo |
-| 3 — Aplicativos | Abertura dos três programas |
+1. **Interface:** `interface.c/h` — janela, botões e eventos.
+2. **Áudio:** `audio.c/h` — volume e mudo.
+3. **Atalhos:** `apps.c/h` — abertura dos três programas.
+
+## Documentação
+
+Consulte [Código explicado](docs/CODE-EXPLICADO.md) para entender a estrutura e as funções.
 
 ## Licença
 
