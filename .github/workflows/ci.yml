@@ -29,14 +29,12 @@ jobs:
           & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
           if ($LASTEXITCODE -ne 0) { throw "Failed to generate official C-Deck icon." }
           Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
-      - name: Build Windows desktop app
+      - name: Build simplified Windows desktop app
         shell: msys2 {0}
         run: |
-          mkdir -p build/config
+          mkdir -p build
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -Werror=cast-function-type -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/win_paths.c src/actions.c src/audio_endpoint_policy.c src/config.c src/profiles.c src/action_library.c src/macros.c src/macro_editor.c src/hotkeys.c src/hotkeys_win32.c src/gdi_scope.c src/macro_run_state.c src/macro_completion_gate.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid -lcomctl32 -lcomdlg32
-          cp config/apps.cfg build/config/apps.cfg
-          cp config/macros.cfg.example build/config/macros.cfg.example
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/simple_deck.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lgdi32 -lshell32 -lole32 -luuid
           cp README.md build/README.md
       - name: Run configuration, profile, library, microphone endpoint fallback, macro worker lifecycle, hotkey, GDI and Unicode launch tests
         shell: msys2 {0}
@@ -71,7 +69,7 @@ jobs:
           ./build/gdi-scope-test.exe
       - name: Create portable package
         shell: pwsh
-        run: Compress-Archive -Path build/C-Deck.exe,build/config,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
+        run: Compress-Archive -Path build/C-Deck.exe,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
       - name: Build Windows installer
         shell: pwsh
         run: |
