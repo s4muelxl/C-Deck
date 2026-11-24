@@ -7,17 +7,23 @@
 #define Rectangle Win32Rectangle
 #define CloseWindow Win32CloseWindow
 #define ShowCursor Win32ShowCursor
+#define LoadImage Win32LoadImage
 #define LoadImageA Win32LoadImageA
 #define DrawTextA Win32DrawTextA
+#define DrawTextEx Win32DrawTextEx
 #define DrawTextExA Win32DrawTextExA
+#define PlaySound Win32PlaySound
 #define PlaySoundA Win32PlaySoundA
 #include <windows.h>
 #undef Rectangle
 #undef CloseWindow
 #undef ShowCursor
+#undef LoadImage
 #undef LoadImageA
 #undef DrawTextA
+#undef DrawTextEx
 #undef DrawTextExA
+#undef PlaySound
 #undef PlaySoundA
 #ifdef COLOR_BACKGROUND
 #undef COLOR_BACKGROUND
