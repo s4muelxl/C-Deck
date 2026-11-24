@@ -32,30 +32,58 @@ static IAudioEndpointVolume *get_audio_volume(void) {
     return volume;
 }
 
-BOOL cdeck_change_volume(float difference) {
-    IAudioEndpointVolume *volume = get_audio_volume();
-    float current = 0.0f;
+BOOL cdeck_get_volume(float *level) {
+    IAudioEndpointVolume *volume;
     HRESULT result;
 
+    if (level == NULL) return FALSE;
+    volume = get_audio_volume();
     if (volume == NULL) return FALSE;
 
-    result = IAudioEndpointVolume_GetMasterVolumeLevelScalar(volume, &current);
-    if (SUCCEEDED(result)) {
-        current += difference;
-        if (current < 0.0f) current = 0.0f;
-        if (current > 1.0f) current = 1.0f;
-        result = IAudioEndpointVolume_SetMasterVolumeLevelScalar(volume, current, NULL);
-    }
+    result = IAudioEndpointVolume_GetMasterVolumeLevelScalar(volume, level);
+    IAudioEndpointVolume_Release(volume);
+    return SUCCEEDED(result);
+}
 
+BOOL cdeck_set_volume(float level) {
+    IAudioEndpointVolume *volume;
+    HRESULT result;
+
+    if (level < 0.0f) level = 0.0f;
+    if (level > 1.0f) level = 1.0f;
+    volume = get_audio_volume();
+    if (volume == NULL) return FALSE;
+
+    result = IAudioEndpointVolume_SetMasterVolumeLevelScalar(volume, level, NULL);
+    IAudioEndpointVolume_Release(volume);
+    return SUCCEEDED(result);
+}
+
+BOOL cdeck_change_volume(float difference) {
+    float current = 0.0f;
+    if (!cdeck_get_volume(&current)) return FALSE;
+    return cdeck_set_volume(current + difference);
+}
+
+BOOL cdeck_get_mute_state(BOOL *muted) {
+    IAudioEndpointVolume *volume;
+    HRESULT result;
+
+    if (muted == NULL) return FALSE;
+    volume = get_audio_volume();
+    if (volume == NULL) return FALSE;
+
+    result = IAudioEndpointVolume_GetMute(volume, muted);
     IAudioEndpointVolume_Release(volume);
     return SUCCEEDED(result);
 }
 
 BOOL cdeck_toggle_mute(void) {
-    IAudioEndpointVolume *volume = get_audio_volume();
     BOOL muted = FALSE;
+    IAudioEndpointVolume *volume;
     HRESULT result;
 
+    volume = get_audio_volume();
     if (volume == NULL) return FALSE;
 
     result = IAudioEndpointVolume_GetMute(volume, &muted);
