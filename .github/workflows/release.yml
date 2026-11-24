@@ -40,7 +40,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
-          install: mingw-w64-ucrt-x86_64-gcc
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-raylib
       - name: Prepare icon
         shell: pwsh
         run: |
@@ -52,11 +52,12 @@ jobs:
         shell: msys2 {0}
         run: |
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -lraylib -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32 -lole32 -luuid
+          cp /ucrt64/bin/libraylib.dll build/libraylib.dll
       - name: Build installer
         shell: pwsh
         run: |
-          $compiler = "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { choco install innosetup --yes --no-progress }
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found." }
           & $compiler installer/C-Deck.iss
@@ -67,8 +68,10 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: main
           name: C-Deck ${{ steps.meta.outputs.tag }}
-          body: "C-Deck 1.5.0 — interface compacta, seis ações nativas, C11/Win32. Instalador para Windows 10/11 x64."
-          files: build/installer/C-Deck-Setup.exe
+          body: "C-Deck — interface Raylib, seis ações nativas, C11, Windows Core Audio e ShellExecuteW."
+          files: |
+            build/installer/C-Deck-Setup.exe
+            build/libraylib.dll
           fail_on_unmatched_files: true
           overwrite_files: false
           make_latest: true
