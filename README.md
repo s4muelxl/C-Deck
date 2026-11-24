@@ -58,7 +58,7 @@ Adicione `C:\msys64\ucrt64\bin` ao PATH do Windows. Depois, na pasta do projeto,
 .\scripts\build.ps1
 ```
 
-O executável e a DLL de runtime do Raylib serão gerados/copied para `build/`.
+O executável e a DLL de runtime do Raylib serão gerados e copiados para `build/`.
 
 ## Arquitetura
 
