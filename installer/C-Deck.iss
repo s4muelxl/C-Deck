@@ -30,6 +30,7 @@ Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescr
 
 [Files]
 Source: "..\build\C-Deck.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
+Source: "..\build\libraylib.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
