@@ -1,14 +1,13 @@
-#include "raylib.h"
 #include <stdbool.h>
 #include <stdio.h>
-#include "interface.h"
 
-/* Keep Win32 API identifiers from colliding with Raylib's public API. */
+/* Isolate Win32 declarations from Raylib names and macros. */
 #define Rectangle Win32Rectangle
 #define CloseWindow Win32CloseWindow
 #define ShowCursor Win32ShowCursor
 #define LoadImage Win32LoadImage
 #define LoadImageA Win32LoadImageA
+#define DrawText Win32DrawText
 #define DrawTextA Win32DrawTextA
 #define DrawTextEx Win32DrawTextEx
 #define DrawTextExA Win32DrawTextExA
@@ -20,6 +19,7 @@
 #undef ShowCursor
 #undef LoadImage
 #undef LoadImageA
+#undef DrawText
 #undef DrawTextA
 #undef DrawTextEx
 #undef DrawTextExA
@@ -29,6 +29,8 @@
 #undef COLOR_BACKGROUND
 #endif
 
+#include "raylib.h"
+#include "interface.h"
 #include "audio.h"
 #include "apps.h"
 
