@@ -1,77 +1,67 @@
 # C-Deck
 
-**Painel compacto de atalhos para Windows.**
+**Painel compacto de atalhos e controle do Windows.**
 
-Versão 1.5.0.
+O C-Deck é um aplicativo desktop desenvolvido em **C11**, com interface gráfica em **Raylib** e integração nativa com o Windows.
 
-O C-Deck é um aplicativo desktop feito em **C11 e Win32**. A janela tem seis botões, organizados em duas colunas e três linhas:
+## Funcionalidades
 
-| Botão | Ação |
+| Controle | Ação |
 |---|---|
-| Volume + | Aumenta o volume em 5% |
-| Volume - | Diminui o volume em 5% |
-| Mudo | Ativa ou desativa o áudio |
-| Bloco de Notas | Abre o Notepad |
-| Calculadora | Abre a Calculadora |
+| Volume - | Diminui o volume em 5 pontos percentuais |
+| Mute | Ativa ou desativa o áudio |
+| Volume + | Aumenta o volume em 5 pontos percentuais |
+| Notepad | Abre o Bloco de Notas |
+| Calculator | Abre a Calculadora |
 | Paint | Abre o Paint |
+
+O slider também consulta e altera diretamente o volume do dispositivo de reprodução padrão do Windows.
 
 ## Tecnologias
 
 - C11
-- Windows API (Win32)
-- Windows Core Audio
-- MinGW-w64 GCC
-- Inno Setup
+- Raylib — janela, desenho e entrada do usuário
+- Windows Core Audio — volume e mudo
+- Win32 / COM — integração com o sistema
+- ShellExecuteW — abertura de aplicativos
+- MinGW-w64 GCC e MSYS2 UCRT64
 
-## Estrutura do projeto
+## Estrutura
 
 ```text
 C-Deck/
 ├── src/
-│   ├── main.c          # Inicialização do programa
-│   ├── interface.c/h   # Janela, botões e cliques
-│   ├── audio.c/h       # Volume e mudo
-│   └── apps.c/h        # Abertura dos programas
+│   ├── main.c          # Inicialização COM e entrada Windows
+│   ├── interface.c/h   # Interface Raylib e eventos
+│   ├── audio.c/h       # Volume e mudo via Windows Core Audio
+│   └── apps.c/h        # Abertura dos aplicativos via ShellExecuteW
 ├── scripts/
-│   ├── build.ps1
-│   └── check-version.ps1
+│   └── build.ps1
 ├── installer/
 ├── docs/
-├── web/
 └── README.md
 ```
 
-Cada parte tem uma responsabilidade direta. Não há banco de dados, plugins, rede ou configurações adicionais.
-
 ## Compilar no Windows
 
-Requisitos: Windows 10/11 e MinGW-w64 com GCC e `windres` no PATH.
+Instale MSYS2 UCRT64 com GCC, windres e Raylib:
 
-Na pasta do projeto, execute:
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-raylib
+```
+
+Adicione `C:\msys64\ucrt64\bin` ao PATH do Windows. Depois, na pasta do projeto, execute:
 
 ```powershell
 .\scripts\build.ps1
 ```
 
-O executável será criado em `build/C-Deck.exe`.
+O executável e a DLL de runtime do Raylib serão gerados/copied para `build/`.
 
-## Instalador
+## Arquitetura
 
-O GitHub Actions compila o aplicativo e cria `C-Deck-Setup.exe` com Inno Setup. O instalador inclui o executável e este README.
-
-## Divisão para apresentação
-
-1. **Interface:** `interface.c/h` — janela, botões e eventos.
-2. **Áudio:** `audio.c/h` — volume e mudo.
-3. **Atalhos:** `apps.c/h` — abertura dos três programas.
-
-## Documentação
-
-Consulte [Código explicado](docs/CODE-EXPLICADO.md) para entender a estrutura e as funções.
+A Raylib é responsável somente pela interface e pela captura de interações. As operações de áudio continuam no Windows Core Audio, e os atalhos de aplicativos continuam usando ShellExecuteW. Isso mantém a separação entre apresentação e funcionalidades do sistema.
 
 ## Licença
 
 MIT. Consulte [LICENSE](LICENSE).
-
-**Repositório:** https://github.com/s4muelxl/C-Deck  
-**Página do projeto:** https://c-deck.vercel.app/
