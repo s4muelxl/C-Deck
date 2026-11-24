@@ -107,7 +107,7 @@ int cdeck_run(void) {
     char status[160] = "C-Deck pronto. Selecione uma acao.";
     int i;
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "C-Deck");
     if (!IsWindowReady()) return 1;
     SetWindowMinSize(760, 580);
