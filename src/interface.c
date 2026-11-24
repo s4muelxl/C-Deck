@@ -1,16 +1,28 @@
-#define Rectangle Win32Rectangle
-#define CloseWindow Win32CloseWindow
-#include <windows.h>
-#undef Rectangle
-#undef CloseWindow
-#ifdef DrawText
-#undef DrawText
-#endif
-
 #include "raylib.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include "interface.h"
+
+/* Keep Win32 API identifiers from colliding with Raylib's public API. */
+#define Rectangle Win32Rectangle
+#define CloseWindow Win32CloseWindow
+#define ShowCursor Win32ShowCursor
+#define LoadImageA Win32LoadImageA
+#define DrawTextA Win32DrawTextA
+#define DrawTextExA Win32DrawTextExA
+#define PlaySoundA Win32PlaySoundA
+#include <windows.h>
+#undef Rectangle
+#undef CloseWindow
+#undef ShowCursor
+#undef LoadImageA
+#undef DrawTextA
+#undef DrawTextExA
+#undef PlaySoundA
+#ifdef COLOR_BACKGROUND
+#undef COLOR_BACKGROUND
+#endif
+
 #include "audio.h"
 #include "apps.h"
 
