@@ -2,6 +2,8 @@
 
 **Painel compacto de atalhos e controle do Windows.**
 
+Versão 1.5.0.
+
 O C-Deck é um aplicativo desktop desenvolvido em **C11**, com interface gráfica em **Raylib** e integração nativa com o Windows.
 
 ## Funcionalidades
