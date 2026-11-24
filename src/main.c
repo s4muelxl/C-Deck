@@ -7,8 +7,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous,
     HRESULT com_result;
     int exit_code;
 
+    (void)instance;
     (void)previous;
     (void)command_line;
+    (void)show_command;
 
     com_result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     if (FAILED(com_result)) {
@@ -17,7 +19,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous,
         return 1;
     }
 
-    exit_code = cdeck_run(instance, show_command);
+    exit_code = cdeck_run();
     CoUninitialize();
     return exit_code;
 }
