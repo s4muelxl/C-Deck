@@ -135,11 +135,13 @@ int cdeck_run(void) {
             next_volume = (mouse.x - slider.x) / slider.width;
             if (next_volume < 0.0f) next_volume = 0.0f;
             if (next_volume > 1.0f) next_volume = 1.0f;
-            if (cdeck_set_volume(next_volume)) {
-                volume = next_volume;
-                set_status(status, sizeof(status), "Volume do sistema atualizado.");
-            } else {
-                set_status(status, sizeof(status), "Falha ao atualizar o volume.");
+            if (next_volume - volume > 0.003f || volume - next_volume > 0.003f) {
+                if (cdeck_set_volume(next_volume)) {
+                    volume = next_volume;
+                    set_status(status, sizeof(status), "Volume do sistema atualizado.");
+                } else {
+                    set_status(status, sizeof(status), "Falha ao atualizar o volume.");
+                }
             }
         }
 
