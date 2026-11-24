@@ -15,7 +15,7 @@ const build = read('scripts/build.ps1');
 
 test('version is consistent across the app website, README and installer', () => {
   assert.equal(version, '1.5.0');
-  assert.match(html, new RegExp('C-Deck Official Website v' + version.replaceAll('.', '\\\\.')));
+  assert.match(html, new RegExp('C-Deck Official Website v' + version.replaceAll('.', '\\.')));
   assert.ok(html.includes('VERSÃO ' + version));
   assert.ok(readme.includes('Versão ' + version + '.'));
   assert.ok(installer.includes('#define AppVersion "' + version + '"'));
