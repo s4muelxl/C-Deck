@@ -27,7 +27,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
-          install: mingw-w64-ucrt-x86_64-gcc
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-raylib
       - name: Prepare application icon
         shell: pwsh
         run: |
@@ -39,12 +39,13 @@ jobs:
         shell: msys2 {0}
         run: |
           windres build/cdeck.rc build/cdeck-res.o
-          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -luser32 -lshell32 -lole32 -luuid
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -lraylib -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32 -lole32 -luuid
+          cp /ucrt64/bin/libraylib.dll build/libraylib.dll
       - name: Package portable version
         shell: pwsh
         run: |
           Copy-Item README.md build/README.md
-          Compress-Archive -Path build/C-Deck.exe,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
+          Compress-Archive -Path build/C-Deck.exe,build/libraylib.dll,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
       - name: Build installer
         shell: pwsh
         run: |
@@ -59,5 +60,6 @@ jobs:
           name: C-Deck-Windows
           path: |
             build/C-Deck.exe
+            build/libraylib.dll
             build/C-Deck-Portable.zip
             build/installer/C-Deck-Setup.exe
