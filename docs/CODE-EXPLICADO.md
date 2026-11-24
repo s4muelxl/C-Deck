@@ -1,76 +1,55 @@
-# C-Deck 1.5.0 — Código explicado
+# C-Deck — Código explicado
 
 **Linguagem:** C11  
-**Sistema:** Windows 10/11 x64  
-**Interface:** Win32 API  
-**Áudio:** Windows Core Audio
+**Interface gráfica:** Raylib  
+**Áudio:** Windows Core Audio  
+**Atalhos:** ShellExecuteW
 
-O C-Deck tem somente seis ações: aumentar volume, diminuir volume, silenciar, abrir Bloco de Notas, abrir Calculadora e abrir Paint. A interface é uma janela compacta com duas colunas e três linhas.
-
-## 1. Estrutura
-
-O código foi separado em quatro partes pequenas:
+## Estrutura
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `main.c` | Inicializa COM e inicia a janela |
-| `interface.c/h` | Cria a janela, os seis botões e trata os cliques |
-| `audio.c/h` | Controla volume e mudo pelo Windows Core Audio |
-| `apps.c/h` | Abre os três aplicativos do Windows |
+| `main.c` | Inicializa COM e inicia a aplicação |
+| `interface.c/h` | Desenha a interface Raylib e trata as interações |
+| `audio.c/h` | Consulta e controla volume/mudo pelo Windows Core Audio |
+| `apps.c/h` | Abre aplicativos com ShellExecuteW |
 
-Não existe banco de dados, rede, sistema de plugins ou camada de configuração.
+## Fluxo
 
-## 2. Fluxo do programa
+1. O Windows inicia a aplicação por WinMain.
+2. CoInitializeEx inicializa COM.
+3. cdeck_run inicializa a janela Raylib.
+4. Raylib captura mouse e desenha a interface a cada quadro.
+5. Os cliques nos cards chamam as funções de áudio ou abertura de aplicativos.
+6. O slider chama cdeck_set_volume para atualizar o volume real do Windows.
+7. Ao fechar a janela, CloseWindow libera os recursos da Raylib e CoUninitialize encerra COM.
 
-1. O Windows chama `WinMain()` em `main.c`.
-2. `CoInitializeEx()` inicializa COM, necessário para acessar o Core Audio.
-3. `cdeck_run()` registra e cria a janela.
-4. A função `window_procedure()` recebe os eventos do Windows.
-5. Quando um botão é clicado, `WM_COMMAND` identifica seu ID e chama a função correspondente.
-6. Ao fechar a janela, `WM_DESTROY` encerra o loop.
+## Interface — interface.c
 
-## 3. Áudio — `audio.c`
+Raylib é responsável pela janela, renderização dos textos, cards, barra de volume e leitura de mouse. Os seis cards preservam as ações existentes: diminuir volume, alternar mudo, aumentar volume, abrir Bloco de Notas, Calculadora e Paint.
 
-A função privada `get_audio_volume()` localiza o dispositivo de saída padrão e obtém a interface `IAudioEndpointVolume`.
+A interface não executa diretamente operações de sistema. Ela encaminha as ações para os módulos especializados.
 
-- `cdeck_change_volume(0.05f)`: aumenta o volume em cinco pontos percentuais.
-- `cdeck_change_volume(-0.05f)`: diminui o volume em cinco pontos percentuais.
-- `cdeck_toggle_mute()`: inverte o estado de mudo.
+## Áudio — audio.c
 
-O volume é limitado ao intervalo de 0.0 a 1.0. Os objetos COM são liberados após cada operação.
+get_audio_volume localiza o dispositivo padrão de reprodução e obtém IAudioEndpointVolume.
 
-## 4. Atalhos — `apps.c`
+- cdeck_get_volume consulta o nível atual na escala de 0.0 a 1.0.
+- cdeck_set_volume aplica um nível absoluto, limitado entre 0.0 e 1.0.
+- cdeck_change_volume altera o nível relativo em pontos percentuais.
+- cdeck_toggle_mute alterna o estado de mudo.
+- cdeck_get_mute_state consulta o estado de mudo.
 
-`cdeck_open_application()` usa `ShellExecuteW()` para solicitar ao Windows a abertura de um programa:
+## Aplicativos — apps.c
 
-- `notepad.exe`
-- `calc.exe`
-- `mspaint.exe`
+cdeck_open_application usa ShellExecuteW para solicitar ao Windows a abertura de notepad.exe, calc.exe ou mspaint.exe.
 
-A função retorna verdadeiro quando o Windows aceita a solicitação.
+## Compilação
 
-## 5. Interface — `interface.c`
+No MSYS2 UCRT64, instale GCC e Raylib:
 
-Os seis botões são controles nativos Win32. As posições são definidas por constantes no início do arquivo: largura, altura, colunas e espaçamento entre linhas.
-
-A janela usa um tamanho fixo e compacto. O texto na parte inferior informa o resultado da última ação.
-
-## 6. Compilação
-
-No Windows 10/11 com MinGW-w64 (GCC e windres) no PATH:
-
-```powershell
-.\scripts\build.ps1
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-raylib
 ```
 
-O executável é gerado em `build/C-Deck.exe`. O GitHub Actions usa os mesmos quatro arquivos C para validar a compilação e gerar o instalador.
-
-## 7. Divisão para apresentação
-
-1. **Interface:** `interface.c/h` — janela, botões, IDs e eventos.
-2. **Áudio:** `audio.c/h` — acesso ao dispositivo, volume e mudo.
-3. **Atalhos:** `apps.c/h` — chamadas para abrir os aplicativos.
-
-## 8. Resumo
-
-O projeto demonstra conceitos fundamentais de C e programação para Windows: funções, arquivos de cabeçalho, separação de responsabilidades, eventos de interface, chamadas à API do sistema e gerenciamento básico de objetos COM.
+A compilação vincula Raylib, OpenGL, GDI, WinMM e as bibliotecas necessárias da API do Windows. O runtime libraylib.dll deve acompanhar o executável.
