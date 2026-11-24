@@ -15,28 +15,39 @@ const build = read('scripts/build.ps1');
 
 test('version is consistent across the app website, README and installer', () => {
   assert.equal(version, '1.5.0');
-  assert.match(html, new RegExp('C-Deck Official Website v' + version.replaceAll('.', '\\.')));
+  assert.match(html, new RegExp('C-Deck Official Website v' + version.replaceAll('.', '\\\\.')));
   assert.ok(html.includes('VERSÃO ' + version));
   assert.ok(readme.includes('Versão ' + version + '.'));
   assert.ok(installer.includes('#define AppVersion "' + version + '"'));
 });
 
-test('desktop app contains exactly the six agreed actions', () => {
+test('Raylib desktop app contains exactly the six agreed actions', () => {
   const ui = read('src/interface.c');
-  for (const label of ['Volume +', 'Volume -', 'Mudo', 'Bloco de Notas', 'Calculadora', 'Paint']) {
-    assert.ok(ui.includes(label), 'missing button: ' + label);
+  const actions = [
+    'ACTION_VOLUME_DOWN',
+    'ACTION_MUTE',
+    'ACTION_VOLUME_UP',
+    'ACTION_NOTEPAD',
+    'ACTION_CALCULATOR',
+    'ACTION_PAINT'
+  ];
+  for (const action of actions) {
+    assert.ok(ui.includes(action), 'missing action: ' + action);
   }
-  assert.equal((ui.match(/add_button\(window, instance,/g) || []).length, 6);
-  assert.match(ui, /BUTTON_WIDTH 155/);
-  assert.match(ui, /BUTTON_HEIGHT 42/);
-  assert.match(ui, /LEFT_COLUMN 18/);
-  assert.match(ui, /RIGHT_COLUMN 187/);
+  assert.equal((ui.match(/\{\{\d+, \d+, 254, 112\}/g) || []).length, 6);
+  assert.match(ui, /InitWindow\(SCREEN_WIDTH, SCREEN_HEIGHT, "C-Deck"\)/);
+  assert.match(ui, /BeginDrawing\(\)/);
+  assert.match(ui, /EndDrawing\(\)/);
+  assert.match(ui, /IsMouseButtonPressed\(MOUSE_LEFT_BUTTON\)/);
 });
 
-test('C code is separated into small interface, audio and app modules', () => {
-  assert.match(read('src/main.c'), /cdeck_run\(instance, show_command\)/);
-  assert.match(read('src/interface.c'), /window_procedure/);
+test('C11 modules preserve Core Audio and ShellExecuteW integrations', () => {
+  assert.match(read('src/main.c'), /cdeck_run\(\)/);
+  assert.match(read('src/interface.c'), /cdeck_run\(void\)/);
+  assert.match(read('src/interface.c'), /cdeck_get_volume/);
+  assert.match(read('src/interface.c'), /cdeck_set_volume/);
   assert.match(read('src/audio.c'), /IAudioEndpointVolume/);
+  assert.match(read('src/audio.c'), /cdeck_toggle_mute/);
   assert.match(read('src/apps.c'), /ShellExecuteW/);
   assert.match(read('src/interface.h'), /cdeck_run/);
   assert.match(read('src/audio.h'), /cdeck_change_volume/);
@@ -57,15 +68,16 @@ test('local build and CI compile the same four C source files', () => {
   }
 });
 
-test('installer ships the single desktop executable and the short README', () => {
+test('installer ships the executable, Raylib runtime and short README', () => {
   assert.match(installer, /C-Deck\.exe/);
+  assert.match(installer, /libraylib\.dll/);
   assert.match(installer, /README\.md/);
   assert.doesNotMatch(installer, /database|plugin|server/i);
 });
 
 test('website identifies the six-action native app and the demo as illustrative', () => {
   assert.match(html, /C11/);
-  assert.match(html, /Win32 API/);
+  assert.match(html, /Raylib/i);
   assert.match(html, /seis ações/);
   assert.match(html, /A demonstração do site é apenas visual/);
   assert.doesNotMatch(html, /15 Teclas Configuráveis|grade 5×3|configure até 15 teclas/);
