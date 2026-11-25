@@ -1,6 +1,7 @@
 name: C-Deck Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -56,7 +57,7 @@ jobs:
           New-Item -ItemType Directory -Force build | Out-Null
           & powershell -ExecutionPolicy Bypass -File brand/build-icon.ps1
           if ($LASTEXITCODE -ne 0) { throw "Icon generation failed." }
-          Set-Content build/cdeck.rc -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
+          Set-Content build/cdeck.rc -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', 'GLFW_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
       - name: Build application and runtime dependencies
         shell: msys2 {0}
         run: |
