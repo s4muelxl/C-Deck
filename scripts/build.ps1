@@ -15,7 +15,13 @@ if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar Raylib/GLFW." }
 & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
 if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar o icone." }
 
-$resource = '#define IDI_APP_ICON 101' + "`r`n" + 'IDI_APP_ICON ICON "build/cdeck.ico"' + "`r`n" + '1 24 "installer/C-Deck.manifest"' + "`r`n"
+$resource = @(
+    '#define IDI_APP_ICON 101'
+    'IDI_APP_ICON ICON "build/cdeck.ico"'
+    'GLFW_ICON ICON "build/cdeck.ico"'
+    '1 24 "installer/C-Deck.manifest"'
+) -join "`r`n"
+$resource += "`r`n"
 Set-Content -Path "build/cdeck.rc" -Value $resource -Encoding Ascii
 windres build/cdeck.rc build/cdeck-res.o
 if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar o recurso do icone." }

@@ -19,7 +19,7 @@ function New-RoundedRectPath {
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $path.AddArc($X, $Y, $d, $d, 180.0, 90.0)
     $path.AddArc($X + $Width - $d, $Y, $d, $d, 270.0, 90.0)
-    $path.AddArc($X + $Width - $d, $Y + $Height - $d, $d, $d, 0.0, 90.0)
+    $path.AddArc($X + $Width - $d, $y + $Height - $d, $d, $d, 0.0, 90.0)
     $path.AddArc($X, $Y + $Height - $d, $d, $d, 90.0, 90.0)
     $path.CloseFigure()
     return $path
@@ -42,24 +42,24 @@ function Render-CDeckMasterBitmap {
 
     $drawShadow = $false
     if ($UiHeaderTile) {
-        $margin = 20.0
-        $radius = 212.0
+        $margin = 16.0
+        $radius = 216.0
         $rimWidth = 22.0
         $cScale = 1.04
     } elseif ($TargetSize -le 24) {
-        $margin = 24.0
-        $radius = 220.0
-        $rimWidth = 44.0
-        $cScale = 1.08
+        $margin = 20.0
+        $radius = 224.0
+        $rimWidth = 46.0
+        $cScale = 1.09
     } elseif ($TargetSize -le 48) {
-        $margin = 40.0
-        $radius = 204.0
+        $margin = 36.0
+        $radius = 208.0
         $rimWidth = 26.0
         $cScale = 1.03
     } else {
-        $margin = 56.0
-        $radius = 192.0
-        $rimWidth = 10.0
+        $margin = 52.0
+        $radius = 196.0
+        $rimWidth = 11.0
         $cScale = 1.00
         $drawShadow = $true
     }
@@ -67,45 +67,37 @@ function Render-CDeckMasterBitmap {
     $tileSize = 1024.0 - ($margin * 2.0)
 
     if ($drawShadow) {
-        $shadowSteps = @(
-            @{ Expand = 24.0; OffsetY = 14.0; Alpha = 10 },
-            @{ Expand = 16.0; OffsetY = 11.0; Alpha = 18 },
-            @{ Expand = 8.0;  OffsetY = 8.0;  Alpha = 28 },
-            @{ Expand = 2.0;  OffsetY = 4.0;  Alpha = 40 }
-        )
-        foreach ($step in $shadowSteps) {
-            $sp = New-RoundedRectPath ($margin - $step.Expand) ($margin - $step.Expand + $step.OffsetY) ($tileSize + $step.Expand * 2.0) ($tileSize + $step.Expand * 2.0) ($radius + $step.Expand * 0.5)
-            $sb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($step.Alpha, 0, 0, 0))
+        # Smooth downward ambient drop shadow (14 fine steps, no visible halo rings)
+        for ($s = 14; $s -ge 1; $s--) {
+            $t = $s / 14.0
+            $expand = $t * 18.0
+            $offsetY = 6.0 + ($t * 16.0)
+            $alpha = [int]((1.0 - $t) * (1.0 - $t) * 14.0)
+            if ($alpha -lt 1) { continue }
+            $sp = New-RoundedRectPath ($margin - $expand * 0.45) ($margin + $offsetY - $expand * 0.35) ($tileSize + $expand * 0.9) ($tileSize + $expand * 0.9) ($radius + $expand * 0.25)
+            $sb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($alpha, 0, 0, 0))
             $g.FillPath($sb, $sp)
             $sb.Dispose()
             $sp.Dispose()
         }
-
-        $limeGlowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-        $limeGlowPath.AddEllipse([float]($margin + $tileSize * 0.48), [float]($margin + $tileSize * 0.48), [float]($tileSize * 0.62), [float]($tileSize * 0.62))
-        $limeGlowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($limeGlowPath)
-        $limeGlowBrush.CenterColor = [System.Drawing.Color]::FromArgb(24, 157, 255, 0)
-        $limeGlowBrush.SurroundColors = [System.Drawing.Color[]]@([System.Drawing.Color]::FromArgb(0, 157, 255, 0))
-        $g.FillPath($limeGlowBrush, $limeGlowPath)
-        $limeGlowBrush.Dispose()
-        $limeGlowPath.Dispose()
     }
 
     $tilePath = New-RoundedRectPath $margin $margin $tileSize $tileSize $radius
 
-    # Base obsidian tile gradient
+    # Rich obsidian hardware surface gradient (interpolating RGB directly -> zero alpha banding)
     $tileBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
         [System.Drawing.PointF]::new($margin, $margin),
         [System.Drawing.PointF]::new($margin + $tileSize, $margin + $tileSize),
-        [System.Drawing.Color]::FromArgb(255, 30, 36, 47),
-        [System.Drawing.Color]::FromArgb(255, 9, 11, 15)
+        [System.Drawing.Color]::FromArgb(255, 42, 49, 61),
+        [System.Drawing.Color]::FromArgb(255, 10, 13, 17)
     )
     $tileBlend = New-Object System.Drawing.Drawing2D.ColorBlend
-    $tileBlend.Positions = [float[]]@(0.0, 0.56, 1.0)
+    $tileBlend.Positions = [float[]]@(0.0, 0.38, 0.72, 1.0)
     $tileBlend.Colors = [System.Drawing.Color[]]@(
-        [System.Drawing.Color]::FromArgb(255, 31, 37, 48),
-        [System.Drawing.Color]::FromArgb(255, 13, 16, 22),
-        [System.Drawing.Color]::FromArgb(255, 9, 11, 14)
+        [System.Drawing.Color]::FromArgb(255, 42, 49, 61),
+        [System.Drawing.Color]::FromArgb(255, 22, 26, 34),
+        [System.Drawing.Color]::FromArgb(255, 13, 16, 21),
+        [System.Drawing.Color]::FromArgb(255, 15, 22, 12)
     )
     $tileBrush.InterpolationColors = $tileBlend
     $g.FillPath($tileBrush, $tilePath)
@@ -114,47 +106,54 @@ function Render-CDeckMasterBitmap {
     # Clipped interior lighting & bevel
     $g.SetClip($tilePath)
 
-    # Subtle bottom-right lime ambient reflection inside keycap
+    # Smooth wide radial highlight from top-left (no horizontal cutoff line)
+    $topGlowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $topGlowPath.AddEllipse([float]($margin - $tileSize * 0.25), [float]($margin - $tileSize * 0.35), [float]($tileSize * 1.45), [float]($tileSize * 1.15))
+    $topGlowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($topGlowPath)
+    $topGlowBrush.CenterPoint = [System.Drawing.PointF]::new([float]($margin + $tileSize * 0.32), [float]($margin + $tileSize * 0.14))
+    $topGlowBrush.CenterColor = [System.Drawing.Color]::FromArgb(30, 195, 212, 238)
+    $topGlowBrush.SurroundColors = [System.Drawing.Color[]]@([System.Drawing.Color]::FromArgb(0, 195, 212, 238))
+    $topGlowBlend = New-Object System.Drawing.Drawing2D.ColorBlend
+    $topGlowBlend.Positions = [float[]]@(0.0, 0.45, 0.8, 1.0)
+    $topGlowBlend.Colors = [System.Drawing.Color[]]@(
+        [System.Drawing.Color]::FromArgb(0, 195, 212, 238),
+        [System.Drawing.Color]::FromArgb(7, 195, 212, 238),
+        [System.Drawing.Color]::FromArgb(20, 195, 212, 238),
+        [System.Drawing.Color]::FromArgb(30, 195, 212, 238)
+    )
+    $topGlowBrush.InterpolationColors = $topGlowBlend
+    $g.FillPath($topGlowBrush, $topGlowPath)
+    $topGlowBrush.Dispose()
+    $topGlowPath.Dispose()
+
+    # Smooth organic bottom-right lime ambient reflection (cubic falloff, no circular ring)
     $innerLimePath = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $innerLimePath.AddEllipse([float]($margin + $tileSize * 0.34), [float]($margin + $tileSize * 0.36), [float]($tileSize * 0.92), [float]($tileSize * 0.92))
+    $innerLimePath.AddEllipse([float]($margin + $tileSize * 0.12), [float]($margin + $tileSize * 0.16), [float]($tileSize * 1.35), [float]($tileSize * 1.35))
     $innerLimeBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($innerLimePath)
-    $innerLimeBrush.CenterColor = [System.Drawing.Color]::FromArgb(34, 157, 255, 0)
+    $innerLimeBrush.CenterPoint = [System.Drawing.PointF]::new([float]($margin + $tileSize * 0.82), [float]($margin + $tileSize * 0.84))
+    $innerLimeBrush.CenterColor = [System.Drawing.Color]::FromArgb(40, 157, 255, 0)
     $innerLimeBrush.SurroundColors = [System.Drawing.Color[]]@([System.Drawing.Color]::FromArgb(0, 157, 255, 0))
+    $limeRadBlend = New-Object System.Drawing.Drawing2D.ColorBlend
+    $limeRadBlend.Positions = [float[]]@(0.0, 0.35, 0.68, 1.0)
+    $limeRadBlend.Colors = [System.Drawing.Color[]]@(
+        [System.Drawing.Color]::FromArgb(0, 157, 255, 0),
+        [System.Drawing.Color]::FromArgb(6, 157, 255, 0),
+        [System.Drawing.Color]::FromArgb(22, 157, 255, 0),
+        [System.Drawing.Color]::FromArgb(40, 157, 255, 0)
+    )
+    $innerLimeBrush.InterpolationColors = $limeRadBlend
     $g.FillPath($innerLimeBrush, $innerLimePath)
     $innerLimeBrush.Dispose()
     $innerLimePath.Dispose()
 
-    # Subtle top specular sheen
-    $sheenRect = [System.Drawing.RectangleF]::new($margin, $margin, $tileSize, $tileSize * 0.42)
-    $sheenBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-        [System.Drawing.PointF]::new($margin, $margin),
-        [System.Drawing.PointF]::new($margin, $margin + $tileSize * 0.42),
-        [System.Drawing.Color]::FromArgb(24, 255, 255, 255),
-        [System.Drawing.Color]::FromArgb(0, 255, 255, 255)
-    )
-    $g.FillRectangle($sheenBrush, $sheenRect)
-    $sheenBrush.Dispose()
-
     # Inner recessed ring for hardware keycap depth (for medium/large icons)
     if ($TargetSize -ge 32 -or $UiHeaderTile) {
-        $inset = $rimWidth * 1.35
+        $inset = $rimWidth * 1.4
         $innerPath = New-RoundedRectPath ($margin + $inset) ($margin + $inset) ($tileSize - $inset * 2.0) ($tileSize - $inset * 2.0) ([Math]::Max(8.0, $radius - $inset))
-        $innerPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(140, 4, 5, 8), [float]([Math]::Max(4.0, $rimWidth * 0.65)))
+        $innerPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(130, 5, 6, 9), [float]([Math]::Max(4.0, $rimWidth * 0.65)))
         $g.DrawPath($innerPen, $innerPath)
         $innerPen.Dispose()
         $innerPath.Dispose()
-    }
-
-    # Subtle lime bloom behind the lime blade
-    if ($TargetSize -ge 48 -or $UiHeaderTile) {
-        $bladeGlow = New-Object System.Drawing.Drawing2D.GraphicsPath
-        $bladeGlow.AddEllipse(470.0, 560.0, 400.0, 310.0)
-        $bladeGlowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($bladeGlow)
-        $bladeGlowBrush.CenterColor = [System.Drawing.Color]::FromArgb(30, 157, 255, 0)
-        $bladeGlowBrush.SurroundColors = [System.Drawing.Color[]]@([System.Drawing.Color]::FromArgb(0, 157, 255, 0))
-        $g.FillPath($bladeGlowBrush, $bladeGlow)
-        $bladeGlowBrush.Dispose()
-        $bladeGlow.Dispose()
     }
 
     # Geometric faceted 'C' + electric lime blade
@@ -162,6 +161,28 @@ function Render-CDeckMasterBitmap {
     $g.TranslateTransform(512.0, 512.0)
     $g.ScaleTransform($cScale, $cScale)
     $g.TranslateTransform(-512.0, -512.0)
+
+    # Soft bloom underneath the lime blade
+    if ($TargetSize -ge 48 -or $UiHeaderTile) {
+        $bladeGlow = New-Object System.Drawing.Drawing2D.GraphicsPath
+        $bladeGlow.AddEllipse(410.0, 520.0, 480.0, 380.0)
+        $bladeGlowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($bladeGlow)
+        $bladeGlowBrush.CenterPoint = [System.Drawing.PointF]::new(675.0, 718.0)
+        $bladeGlowBrush.CenterColor = [System.Drawing.Color]::FromArgb(34, 157, 255, 0)
+        $bladeGlowBrush.SurroundColors = [System.Drawing.Color[]]@([System.Drawing.Color]::FromArgb(0, 157, 255, 0))
+        $bgBlend = New-Object System.Drawing.Drawing2D.ColorBlend
+        $bgBlend.Positions = [float[]]@(0.0, 0.45, 0.8, 1.0)
+        $bgBlend.Colors = [System.Drawing.Color[]]@(
+            [System.Drawing.Color]::FromArgb(0, 157, 255, 0),
+            [System.Drawing.Color]::FromArgb(8, 157, 255, 0),
+            [System.Drawing.Color]::FromArgb(22, 157, 255, 0),
+            [System.Drawing.Color]::FromArgb(34, 157, 255, 0)
+        )
+        $bladeGlowBrush.InterpolationColors = $bgBlend
+        $g.FillPath($bladeGlowBrush, $bladeGlow)
+        $bladeGlowBrush.Dispose()
+        $bladeGlow.Dispose()
+    }
 
     # Silver C polygon extends slightly under the lime miter to guarantee zero antialias seam
     $cPoints = [System.Drawing.PointF[]]@(
@@ -182,47 +203,49 @@ function Render-CDeckMasterBitmap {
         [System.Drawing.PointF]::new(238.0, 248.0),
         [System.Drawing.PointF]::new(724.0, 776.0),
         [System.Drawing.Color]::White,
-        [System.Drawing.Color]::FromArgb(255, 180, 188, 201)
+        [System.Drawing.Color]::FromArgb(255, 178, 186, 200)
     )
     $silverBlend = New-Object System.Drawing.Drawing2D.ColorBlend
-    $silverBlend.Positions = [float[]]@(0.0, 0.45, 0.78, 1.0)
+    $silverBlend.Positions = [float[]]@(0.0, 0.45, 0.80, 1.0)
     $silverBlend.Colors = [System.Drawing.Color[]]@(
         [System.Drawing.Color]::FromArgb(255, 255, 255, 255),
-        [System.Drawing.Color]::FromArgb(255, 236, 239, 245),
-        [System.Drawing.Color]::FromArgb(255, 180, 188, 202),
-        [System.Drawing.Color]::FromArgb(255, 232, 236, 242)
+        [System.Drawing.Color]::FromArgb(255, 236, 240, 246),
+        [System.Drawing.Color]::FromArgb(255, 182, 190, 204),
+        [System.Drawing.Color]::FromArgb(255, 224, 229, 238)
     )
     $silverBrush.InterpolationColors = $silverBlend
     $g.FillPolygon($silverBrush, $cPoints)
     $silverBrush.Dispose()
 
-    # Facet highlight along upper-left bevel
-    $topFacet = [System.Drawing.PointF[]]@(
-        [System.Drawing.PointF]::new(238.0, 412.0),
-        [System.Drawing.PointF]::new(402.0, 248.0),
-        [System.Drawing.PointF]::new(724.0, 248.0),
-        [System.Drawing.PointF]::new(678.0, 294.0),
-        [System.Drawing.PointF]::new(424.0, 294.0),
-        [System.Drawing.PointF]::new(284.0, 434.0),
-        [System.Drawing.PointF]::new(284.0, 588.0),
-        [System.Drawing.PointF]::new(238.0, 612.0)
-    )
-    $topFacetBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(44, 255, 255, 255))
-    $g.FillPolygon($topFacetBrush, $topFacet)
-    $topFacetBrush.Dispose()
+    # Subtle upper facet bevel highlight (omit on tiny <=24px icons to keep strokes razor sharp)
+    if ($TargetSize -gt 24 -or $UiHeaderTile) {
+        $topFacet = [System.Drawing.PointF[]]@(
+            [System.Drawing.PointF]::new(238.0, 412.0),
+            [System.Drawing.PointF]::new(402.0, 248.0),
+            [System.Drawing.PointF]::new(724.0, 248.0),
+            [System.Drawing.PointF]::new(724.0, 286.0),
+            [System.Drawing.PointF]::new(420.0, 286.0),
+            [System.Drawing.PointF]::new(276.0, 430.0),
+            [System.Drawing.PointF]::new(276.0, 594.0),
+            [System.Drawing.PointF]::new(238.0, 612.0)
+        )
+        $topFacetBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(38, 255, 255, 255))
+        $g.FillPolygon($topFacetBrush, $topFacet)
+        $topFacetBrush.Dispose()
 
-    # Subtle lower bevel shadow
-    $lowFacet = [System.Drawing.PointF[]]@(
-        [System.Drawing.PointF]::new(238.0, 612.0),
-        [System.Drawing.PointF]::new(402.0, 776.0),
-        [System.Drawing.PointF]::new(560.0, 776.0),
-        [System.Drawing.PointF]::new(608.0, 728.0),
-        [System.Drawing.PointF]::new(424.0, 728.0),
-        [System.Drawing.PointF]::new(284.0, 588.0)
-    )
-    $lowFacetBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(30, 52, 62, 78))
-    $g.FillPolygon($lowFacetBrush, $lowFacet)
-    $lowFacetBrush.Dispose()
+        # Subtle lower bevel depth
+        $lowFacet = [System.Drawing.PointF[]]@(
+            [System.Drawing.PointF]::new(238.0, 612.0),
+            [System.Drawing.PointF]::new(402.0, 776.0),
+            [System.Drawing.PointF]::new(560.0, 776.0),
+            [System.Drawing.PointF]::new(598.0, 738.0),
+            [System.Drawing.PointF]::new(418.0, 738.0),
+            [System.Drawing.PointF]::new(276.0, 596.0)
+        )
+        $lowFacetBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(22, 48, 58, 74))
+        $g.FillPolygon($lowFacetBrush, $lowFacet)
+        $lowFacetBrush.Dispose()
+    }
 
     # Signature #9DFF00 lime angled blade
     $limePoints = [System.Drawing.PointF[]]@(
@@ -248,14 +271,14 @@ function Render-CDeckMasterBitmap {
     $g.FillPolygon($limeBrush, $limePoints)
     $limeBrush.Dispose()
 
-    # Subtle specular edge on top of lime blade
+    # Subtle specular edge along top of lime blade
     $limeEdge = [System.Drawing.PointF[]]@(
         [System.Drawing.PointF]::new(658.0, 660.0),
         [System.Drawing.PointF]::new(794.0, 660.0),
-        [System.Drawing.PointF]::new(774.0, 680.0),
-        [System.Drawing.PointF]::new(638.0, 680.0)
+        [System.Drawing.PointF]::new(778.0, 676.0),
+        [System.Drawing.PointF]::new(642.0, 676.0)
     )
-    $limeEdgeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(40, 255, 255, 255))
+    $limeEdgeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(28, 255, 255, 255))
     $g.FillPolygon($limeEdgeBrush, $limeEdge)
     $limeEdgeBrush.Dispose()
 
@@ -266,16 +289,16 @@ function Render-CDeckMasterBitmap {
     $rimBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
         [System.Drawing.PointF]::new($margin, $margin),
         [System.Drawing.PointF]::new($margin + $tileSize, $margin + $tileSize),
-        [System.Drawing.Color]::FromArgb(220, 186, 200, 222),
-        [System.Drawing.Color]::FromArgb(230, 165, 255, 22)
+        [System.Drawing.Color]::FromArgb(225, 192, 206, 228),
+        [System.Drawing.Color]::FromArgb(240, 165, 255, 22)
     )
     $rimBlend = New-Object System.Drawing.Drawing2D.ColorBlend
-    $rimBlend.Positions = [float[]]@(0.0, 0.54, 0.84, 1.0)
+    $rimBlend.Positions = [float[]]@(0.0, 0.52, 0.84, 1.0)
     $rimBlend.Colors = [System.Drawing.Color[]]@(
-        [System.Drawing.Color]::FromArgb(220, 188, 202, 224),
-        [System.Drawing.Color]::FromArgb(190, 66, 75, 92),
-        [System.Drawing.Color]::FromArgb(215, 128, 198, 26),
-        [System.Drawing.Color]::FromArgb(240, 165, 255, 22)
+        [System.Drawing.Color]::FromArgb(230, 196, 210, 232),
+        [System.Drawing.Color]::FromArgb(200, 66, 75, 92),
+        [System.Drawing.Color]::FromArgb(220, 128, 198, 26),
+        [System.Drawing.Color]::FromArgb(245, 165, 255, 22)
     )
     $rimBrush.InterpolationColors = $rimBlend
     $rimPen = New-Object System.Drawing.Pen($rimBrush, $rimWidth)
@@ -314,9 +337,9 @@ function Convert-BitmapToPngBytes {
     param([System.Drawing.Bitmap]$Bitmap)
     $ms = New-Object System.IO.MemoryStream
     $Bitmap.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-    $bytes = $ms.ToArray()
+    [byte[]]$bytes = $ms.ToArray()
     $ms.Dispose()
-    return $bytes
+    return ,$bytes
 }
 
 function Convert-BitmapToIcoDibBytes {
@@ -369,10 +392,10 @@ function Convert-BitmapToIcoDibBytes {
     }
 
     $bw.Flush()
-    $bytes = $ms.ToArray()
+    [byte[]]$bytes = $ms.ToArray()
     $bw.Dispose()
     $ms.Dispose()
-    return $bytes
+    return ,$bytes
 }
 
 # 1. Generate multi-resolution Windows ICO (16..128 DIB + 256 PNG)
@@ -393,9 +416,9 @@ foreach ($sz in $icoSizes) {
     }
 
     if ($sz -eq 256) {
-        $payload = Convert-BitmapToPngBytes -Bitmap $scaled
+        [byte[]]$payload = Convert-BitmapToPngBytes -Bitmap $scaled
     } else {
-        $payload = Convert-BitmapToIcoDibBytes -Bitmap $scaled
+        [byte[]]$payload = Convert-BitmapToIcoDibBytes -Bitmap $scaled
     }
     $entries += [PSCustomObject]@{
         Size = $sz
@@ -424,17 +447,18 @@ foreach ($entry in $entries) {
     $offset += $entry.Data.Length
 }
 foreach ($entry in $entries) {
-    $icoWriter.Write($entry.Data)
+    [byte[]]$chunk = $entry.Data
+    $icoWriter.Write($chunk, 0, $chunk.Length)
 }
 $icoWriter.Flush()
-$icoBytes = $icoStream.ToArray()
+[byte[]]$icoBytes = $icoStream.ToArray()
 $icoWriter.Dispose()
 $icoStream.Dispose()
 
 [IO.File]::WriteAllBytes((Join-Path $buildDir "cdeck.ico"), $icoBytes)
 
 # 2. Save 1024x1024 master PNG for inspection & branding
-$masterPngBytes = Convert-BitmapToPngBytes -Bitmap $masterLarge
+[byte[]]$masterPngBytes = Convert-BitmapToPngBytes -Bitmap $masterLarge
 [IO.File]::WriteAllBytes((Join-Path $brandDir "cdeck-icon.png"), $masterPngBytes)
 $masterLarge.Dispose()
 
@@ -450,7 +474,7 @@ $uiG.DrawImage($uiScaled, 0, 0, 44, 44)
 $uiG.Dispose()
 $uiScaled.Dispose()
 
-$uiPngBytes = Convert-BitmapToPngBytes -Bitmap $uiPot
+[byte[]]$uiPngBytes = Convert-BitmapToPngBytes -Bitmap $uiPot
 $uiPot.Dispose()
 
 $sb = New-Object System.Text.StringBuilder
@@ -482,4 +506,4 @@ if ($existingHeader -ne $headerContent) {
     [System.IO.File]::WriteAllText($headerPath, $headerContent, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-Write-Host ("Generated multi-res ICO ({0} sizes, {1} bytes), 1024px PNG, and UI texture header." -f $entries.Count, $icoBytes.Length)
+Write-Host ("Generated multi-res ICO ({0} sizes, {1} bytes), 1024px PNG, and UI texture header ({2} bytes PNG)." -f $entries.Count, $icoBytes.Length, $uiPngBytes.Length)

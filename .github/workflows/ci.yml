@@ -34,7 +34,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "build" | Out-Null
           & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
           if ($LASTEXITCODE -ne 0) { throw "Icon generation failed." }
-          Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
+          Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', 'GLFW_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
       - name: Build Raylib/GLFW and C-Deck with runtime DLLs
         shell: msys2 {0}
         run: |
