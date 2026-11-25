@@ -1,0 +1,30 @@
+name: C-Deck Web UX
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ux.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ux.yml'
+permissions:
+  contents: read
+concurrency:
+  group: c-deck-web-ux-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web-ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Validate website JavaScript
+        run: node --check web/main.js
+      - name: Run website UX contracts
+        run: node --test web/tests/ux-contract.test.js
