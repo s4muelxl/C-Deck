@@ -14,7 +14,7 @@ const installer = read('installer/C-Deck.iss');
 const build = read('scripts/build.ps1');
 
 test('version is consistent across the app website, README and installer', () => {
-  assert.equal(version, '1.5.2');
+  assert.equal(version, '1.6.0');
   assert.match(html, new RegExp('C-Deck Official Website v' + version.replaceAll('.', '\\.')));
   assert.ok(html.includes('VERSÃO ' + version));
   assert.ok(readme.includes('Versão ' + version + '.'));
@@ -27,9 +27,9 @@ test('Raylib desktop app contains exactly the six agreed actions', () => {
     'ACTION_VOLUME_DOWN',
     'ACTION_MUTE',
     'ACTION_VOLUME_UP',
-    'ACTION_NOTEPAD',
     'ACTION_CALCULATOR',
-    'ACTION_PAINT'
+    'ACTION_SCREEN_CAPTURE',
+    'ACTION_MICROPHONE_MUTE'
   ];
   for (const action of actions) {
     assert.ok(ui.includes(action), 'missing action: ' + action);
@@ -57,7 +57,10 @@ test('C11 modules preserve Core Audio and ShellExecuteW integrations', () => {
   assert.match(read('src/interface.c'), /cdeck_set_volume/);
   assert.match(read('src/audio.c'), /IAudioEndpointVolume/);
   assert.match(read('src/audio.c'), /cdeck_toggle_mute/);
+  assert.match(read('src/audio.c'), /eCapture/);
+  assert.match(read('src/audio.c'), /cdeck_toggle_microphone_mute/);
   assert.match(read('src/apps.c'), /ShellExecuteW/);
+  assert.match(read('src/apps.c'), /SendInput/);
   assert.match(read('src/interface.h'), /cdeck_run/);
   assert.match(read('src/audio.h'), /cdeck_change_volume/);
   assert.match(read('src/apps.h'), /cdeck_open_application/);
