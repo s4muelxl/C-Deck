@@ -481,7 +481,6 @@ int cdeck_run(void) {
                 cdeck_get_volume(&volume);
                 cdeck_get_mute_state(&muted);
                 cdeck_get_microphone_mute_state(&microphone_muted);
-                cdeck_get_microphone_mute_state(&microphone_muted);
             }
         }
 
