@@ -221,9 +221,9 @@ typedef enum {
     ACTION_VOLUME_DOWN,
     ACTION_MUTE,
     ACTION_VOLUME_UP,
-    ACTION_NOTEPAD,
     ACTION_CALCULATOR,
-    ACTION_PAINT
+    ACTION_SCREEN_CAPTURE,
+    ACTION_MICROPHONE_MUTE
 } CDeckAction;
 
 typedef struct {
@@ -371,17 +371,17 @@ static void run_action(CDeckAction action, char *status, size_t capacity) {
             ok = cdeck_change_volume(0.05f);
             set_status(status, capacity, ok ? "Volume aumentado em 5 pontos." : "Nao foi possivel alterar o volume.");
             break;
-        case ACTION_NOTEPAD:
-            ok = cdeck_open_application(L"notepad.exe");
-            set_status(status, capacity, ok ? "Bloco de Notas iniciado." : "Nao foi possivel abrir o Bloco de Notas.");
-            break;
         case ACTION_CALCULATOR:
             ok = cdeck_open_application(L"calc.exe");
             set_status(status, capacity, ok ? "Calculadora iniciada." : "Nao foi possivel abrir a Calculadora.");
             break;
-        case ACTION_PAINT:
-            ok = cdeck_open_application(L"mspaint.exe");
-            set_status(status, capacity, ok ? "Paint iniciado." : "Nao foi possivel abrir o Paint.");
+        case ACTION_SCREEN_CAPTURE:
+            ok = cdeck_open_screen_capture();
+            set_status(status, capacity, ok ? "Ferramenta de Captura acionada (Win + Shift + S)." : "Nao foi possivel acionar a captura de tela.");
+            break;
+        case ACTION_MICROPHONE_MUTE:
+            ok = cdeck_toggle_microphone_mute();
+            set_status(status, capacity, ok ? "Estado do microfone alterado." : "Nao foi possivel alterar o microfone.");
             break;
     }
 }
@@ -394,15 +394,16 @@ int cdeck_run(void) {
         {{48, 292, 254, 112}, "AUDIO / SYSTEM", "VOLUME -", "Diminuir em 5 pontos", ACTION_VOLUME_DOWN},
         {{323, 292, 254, 112}, "AUDIO / SYSTEM", "MUTE", "Alternar silencio", ACTION_MUTE},
         {{598, 292, 254, 112}, "AUDIO / SYSTEM", "VOLUME +", "Aumentar em 5 pontos", ACTION_VOLUME_UP},
-        {{48, 424, 254, 112}, "QUICK LAUNCH / 01", "NOTEPAD", "Abrir Bloco de Notas", ACTION_NOTEPAD},
-        {{323, 424, 254, 112}, "QUICK LAUNCH / 02", "CALCULATOR", "Abrir Calculadora", ACTION_CALCULATOR},
-        {{598, 424, 254, 112}, "QUICK LAUNCH / 03", "PAINT", "Abrir Microsoft Paint", ACTION_PAINT}
+        {{48, 424, 254, 112}, "QUICK LAUNCH / 01", "CALCULATOR", "Abrir Calculadora", ACTION_CALCULATOR},
+        {{323, 424, 254, 112}, "QUICK ACTION / 02", "CAPTURA", "Abrir captura (Win + Shift + S)", ACTION_SCREEN_CAPTURE},
+        {{598, 424, 254, 112}, "AUDIO / INPUT", "MIC MUTE", "Alternar silencio do microfone", ACTION_MICROPHONE_MUTE}
     };
     UiFont font_title;
     UiFont font_body;
     Texture2D brand_icon;
     float volume = 0.0f;
     BOOL muted = FALSE;
+    BOOL microphone_muted = FALSE;
     bool dragging_slider = false;
     char status[160] = "C-Deck pronto. Selecione uma acao.";
     int i;
@@ -437,6 +438,7 @@ int cdeck_run(void) {
         set_status(status, sizeof(status), "Audio indisponivel. Verifique o dispositivo padrao.");
     }
     cdeck_get_mute_state(&muted);
+    cdeck_get_microphone_mute_state(&microphone_muted);
 
     while (!WindowShouldClose()) {
         Vector2 mouse = GetMousePosition();
@@ -478,6 +480,7 @@ int cdeck_run(void) {
                 run_action(cards[i].action, status, sizeof(status));
                 cdeck_get_volume(&volume);
                 cdeck_get_mute_state(&muted);
+                cdeck_get_microphone_mute_state(&microphone_muted);
             }
         }
 
@@ -504,6 +507,8 @@ int cdeck_run(void) {
         DrawCircle(52, 155, 3.5f, muted ? COLOR_MUTED : COLOR_SIGNATURE);
         draw_ui_text(&font_body, muted ? "OUTPUT MUTED" : "OUTPUT ACTIVE",
                      64.0f, 147.0f, 13.0f, muted ? COLOR_ACCENT : COLOR_MUTED);
+        draw_ui_text(&font_body, microphone_muted ? "MICROPHONE MUTED" : "MICROPHONE ACTIVE",
+                     250.0f, 147.0f, 13.0f, microphone_muted ? COLOR_ACCENT : COLOR_MUTED);
 
         DrawRectangleRounded((Rectangle){slider.x, slider.y - 5, slider.width, 18},
                              0.5f, 8, COLOR_TRACK);
