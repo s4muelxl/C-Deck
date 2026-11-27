@@ -2,7 +2,7 @@
 
 ## 1. Identificação do Projeto
 
-- **Nome:** C-Deck (versão 1.5.2)
+- **Nome:** C-Deck (versão 1.6.0)
 - **Plataforma alvo:** Windows 10 e Windows 11 (x64)
 - **Linguagem e bibliotecas:** C11, Raylib 5.5, GLFW 3.4, Win32 API, COM / Windows Core Audio e Inno Setup
 - **Repositório:** https://github.com/s4muelxl/C-Deck
@@ -19,9 +19,9 @@ A aplicação disponibiliza em uma única janela (900 × 640 px):
 2. **VOLUME -:** redução do volume principal em 5 pontos percentuais.
 3. **MUTE:** alternância entre áudio ativo e silenciado.
 4. **VOLUME +:** incremento do volume principal em 5 pontos percentuais.
-5. **NOTEPAD:** abertura do Bloco de Notas (`notepad.exe`).
-6. **CALCULATOR:** abertura da Calculadora (`calc.exe`).
-7. **PAINT:** abertura do Microsoft Paint (`mspaint.exe`).
+5. **CALCULATOR:** abertura da Calculadora (`calc.exe`).
+6. **CAPTURA:** aciona a sobreposição da Ferramenta de Captura (`Win + Shift + S`) por `SendInput`.
+7. **MIC MUTE:** alterna o estado de silêncio do microfone padrão de comunicação via Core Audio (`eCapture`).
 
 ## 4. Arquitetura Modular
 
@@ -31,8 +31,8 @@ O código-fonte em `src/` separa interface gráfica, inicialização de sistema 
 |---|---|---|
 | Entrada e COM | `src/main.c` | Inicializa o modelo COM (`COINIT_APARTMENTTHREADED`), trata códigos `HRESULT` e executa `cdeck_run()` |
 | Interface gráfica | `src/interface.c` / `src/interface.h` | Inicializa janela Raylib, captura eventos de mouse, desenha barra/cards e registra o log de diagnóstico |
-| Controle de áudio | `src/audio.c` / `src/audio.h` | Acessa `IMMDeviceEnumerator` e `IAudioEndpointVolume` via Windows Core Audio |
-| Atalhos de sistema | `src/apps.c` / `src/apps.h` | Solicita ao Shell do Windows a abertura dos programas via `ShellExecuteW` |
+| Controle de áudio | `src/audio.c` / `src/audio.h` | Acessa `IMMDeviceEnumerator` e `IAudioEndpointVolume` via Windows Core Audio para saída (`eRender`) e microfone (`eCapture`) |
+| Atalhos de sistema | `src/apps.c` / `src/apps.h` | Abre a Calculadora via `ShellExecuteW` e aciona a Ferramenta de Captura via `SendInput` |
 
 ## 5. Decisões Técnicas e Desafios Resolvidos
 
@@ -67,7 +67,7 @@ A solução definitiva implementada no projeto envolveu:
 2. Mostrar o log gerado em `%TEMP%\C-Deck-startup.log` comprovando a inicialização do COM, os formatos WGL detectados e o driver OpenGL ativo.
 3. Arrastar a barra de volume e clicar em **VOLUME -** e **VOLUME +**, acompanhando a alteração no mixer do Windows.
 4. Clicar em **MUTE** duas vezes para validar a alternância de silêncio.
-5. Clicar em **NOTEPAD**, **CALCULATOR** e **PAINT**, confirmando a abertura dos três programas.
+5. Clicar em **CALCULATOR**, **CAPTURA** e **MIC MUTE**, validando a calculadora, a sobreposição de captura e o mute independente do microfone.
 6. Pressionar `ESC` para encerrar o aplicativo e verificar o retorno limpo no log.
 
 ## 8. Conclusão
