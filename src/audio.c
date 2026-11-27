@@ -7,7 +7,7 @@
 #include "audio.h"
 
 /* Obtem a interface IAudioEndpointVolume do dispositivo padrao de reproducao. */
-static IAudioEndpointVolume *get_audio_volume(void) {
+static IAudioEndpointVolume *get_endpoint_volume(EDataFlow flow, ERole role) {
     IMMDeviceEnumerator *enumerator = NULL;
     IMMDevice *device = NULL;
     IAudioEndpointVolume *volume = NULL;
@@ -18,7 +18,7 @@ static IAudioEndpointVolume *get_audio_volume(void) {
     }
 
     if (FAILED(IMMDeviceEnumerator_GetDefaultAudioEndpoint(
-            enumerator, eRender, eMultimedia, &device))) {
+            enumerator, flow, role, &device))) {
         IMMDeviceEnumerator_Release(enumerator);
         return NULL;
     }
@@ -38,7 +38,7 @@ BOOL cdeck_get_volume(float *level) {
     HRESULT result;
 
     if (level == NULL) return FALSE;
-    volume = get_audio_volume();
+    volume = get_endpoint_volume(eRender, eMultimedia);
     if (volume == NULL) return FALSE;
 
     result = IAudioEndpointVolume_GetMasterVolumeLevelScalar(volume, level);
@@ -52,7 +52,7 @@ BOOL cdeck_set_volume(float level) {
 
     if (level < 0.0f) level = 0.0f;
     if (level > 1.0f) level = 1.0f;
-    volume = get_audio_volume();
+    volume = get_endpoint_volume(eRender, eMultimedia);
     if (volume == NULL) return FALSE;
 
     result = IAudioEndpointVolume_SetMasterVolumeLevelScalar(volume, level, NULL);
@@ -71,7 +71,7 @@ BOOL cdeck_get_mute_state(BOOL *muted) {
     HRESULT result;
 
     if (muted == NULL) return FALSE;
-    volume = get_audio_volume();
+    volume = get_endpoint_volume(eRender, eMultimedia);
     if (volume == NULL) return FALSE;
 
     result = IAudioEndpointVolume_GetMute(volume, muted);
@@ -84,7 +84,7 @@ BOOL cdeck_toggle_mute(void) {
     IAudioEndpointVolume *volume;
     HRESULT result;
 
-    volume = get_audio_volume();
+    volume = get_endpoint_volume(eRender, eMultimedia);
     if (volume == NULL) return FALSE;
 
     result = IAudioEndpointVolume_GetMute(volume, &muted);
@@ -92,6 +92,30 @@ BOOL cdeck_toggle_mute(void) {
         result = IAudioEndpointVolume_SetMute(volume, !muted, NULL);
     }
 
+    IAudioEndpointVolume_Release(volume);
+    return SUCCEEDED(result);
+}
+
+/* Microfone: dispositivo padrao de captura, perfil de comunicacao. */
+BOOL cdeck_get_microphone_mute_state(BOOL *muted) {
+    IAudioEndpointVolume *volume;
+    HRESULT result;
+    if (muted == NULL) return FALSE;
+    volume = get_endpoint_volume(eCapture, eCommunications);
+    if (volume == NULL) return FALSE;
+    result = IAudioEndpointVolume_GetMute(volume, muted);
+    IAudioEndpointVolume_Release(volume);
+    return SUCCEEDED(result);
+}
+
+BOOL cdeck_toggle_microphone_mute(void) {
+    IAudioEndpointVolume *volume;
+    BOOL muted = FALSE;
+    HRESULT result;
+    volume = get_endpoint_volume(eCapture, eCommunications);
+    if (volume == NULL) return FALSE;
+    result = IAudioEndpointVolume_GetMute(volume, &muted);
+    if (SUCCEEDED(result)) result = IAudioEndpointVolume_SetMute(volume, !muted, NULL);
     IAudioEndpointVolume_Release(volume);
     return SUCCEEDED(result);
 }

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 230">
+  <defs>
+    <linearGradient id="silver" x1="0.1" y1="0" x2="0.82" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.48" stop-color="#ecf0f6"/>
+      <stop offset="0.78" stop-color="#b4bcc9"/>
+      <stop offset="1" stop-color="#e8ecf2"/>
+    </linearGradient>
+    <linearGradient id="lime" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#baff42"/>
+      <stop offset="0.55" stop-color="#9dff00"/>
+      <stop offset="1" stop-color="#7adc00"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8 20) scale(0.72)">
+    <path d="M244 20H110L28 102V188L110 270H194L246 218H132L86 172V118L132 72H244Z" fill="url(#silver)"/>
+    <path d="M28 102L110 20H244V39H120L47 112V178L28 188Z" fill="#ffffff" fill-opacity="0.16"/>
+    <path d="M180 270H244L296 218H232Z" fill="url(#lime)"/>
+  </g>
+  <text x="244" y="160" fill="#f5f6f8" font-family="Manrope,Segoe UI,Arial,sans-serif" font-size="112" font-weight="700" letter-spacing="-5">-Deck</text>
+</svg>

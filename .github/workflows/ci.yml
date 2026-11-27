@@ -1,0 +1,90 @@
+name: C-Deck CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: c-deck-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run website contract tests
+        shell: pwsh
+        run: node --test web/tests/ux-contract.test.js
+      - name: Verify release version consistency
+        shell: pwsh
+        run: ./scripts/check-version.ps1
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+      - name: Prepare application icon
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build" | Out-Null
+          & powershell -ExecutionPolicy Bypass -File "brand/build-icon.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Icon generation failed." }
+          Set-Content -Path "build/cdeck.rc" -Value @('#define IDI_APP_ICON 101', 'IDI_APP_ICON ICON "build/cdeck.ico"', 'GLFW_ICON ICON "build/cdeck.ico"', '1 24 "installer/C-Deck.manifest"') -Encoding Ascii
+      - name: Build Raylib/GLFW and C-Deck with runtime DLLs
+        shell: msys2 {0}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-raylib.ps1
+          windres build/cdeck.rc build/cdeck-res.o
+          gcc -Wall -Wextra -Wpedantic -std=c11 -O2 -D_WIN32_WINNT=0x0601 -Ibuild/deps/stage/include src/main.c src/interface.c src/audio.c src/apps.c build/cdeck-res.o -o build/C-Deck.exe -mwindows -Lbuild/deps/stage/lib -lraylib -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32 -lole32 -luuid
+          cp build/deps/stage/bin/libraylib.dll build/libraylib.dll
+          cp build/deps/stage/bin/glfw3.dll build/glfw3.dll
+          : > build/runtime-dlls.txt
+          for binary in build/C-Deck.exe build/*.dll; do
+            [ -f "$binary" ] || continue
+            deps=$(ldd "$binary")
+            if printf '%s\n' "$deps" | grep -q 'not found'; then
+              printf '%s\n' "$deps"
+              echo "Unresolved runtime dependency for $binary" >&2
+              exit 1
+            fi
+            printf '%s\n' "$deps" | while read -r first second third rest; do
+              if [[ "$second" == "=>" && "$third" == /ucrt64/bin/*.dll ]]; then
+                printf '%s\n' "$third"
+              elif [[ "$first" == /ucrt64/bin/*.dll ]]; then
+                printf '%s\n' "$first"
+              fi
+            done >> build/runtime-dlls.txt
+          done
+          sort -u build/runtime-dlls.txt -o build/runtime-dlls.txt
+          while IFS= read -r dll; do
+            [ -f "$dll" ] && cp -f "$dll" build/
+          done < build/runtime-dlls.txt
+          echo "Bundled runtime DLLs:"
+          ls -1 build/*.dll
+      - name: Package portable version
+        shell: pwsh
+        run: |
+          Copy-Item README.md build/README.md
+          Compress-Archive -Path build/C-Deck.exe,build/*.dll,build/README.md -DestinationPath build/C-Deck-Portable.zip -Force
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) { choco install innosetup --yes --no-progress }
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found." }
+          & $compiler installer/C-Deck.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed." }
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: C-Deck-Windows
+          path: |
+            build/C-Deck.exe
+            build/*.dll
+            build/C-Deck-Portable.zip
+            build/installer/C-Deck-Setup.exe

@@ -1,0 +1,43 @@
+--- a/src/wgl_context.c
++++ b/src/wgl_context.c
+@@ -134,8 +134,11 @@ static int choosePixelFormatWGL(_GLFWwindow* window,
+         nativeCount = _glfw_min(nativeCount, extensionCount);
+     }
+ 
++    int allowSoftware;
++
+     usableConfigs = _glfw_calloc(nativeCount, sizeof(_GLFWfbconfig));
+ 
++    for (allowSoftware = 0;  allowSoftware <= 1 && !usableCount;  allowSoftware++)
++    {
+     for (i = 0;  i < nativeCount;  i++)
+     {
+         _GLFWfbconfig* u = usableConfigs + usableCount;
+@@ -166,7 +169,8 @@ static int choosePixelFormatWGL(_GLFWwindow* window,
+             if (FIND_ATTRIB_VALUE(WGL_PIXEL_TYPE_ARB) != WGL_TYPE_RGBA_ARB)
+                 continue;
+ 
+-            if (FIND_ATTRIB_VALUE(WGL_ACCELERATION_ARB) == WGL_NO_ACCELERATION_ARB)
++            if (!allowSoftware &&
++                FIND_ATTRIB_VALUE(WGL_ACCELERATION_ARB) == WGL_NO_ACCELERATION_ARB)
+                 continue;
+ 
+             if (FIND_ATTRIB_VALUE(WGL_DOUBLE_BUFFER_ARB) != fbconfig->doublebuffer)
+@@ -235,7 +239,8 @@ static int choosePixelFormatWGL(_GLFWwindow* window,
+                 continue;
+             }
+ 
+-            if (!(pfd.dwFlags & PFD_GENERIC_ACCELERATED) &&
++            if (!allowSoftware &&
++                !(pfd.dwFlags & PFD_GENERIC_ACCELERATED) &&
+                 (pfd.dwFlags & PFD_GENERIC_FORMAT))
+             {
+                 continue;
+@@ -269,6 +274,7 @@ static int choosePixelFormatWGL(_GLFWwindow* window,
+         u->handle = pixelFormat;
+         usableCount++;
+     }
++    }
+ 
+     if (!usableCount)
+     {
