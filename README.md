@@ -2,7 +2,7 @@
 
 Painel de controle compacto para Windows desenvolvido em linguagem C (C11), com interface gráfica em Raylib e integração direta com as APIs nativas do sistema operacional.
 
-Versão 1.5.2.
+Versão 1.6.0.
 
 ## Objetivo
 
@@ -17,11 +17,11 @@ A janela principal apresenta um controle deslizante contínuo de volume e seis b
 | `VOLUME -` | Reduz o volume principal em 5 pontos percentuais | Core Audio (`audio.c`) |
 | `MUTE` | Alterna o estado de silêncio da saída padrão | Core Audio (`audio.c`) |
 | `VOLUME +` | Aumenta o volume principal em 5 pontos percentuais | Core Audio (`audio.c`) |
-| `NOTEPAD` | Abre o Bloco de Notas (`notepad.exe`) | `ShellExecuteW` (`apps.c`) |
 | `CALCULATOR` | Abre a Calculadora (`calc.exe`) | `ShellExecuteW` (`apps.c`) |
-| `PAINT` | Abre o Microsoft Paint (`mspaint.exe`) | `ShellExecuteW` (`apps.c`) |
+| `CAPTURA` | Aciona a Ferramenta de Captura do Windows (`Win + Shift + S`) | `SendInput` (`apps.c`) |
+| `MIC MUTE` | Alterna o silêncio do microfone padrão de comunicação | Core Audio (`audio.c`) |
 
-O controle deslizante superior consulta o nível atual do dispositivo padrão de reprodução na inicialização e aplica alterações em tempo real conforme o arraste do mouse.
+O controle deslizante superior consulta o nível atual do dispositivo padrão de reprodução na inicialização e aplica alterações em tempo real conforme o arraste do mouse. O mute do microfone atua no dispositivo padrão de captura de comunicação, separado do mute da saída de áudio.
 
 ## Arquitetura do código
 
